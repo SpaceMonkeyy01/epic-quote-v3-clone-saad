@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { getQuote, updateQuote, putGenerated, uploadArtwork, uploadCustomerFile, generateSpecs } from '../api/quotes'
-import { getLogo, setLogo as apiSetLogo } from '../api/meta'
+import { getLogo } from '../api/meta'
 import { T, CUSTOM_TEMPLATES } from '../generator/catalog'
 import { autoAnswerFromAI } from '../generator/questions'
 import QA from '../generator/QA'
@@ -11,6 +11,26 @@ import Proposal from '../components/Proposal'
 const FLOWS = {
   generator: ['client', 'project', 'signtype', 'specs', 'artwork', 'preview'],
   custom: ['client', 'artwork', 'customspecs', 'preview'],
+}
+
+// Robust AI signType → catalog match: exact → normalized → contains → best token overlap.
+// The model often returns a near-name (e.g. "1\" DEEP RAISED ALUMINUM LETTERS") that isn't
+// verbatim in the catalog; this still snaps it to the closest real sign type.
+function matchSignType(name) {
+  if (!name) return null
+  const norm = (s) => s.toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
+  const target = norm(name)
+  let m = T.find((t) => t.n === name) || T.find((t) => norm(t.n) === target)
+  if (m) return m
+  m = T.find((t) => norm(t.n).includes(target)) || T.find((t) => target.includes(norm(t.n)))
+  if (m) return m
+  const words = new Set(target.split(' ').filter((w) => w.length > 2))
+  let best = null, bestScore = 0
+  for (const t of T) {
+    const score = norm(t.n).split(' ').filter((w) => w.length > 2).reduce((n, w) => n + (words.has(w) ? 1 : 0), 0)
+    if (score > bestScore) { bestScore = score; best = t }
+  }
+  return bestScore >= 2 ? best : null
 }
 
 export default function Generator() {
@@ -59,6 +79,8 @@ export default function Generator() {
       setAi(g.ai || null)
       setCustomSpec(g.custom_spec || null)
       if (g.artwork_path) setArtworkPath(g.artwork_path)
+      // #10: if no artwork chosen yet but the customer uploaded an image of the sign, use it
+      else if (q.customer_pdf && /\.(png|jpe?g|gif|webp|svg)$/i.test(q.customer_pdf)) setArtworkPath(q.customer_pdf)
       getLogo().then((l) => setLogoUrl(l.logo)).catch(() => {})
 
       const resolvedMode = g.quote_type || null
@@ -111,10 +133,6 @@ export default function Generator() {
     await updateQuote(quoteId, { special_requirements: special })
     next()
   }
-  const onLogo = async (e) => {
-    const f = e.target.files[0]; if (!f) return
-    const res = await apiSetLogo(f); setLogoUrl(res.logo)
-  }
   const onArtwork = async (e) => {
     const f = e.target.files[0]; if (!f) return
     const path = await uploadArtwork(quoteId, f)
@@ -131,13 +149,9 @@ export default function Generator() {
       await updateQuote(quoteId, { special_requirements: special })
       const result = await generateSpecs(quoteId, special)
       setAi(result)
-      // match AI signType to catalog verbatim, then loose contains (V1 logic)
-      if (result.signType) {
-        const up = result.signType.toUpperCase()
-        const found = T.find((t) => t.n === result.signType)
-          || T.find((t) => t.n.includes(up)) || T.find((t) => up.includes(t.n))
-        if (found) setTpl(found)
-      }
+      // snap AI signType to the closest catalog entry (robust match)
+      const found = matchSignType(result.signType)
+      if (found) setTpl(found)
       if (result.jobName && !client.job_name) setClient((c) => ({ ...c, job_name: result.jobName }))
       setAiStatus('')
     } catch (err) {
@@ -200,9 +214,6 @@ export default function Generator() {
         {step === 'client' && (
           <div className="step">
             <h3>Client Information</h3>
-            {logo && <div style={{ margin: '8px 0' }}><img src={logo} alt="logo" style={{ height: 40 }} /></div>}
-            <label>Company logo (global — appears on all quotes)</label>
-            <input type="file" accept="image/*" onChange={onLogo} style={{ marginBottom: 12 }} />
             {['company_name', 'client_name', 'contact', 'address', 'job_name'].map((k) => (
               <div className="field" key={k}>
                 <label>{k.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</label>
@@ -221,7 +232,7 @@ export default function Generator() {
               <textarea rows={4} value={special} onChange={(e) => setSpecial(e.target.value)} />
             </div>
             <div className="field">
-              <label>Customer PDF / Image</label>
+              <label>Customer's PDF/image of the sign required</label>
               <input type="file" accept=".pdf,image/*" onChange={onCustomerFile} />
             </div>
             <div className="ai-box">

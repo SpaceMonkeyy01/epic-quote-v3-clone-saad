@@ -64,27 +64,25 @@ class QuoteController extends Controller
             $salesRep = $user->full_name;
         }
 
-        // --- validation (V1 create_quote) ---
+        // --- validation ---
         if ($companyName === '') {
             return response()->json(['error' => 'Company Name is required'], 400);
         }
         if (!in_array($salesRep, AppConstants::SALES_REPS, true)) {
             return response()->json(['error' => 'Invalid Sales Representative'], 400);
         }
-        if (!in_array($quoteSource, AppConstants::QUOTE_SOURCES, true)) {
-            return response()->json(['error' => 'Invalid Quote Source'], 400);
-        }
-        if ($qid === '') {
-            return response()->json(['error' => 'Quote ID is required'], 400);
-        }
-        if (!preg_match('/^[A-Za-z0-9_-]+$/', $qid)) {
-            return response()->json(['error' => 'Quote ID may only contain letters, numbers, hyphens and underscores'], 400);
-        }
-        if (strlen($qid) > 20) {
-            return response()->json(['error' => 'Quote ID must be 20 characters or fewer'], 400);
-        }
-        if (Quote::where('quote_id', $qid)->exists()) {
-            return response()->json(['error' => "Quote ID \"{$qid}\" already exists"], 400);
+        // Quote ID is auto-generated server-side (unique EC number). Quote source + order ID
+        // were dropped as a UX/feature decision. Only validate a Quote ID if one was supplied.
+        if ($qid !== '') {
+            if (!preg_match('/^[A-Za-z0-9_-]+$/', $qid)) {
+                return response()->json(['error' => 'Quote ID may only contain letters, numbers, hyphens and underscores'], 400);
+            }
+            if (strlen($qid) > 20) {
+                return response()->json(['error' => 'Quote ID must be 20 characters or fewer'], 400);
+            }
+            if (Quote::where('quote_id', $qid)->exists()) {
+                return response()->json(['error' => "Quote ID \"{$qid}\" already exists"], 400);
+            }
         }
 
         // customer PDF/image, max 25 MB (#37)
@@ -120,7 +118,8 @@ class QuoteController extends Controller
                 }
             }
 
-            [$num] = Setting::nextQuoteId();
+            [$num, $autoId] = Setting::nextQuoteId();
+            $qid = $qid !== '' ? $qid : $autoId;   // auto-generate a unique EC id when none supplied
 
             // store customer file as {qid}_{original}
             $pdfFilename = null;
@@ -132,7 +131,7 @@ class QuoteController extends Controller
             return Quote::create([
                 'quote_id'             => $qid,
                 'quote_num'            => $num,
-                'order_id'             => $orderId,
+                'order_id'             => '',
                 'company_id'           => $company->id,
                 'company_name'         => $company->name,
                 'client_name'          => $clientName,
@@ -150,7 +149,7 @@ class QuoteController extends Controller
             ]);
         });
 
-        ActivityLog::record($user->id, 'quote_created', "{$qid} for {$companyName}");
+        ActivityLog::record($user->id, 'quote_created', "{$quote->quote_id} for {$companyName}");
 
         return response()->json($quote->toApi(), 201);
     }

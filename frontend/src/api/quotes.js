@@ -30,9 +30,6 @@ export const updateTags = (quoteId, tags) =>
 export const deleteQuote = (quoteId) =>
   client.delete(`/quotes/${quoteId}`).then((r) => r.data)
 
-export const nextOrderId = () =>
-  client.get('/next-order-id').then((r) => r.data.order_id)
-
 export const getGenerated = (quoteId) =>
   client.get(`/quotes/${quoteId}/generated`).then((r) => r.data)
 

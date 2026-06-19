@@ -1,13 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useConstants, useUpdateStatus, useUpdateTags } from '../hooks'
+import { useConstants, useUpdateStatus, useUpdateTags, useDeleteQuote } from '../hooks'
 
 export default function QuoteCard({ quote }) {
   const navigate = useNavigate()
   const { data: constants } = useConstants()
   const updateStatus = useUpdateStatus()
   const updateTags = useUpdateTags()
+  const del = useDeleteQuote()
   const [addingTag, setAddingTag] = useState(false)
+
+  const remove = () => {
+    if (window.confirm(`Delete quote ${quote.quote_id}? This cannot be undone.`)) del.mutate(quote.quote_id)
+  }
 
   const statuses = constants?.statuses || []
   const tags = quote.tags || []
@@ -37,7 +42,6 @@ export default function QuoteCard({ quote }) {
       {quote.client_name && <div className="line">Client: <b>{quote.client_name}</b></div>}
       <div className="line">
         <span className="badge">{quote.sales_rep || 'No rep'}</span>{' '}
-        {quote.quote_source && <span className="badge">{quote.quote_source}</span>}{' '}
         <span className="muted">{date}</span>
       </div>
 
@@ -66,6 +70,7 @@ export default function QuoteCard({ quote }) {
           {quote.quote_type ? 'Continue / Edit' : 'Make Quote'}
         </button>
         <button className="ghost sm" onClick={() => navigate(`/companies/${quote.company_id}`)}>Company</button>
+        <button className="danger sm" onClick={remove}>Delete</button>
       </div>
     </div>
   )

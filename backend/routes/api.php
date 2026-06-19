@@ -53,7 +53,4 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/settings/logo', [App\Http\Controllers\Api\SettingsController::class, 'getLogo']);
     Route::post('/settings/logo', [App\Http\Controllers\Api\SettingsController::class, 'setLogo']);
     Route::get('/side-views', [App\Http\Controllers\Api\SettingsController::class, 'sideViews']);
-
-    // Order ID
-    Route::get('/next-order-id', [App\Http\Controllers\Api\QuoteController::class, 'nextOrderId']);
 });

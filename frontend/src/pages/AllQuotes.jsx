@@ -37,7 +37,6 @@ export default function AllQuotes() {
 
   const statuses = constants?.statuses || []
   const reps = constants?.sales_reps || []
-  const sources = constants?.quote_sources || []
   const admin = isAdmin()
 
   const patch = (id, field, value) => update.mutate({ id, patch: { [field]: value } })
@@ -67,8 +66,8 @@ export default function AllQuotes() {
             <thead>
               <tr>
                 <th>Quote ID</th><th>Company</th><th>Client</th><th>Contact</th>
-                <th>Job</th><th>Order ID</th><th>Price</th>
-                <th>Sales Rep</th><th>Source</th><th>Status</th><th>Files</th><th></th>
+                <th>Job</th><th>Price</th>
+                <th>Sales Rep</th><th>Status</th><th>Files</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -79,7 +78,6 @@ export default function AllQuotes() {
                   <td><EditCell value={q.client_name} onCommit={(v) => patch(q.quote_id, 'client_name', v)} /></td>
                   <td><EditCell value={q.contact} onCommit={(v) => patch(q.quote_id, 'contact', v)} /></td>
                   <td><EditCell value={q.job_name} onCommit={(v) => patch(q.quote_id, 'job_name', v)} /></td>
-                  <td><EditCell value={q.order_id} onCommit={(v) => patch(q.quote_id, 'order_id', v)} width={100} /></td>
                   <td><EditCell value={q.price} type="number" width={80} onCommit={(v) => patch(q.quote_id, 'price', v)} /></td>
                   <td>
                     {admin ? (
@@ -88,12 +86,6 @@ export default function AllQuotes() {
                         {reps.map((r) => <option key={r} value={r}>{r}</option>)}
                       </select>
                     ) : (q.sales_rep || '—')}
-                  </td>
-                  <td>
-                    <select value={q.quote_source || ''} style={{ width: 110 }} onChange={(e) => patch(q.quote_id, 'quote_source', e.target.value)}>
-                      <option value="">—</option>
-                      {sources.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
                   </td>
                   <td>
                     <select value={q.status} style={{ width: 150 }} onChange={(e) => patch(q.quote_id, 'status', e.target.value)}>
@@ -108,11 +100,11 @@ export default function AllQuotes() {
                   <td style={{ whiteSpace: 'nowrap' }}>
                     <button className="ghost sm" onClick={() => setViewing(q)}>View</button>{' '}
                     <button className="ghost sm" onClick={() => navigate(`/quotes/${q.quote_id}/generate`)}>Edit</button>{' '}
-                    <button className="danger sm" onClick={() => remove(q)}>Del</button>
+                    <button className="danger sm" onClick={() => remove(q)}>Delete</button>
                   </td>
                 </tr>
               ))}
-              {quotes.length === 0 && <tr><td colSpan={12} className="center">No quotes found.</td></tr>}
+              {quotes.length === 0 && <tr><td colSpan={10} className="center">No quotes found.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -125,9 +117,9 @@ export default function AllQuotes() {
             {[
               ['Company', viewing.company_name], ['Client', viewing.client_name],
               ['Contact', viewing.contact], ['Address', viewing.address],
-              ['Job', viewing.job_name], ['Order ID', viewing.order_id],
+              ['Job', viewing.job_name],
               ['Price', viewing.price], ['Sales Rep', viewing.sales_rep],
-              ['Source', viewing.quote_source], ['Status', viewing.status],
+              ['Status', viewing.status],
               ['Special Requirements', viewing.special_requirements],
               ['Created By', viewing.added_by], ['Finalized By', viewing.created_by_name],
             ].map(([k, v]) => (

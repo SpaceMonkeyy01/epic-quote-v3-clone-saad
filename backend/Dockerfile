@@ -10,12 +10,13 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 COPY . .
-RUN composer install --no-dev --optimize-autoloader --no-interaction
-
-# Ensure Laravel runtime dirs exist in the image (gitignored / may be empty in build context)
+# Runtime dirs MUST exist before composer install — package:discover writes bootstrap/cache,
+# and .gitignore/.dockerignore strip these (empty) dirs from the build context.
 RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views \
             storage/logs storage/app/public bootstrap/cache \
  && chmod -R 775 storage bootstrap/cache
+
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 ENV APP_ENV=production
 ENV APP_DEBUG=false
