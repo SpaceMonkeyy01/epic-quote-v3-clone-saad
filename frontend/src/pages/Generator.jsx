@@ -6,6 +6,7 @@ import { getLogo, setLogo as apiSetLogo } from '../api/meta'
 import { T, CUSTOM_TEMPLATES } from '../generator/catalog'
 import { autoAnswerFromAI } from '../generator/questions'
 import QA from '../generator/QA'
+import Proposal from '../components/Proposal'
 
 const FLOWS = {
   generator: ['client', 'project', 'signtype', 'specs', 'artwork', 'preview'],
@@ -195,7 +196,7 @@ export default function Generator() {
         {flow.map((s, i) => <div key={s} className={'prog-seg' + (i <= flowIndex ? ' done' : '')} />)}
       </div>
 
-      <div className="wizard">
+      <div className="wizard" style={step === 'preview' ? { maxWidth: 'min(1180px, 96%)' } : undefined}>
         {step === 'client' && (
           <div className="step">
             <h3>Client Information</h3>
@@ -329,13 +330,19 @@ export default function Generator() {
 
         {step === 'preview' && (
           <div className="step">
-            <h3>Preview</h3>
-            <div className="muted" style={{ marginBottom: 12 }}>
-              The full proposal editor (drag/resize, formatting, package items, side views, totals) lands in <b>P6</b>.
-              Your wizard inputs are saved — here is the captured spec:
-            </div>
-            <pre className="spec-dump">{JSON.stringify({ mode, tpl: tpl?.n, answers, customSpec, artworkPath, job_name: client.job_name }, null, 2)}</pre>
-            <div className="foot">
+            <h3>Proposal</h3>
+            <Proposal
+              mode={mode}
+              tpl={tpl}
+              answers={answers}
+              customSpec={customSpec}
+              info={{ company: client.company_name, client: client.client_name, contact: client.contact, address: client.address, job: client.job_name, quoteId }}
+              artworkPath={artworkPath}
+              logo={logo}
+              savedState={gd?.proposal_state}
+              onSave={(proposalState) => saveProgress({ proposal_state: proposalState })}
+            />
+            <div className="foot" style={{ marginTop: 14 }}>
               <button className="ghost" onClick={back}>Back</button>
               <button onClick={async () => { await saveProgress(); navigate('/dashboard') }}>Save & Return to Dashboard</button>
             </div>
