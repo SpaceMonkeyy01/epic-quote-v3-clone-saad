@@ -4,12 +4,24 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         api: __DIR__.'/../routes/api.php',
         apiPrefix: 'api',
         health: '/up',
+        then: function () {
+            // Serve public-disk uploads (artwork, customer files, logos) directly — no
+            // storage:link symlink needed, so it works on Windows and in Docker alike.
+            // Flysystem blocks path traversal, so '../' escapes resolve to a 404.
+            Route::get('/storage/{path}', function (string $path) {
+                $disk = Storage::disk('public');
+                abort_unless($disk->exists($path), 404);
+                return response()->file($disk->path($path));
+            })->where('path', '.*');
+        },
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
