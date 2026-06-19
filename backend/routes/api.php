@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', fn() => response()->json(['status' => 'ok', 'version' => 'v3']));
 
 // Auth
-Route::post('/login', [App\Http\Controllers\Api\AuthController::class, 'login']);
+Route::post('/login', [App\Http\Controllers\Api\AuthController::class, 'login'])->middleware('throttle:6,1');
 Route::post('/logout', [App\Http\Controllers\Api\AuthController::class, 'logout'])->middleware('auth:sanctum');
 Route::get('/me', [App\Http\Controllers\Api\AuthController::class, 'me'])->middleware('auth:sanctum');
 

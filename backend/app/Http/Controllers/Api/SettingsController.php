@@ -24,7 +24,7 @@ class SettingsController extends Controller
     // POST /api/settings/logo — replace global logo
     public function setLogo(Request $request): JsonResponse
     {
-        $request->validate(['file' => 'required|file|mimes:jpg,jpeg,png,gif,webp,svg|max:25600']);
+        $request->validate(['file' => 'required|file|mimes:jpg,jpeg,png,gif,webp|max:25600']);
         $file = $request->file('file');
         $ext = $file->getClientOriginalExtension();
         $filename = "company_logo.{$ext}";

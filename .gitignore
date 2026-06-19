@@ -14,6 +14,14 @@
 /backend/database/*.sqlite
 /backend/database/*.sqlite-journal
 
+# keep the (otherwise-empty) runtime dirs so the Docker build / fresh clones have them
+!/backend/storage/logs/.gitkeep
+!/backend/storage/framework/cache/.gitkeep
+!/backend/storage/framework/sessions/.gitkeep
+!/backend/storage/framework/views/.gitkeep
+!/backend/storage/app/public/.gitkeep
+!/backend/bootstrap/cache/.gitkeep
+
 # ===== Node / Vite (frontend) =====
 /frontend/node_modules/
 /frontend/dist/

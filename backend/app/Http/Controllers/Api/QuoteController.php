@@ -91,7 +91,7 @@ class QuoteController extends Controller
         $file = $request->file('customer_pdf');
         if ($file) {
             $request->validate([
-                'customer_pdf' => 'file|mimes:pdf,jpg,jpeg,png,gif,webp,svg|max:25600',
+                'customer_pdf' => 'file|mimes:pdf,jpg,jpeg,png,gif,webp|max:25600',
             ]);
         }
 
@@ -125,7 +125,7 @@ class QuoteController extends Controller
             // store customer file as {qid}_{original}
             $pdfFilename = null;
             if ($file) {
-                $pdfFilename = $qid.'_'.$file->getClientOriginalName();
+                $pdfFilename = $qid.'_'.$this->safeFilename($file);
                 $file->storeAs('pdfs', $pdfFilename, 'public');
             }
 
@@ -335,9 +335,9 @@ class QuoteController extends Controller
     public function uploadPdf(Request $request, Quote $quote): JsonResponse
     {
         $this->assertAccess($request, $quote);
-        $request->validate(['file' => 'required|file|mimes:pdf,jpg,jpeg,png,gif,webp,svg|max:25600']);
+        $request->validate(['file' => 'required|file|mimes:pdf,jpg,jpeg,png,gif,webp|max:25600']);
         $file = $request->file('file');
-        $filename = $quote->quote_id.'_'.$file->getClientOriginalName();
+        $filename = $quote->quote_id.'_'.$this->safeFilename($file);
         $file->storeAs('pdfs', $filename, 'public');
         $quote->update(['customer_pdf' => $filename]);
         ActivityLog::record($request->user()->id, 'file_uploaded', "{$quote->quote_id}: Customer PDF/Drawing ({$filename})");
@@ -349,7 +349,7 @@ class QuoteController extends Controller
     public function uploadArtwork(Request $request, Quote $quote): JsonResponse
     {
         $this->assertAccess($request, $quote);
-        $request->validate(['file' => 'required|file|mimes:jpg,jpeg,png,gif,webp,svg|max:25600']);
+        $request->validate(['file' => 'required|file|mimes:jpg,jpeg,png,gif,webp|max:25600']);
         $file = $request->file('file');
         $ext = $file->getClientOriginalExtension();
         $filename = $quote->quote_id.'_'.time().'.'.$ext;
@@ -363,7 +363,7 @@ class QuoteController extends Controller
     public function uploadCrunchedArtwork(Request $request, Quote $quote): JsonResponse
     {
         $this->assertAccess($request, $quote);
-        $request->validate(['file' => 'required|file|mimes:pdf,jpg,jpeg,png,gif,webp,svg|max:25600']);
+        $request->validate(['file' => 'required|file|mimes:pdf,jpg,jpeg,png,gif,webp|max:25600']);
         $file = $request->file('file');
         $ext = $file->getClientOriginalExtension();
         $filename = "crunched_{$quote->quote_id}_".time().".{$ext}";
@@ -383,6 +383,12 @@ class QuoteController extends Controller
     private function pending(string $phase): JsonResponse
     {
         return response()->json(['error' => "Not implemented yet — {$phase}"], 501);
+    }
+
+    private function safeFilename(\Illuminate\Http\UploadedFile $file): string
+    {
+        // strip directory components + unsafe chars (prevents path traversal / odd names)
+        return preg_replace('/[^A-Za-z0-9._-]/', '_', basename($file->getClientOriginalName()));
     }
 
     private function assertAccess(Request $request, Quote $quote): void

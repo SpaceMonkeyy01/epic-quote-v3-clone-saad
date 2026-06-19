@@ -12,6 +12,11 @@ WORKDIR /app
 COPY . .
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
+# Ensure Laravel runtime dirs exist in the image (gitignored / may be empty in build context)
+RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views \
+            storage/logs storage/app/public bootstrap/cache \
+ && chmod -R 775 storage bootstrap/cache
+
 ENV APP_ENV=production
 ENV APP_DEBUG=false
 
