@@ -55,6 +55,7 @@ export default function Generator() {
   const [tpl, setTpl] = useState(null)
   const [answers, setAnswers] = useState({})
   const [artworkPath, setArtworkPath] = useState(null)
+  const [artErr, setArtErr] = useState('')
   const [sideViews, setSideViews] = useState([])   // chosen side-view keys
   const [customSpec, setCustomSpec] = useState(null)
   const [logo, setLogoUrl] = useState(null)
@@ -120,7 +121,7 @@ export default function Generator() {
       answers,
       ai,
       custom_spec: customSpec,
-      artwork_path: artworkPath?.startsWith('data:') ? null : artworkPath,
+      artwork_path: (artworkPath && !artworkPath.startsWith('blob:') && !artworkPath.startsWith('data:')) ? artworkPath : null,
       ...extra,
     }
     await putGenerated(quoteId, payload)
@@ -137,8 +138,14 @@ export default function Generator() {
   }
   const onArtwork = async (e) => {
     const f = e.target.files[0]; if (!f) return
-    const path = await uploadArtwork(quoteId, f)
-    setArtworkPath(path)
+    setArtErr('')
+    setArtworkPath(URL.createObjectURL(f))   // show the picked image immediately, straight from the local file
+    try {
+      const path = await uploadArtwork(quoteId, f)
+      setArtworkPath(path)                    // then swap to the saved server copy so it persists
+    } catch (err) {
+      setArtErr('Shown locally, but the server upload failed: ' + (err.response?.data?.message || err.message || 'unknown error'))
+    }
   }
   const onCustomerFile = async (e) => {
     const f = e.target.files[0]; if (!f) return
@@ -353,6 +360,7 @@ export default function Generator() {
             <h3>Artwork</h3>
             {artworkPath && <img src={fileUrl(artworkPath)} alt="artwork" style={{ maxWidth: 360, display: 'block', margin: '8px 0', border: '1px solid var(--border)', borderRadius: 8 }} />}
             <input ref={artInput} type="file" accept="image/*" onChange={onArtwork} />
+            {artErr && <p style={{ color: '#ff6b6b', fontSize: 13, marginTop: 8 }}>{artErr}</p>}
             <div className="foot">
               <button className="ghost" onClick={back}>Back</button>
               <button className="ghost" onClick={() => { setArtworkPath(null); toPreview() }}>Skip</button>
