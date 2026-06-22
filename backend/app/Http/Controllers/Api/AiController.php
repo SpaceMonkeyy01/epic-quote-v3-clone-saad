@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Smalot\PdfParser\Parser as PdfParser;
+use Symfony\Component\Process\Process;
 
 class AiController extends Controller
 {
@@ -146,9 +147,27 @@ PROMPT;
 
     private function extractPdfText(string $path, int $maxChars = 8000): string
     {
+        // poppler's pdftotext handles compressed object-stream PDFs (Illustrator/InDesign
+        // exports) that smalot/pdfparser returns empty for. Try it first, fall back to smalot.
+        $text = $this->pdftotext($path);
+        if (trim($text) === '') {
+            try {
+                $text = (new PdfParser())->parseFile($path)->getText();
+            } catch (\Throwable $e) {
+                $text = '';
+            }
+        }
+        return mb_substr($text, 0, $maxChars);
+    }
+
+    /** Shell out to poppler's pdftotext; returns '' if it is not installed or fails. */
+    private function pdftotext(string $path): string
+    {
         try {
-            $text = (new PdfParser())->parseFile($path)->getText();
-            return mb_substr($text, 0, $maxChars);
+            $p = new Process(['pdftotext', '-layout', '-enc', 'UTF-8', $path, '-']);
+            $p->setTimeout(20);
+            $p->run();
+            return $p->isSuccessful() ? $p->getOutput() : '';
         } catch (\Throwable $e) {
             return '';
         }

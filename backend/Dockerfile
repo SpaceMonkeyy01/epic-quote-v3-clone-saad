@@ -2,7 +2,7 @@ FROM php:8.3-cli
 
 # System deps + PHP extensions (pdo_mysql for the eventual MySQL; pdo_sqlite ships enabled)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      libzip-dev zip unzip git \
+      libzip-dev zip unzip git poppler-utils \
  && docker-php-ext-install pdo pdo_mysql zip \
  && rm -rf /var/lib/apt/lists/*
 
