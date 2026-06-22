@@ -157,7 +157,17 @@ export default function Generator() {
       if (quote?.customer_pdf && /\.pdf$/i.test(quote.customer_pdf)) {
         setAiStatus('Rendering the PDF for the AI…')
         const dataUrl = await rasterizePdf(fileUrl(quote.customer_pdf))
-        if (dataUrl) { imageData = dataUrl.split(',')[1]; if (!artworkPath) setArtworkPath(dataUrl) }
+        if (dataUrl) {
+          imageData = dataUrl.split(',')[1]
+          // persist the rendered page as the proposal artwork (survives reload; not a giant data-URL)
+          if (!artworkPath) {
+            try {
+              const blob = await (await fetch(dataUrl)).blob()
+              const path = await uploadArtwork(quoteId, new File([blob], 'drawing.png', { type: 'image/png' }))
+              setArtworkPath(path)
+            } catch { setArtworkPath(dataUrl) }
+          }
+        }
         setAiStatus('Reading the drawing and generating specifications…')
       }
       const result = await generateSpecs(quoteId, special, SIDE_VIEWS.map((s) => s.key).join(','), imageData)

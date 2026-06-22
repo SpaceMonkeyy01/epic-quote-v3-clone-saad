@@ -9,6 +9,8 @@ storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/views/*
 storage/app/public/*
+!storage/app/public/side_views
+!storage/app/public/side_views/**
 public/storage
 bootstrap/cache/*
 database/*.sqlite
