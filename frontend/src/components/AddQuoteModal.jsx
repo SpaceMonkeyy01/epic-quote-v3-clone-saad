@@ -36,7 +36,8 @@ export default function AddQuoteModal({ onClose }) {
       // Mode is chosen here once and carried in the URL; the wizard never re-asks.
       navigate(`/quotes/${created.quote_id}/generate?mode=${choice}`)
     } catch (err) {
-      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to create quote')
+      const errs = err.response?.data?.errors
+      setError(errs ? Object.values(errs)[0][0] : (err.response?.data?.error || err.response?.data?.message || 'Failed to create quote'))
     }
   }
 
@@ -76,9 +77,17 @@ export default function AddQuoteModal({ onClose }) {
           {choice === 'ai' && ' Attach the sign PDF/image (or describe the project) — AI extracts the specs next.'}
         </p>
 
+        {choice === 'ai' && (
+          <div className="field">
+            <label>Customer's PDF/image of the sign required — AI reads this first (max 25 MB)</label>
+            <input type="file" accept=".pdf,image/*" autoFocus onChange={(e) => setFile(e.target.files[0] || null)} />
+            <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>The fields below are optional — AI fills company, client &amp; specs from the file.</div>
+          </div>
+        )}
+
         <div className="field">
-          <label>Company Name *</label>
-          <input value={form.company_name} onChange={set('company_name')} autoFocus />
+          <label>Company Name {choice === 'custom' ? '*' : '(optional — from the PDF)'}</label>
+          <input value={form.company_name} onChange={set('company_name')} />
         </div>
 
         <div className="grid2">
@@ -104,10 +113,12 @@ export default function AddQuoteModal({ onClose }) {
           <textarea rows={choice === 'ai' ? 3 : 2} value={form.special_requirements} onChange={set('special_requirements')} />
         </div>
 
-        <div className="field">
-          <label>Customer's PDF/image of the sign required {choice === 'ai' && '— AI will read this'} (max 25 MB)</label>
-          <input type="file" accept=".pdf,image/*" onChange={(e) => setFile(e.target.files[0] || null)} />
-        </div>
+        {choice === 'custom' && (
+          <div className="field">
+            <label>Customer's PDF/image of the sign required (optional, max 25 MB)</label>
+            <input type="file" accept=".pdf,image/*" onChange={(e) => setFile(e.target.files[0] || null)} />
+          </div>
+        )}
 
         {error && <p className="err">{error}</p>}
 

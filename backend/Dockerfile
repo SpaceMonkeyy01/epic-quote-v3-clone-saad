@@ -6,6 +6,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && docker-php-ext-install pdo pdo_mysql zip \
  && rm -rf /var/lib/apt/lists/*
 
+# PHP defaults to 2M uploads, which silently rejects real customer PDFs (the "max 25 MB" is moot otherwise)
+RUN { echo 'upload_max_filesize=30M'; echo 'post_max_size=30M'; } > /usr/local/etc/php/conf.d/uploads.ini
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
