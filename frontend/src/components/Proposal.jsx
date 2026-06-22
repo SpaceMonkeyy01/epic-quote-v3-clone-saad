@@ -25,6 +25,9 @@ const TERMS_HTML =
 const HEAD = '#e9e9e9'
 const cell = { fontSize: 11, border: '1px solid #777', padding: '6px 8px', outline: 'none' }
 const headCell = { ...cell, background: HEAD, fontWeight: 700, borderTop: 'none' }
+// Section header bar inside the single-framed specs/package box — border only on the bottom; the outer
+// box + the left column's right edge supply the frame, so the divider stays one continuous line.
+const secHead = { background: HEAD, fontWeight: 700, fontSize: 11, padding: '5px 8px', borderBottom: '1px solid #777' }
 // Standard package items shown on every proposal (matches the approved template)
 const PACKAGE = [
   { label: 'INSTALLATION TEMPLATE', img: '/package/installation-template.png' },
@@ -202,17 +205,18 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
             {E('totalPrice', { ...cell, borderTop: 'none', borderLeft: 'none' })}
           </div>
 
-          {/* specs (left) + package includes & side view (right) — matches the approved template */}
-          <div style={{ margin: '0 40px', display: 'grid', gridTemplateColumns: '1fr 270px' }}>
-            <div>
-              <div style={{ ...headCell }}>SPECIFICATIONS</div>
-              {E('specBody', { ...cell, borderTop: 'none', fontSize: 10.5, lineHeight: 1.9, minHeight: 215, whiteSpace: 'pre-wrap' })}
-              <div style={{ ...headCell }}>ADDITIONAL NOTES</div>
-              {E('notes', { ...cell, borderTop: 'none', minHeight: 40 })}
+          {/* specs (left) + package & side view (right): ONE outer frame; the divider is the left
+              column's right border, so it's continuous no matter which column ends up taller */}
+          <div style={{ margin: '0 40px', display: 'grid', gridTemplateColumns: '1fr 270px', border: '1px solid #777', borderTop: 'none' }}>
+            <div style={{ borderRight: '1px solid #777' }}>
+              <div style={secHead}>SPECIFICATIONS</div>
+              {E('specBody', { fontSize: 10.5, lineHeight: 1.9, padding: '10px 12px', minHeight: 215, whiteSpace: 'pre-wrap', outline: 'none', borderBottom: '1px solid #777' })}
+              <div style={secHead}>ADDITIONAL NOTES</div>
+              {E('notes', { fontSize: 10.5, padding: '8px 12px', minHeight: 40, outline: 'none' })}
             </div>
             <div>
-              <div style={{ ...headCell, borderLeft: 'none' }}>PACKAGE INCLUDES</div>
-              <div style={{ ...cell, borderTop: 'none', borderLeft: 'none', display: 'flex', gap: 8, alignItems: 'flex-start', justifyContent: 'space-around', height: 130, boxSizing: 'border-box' }}>
+              <div style={secHead}>PACKAGE INCLUDES</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', justifyContent: 'space-around', height: 130, boxSizing: 'border-box', padding: 8, borderBottom: '1px solid #777' }}>
                 {PACKAGE.map((p) => (
                   <div key={p.label} style={{ textAlign: 'center', fontSize: 8, lineHeight: 1.3 }}>
                     <img src={p.img} alt={p.label} crossOrigin="anonymous" style={{ height: 78, objectFit: 'contain', display: 'block', margin: '0 auto 4px' }} />
@@ -220,8 +224,8 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                   </div>
                 ))}
               </div>
-              <div style={{ ...headCell, borderLeft: 'none' }}>SIDE VIEW</div>
-              <div style={{ ...cell, borderTop: 'none', borderLeft: 'none', display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', justifyContent: 'center', minHeight: 130, boxSizing: 'border-box' }}>
+              <div style={secHead}>SIDE VIEW</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', justifyContent: 'center', minHeight: 130, boxSizing: 'border-box', padding: 8 }}>
                 {sideViews.length === 0
                   ? <span style={{ color: '#bbb', fontStyle: 'italic', fontSize: 10, textTransform: 'none' }}>[ No side view selected ]</span>
                   : sideViews.map((k) => (
