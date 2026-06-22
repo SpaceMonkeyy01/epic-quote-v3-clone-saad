@@ -225,7 +225,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                 {sideViews.length === 0
                   ? <span style={{ color: '#bbb', fontStyle: 'italic', fontSize: 10, textTransform: 'none' }}>[ No side view selected ]</span>
                   : sideViews.map((k) => (
-                      <img key={k} src={fileUrl(`/storage/side_views/${k}.png`)} alt={k} crossOrigin="anonymous"
+                      <img key={k} src={`/side_views/${k}.png`} alt={k} crossOrigin="anonymous"
                         style={{ maxWidth: 250, maxHeight: 120, objectFit: 'contain' }} />
                     ))}
               </div>
@@ -265,7 +265,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                 return (
                   <label key={s.key} style={{ width: 120, fontSize: 10, textAlign: 'center', cursor: 'pointer', border: on ? '2px solid #f5a623' : '1px solid #ccc', borderRadius: 6, padding: 4 }}>
                     <input type="checkbox" checked={on} onChange={(e) => onSideViews(e.target.checked ? [...sideViews, s.key] : sideViews.filter((x) => x !== s.key))} />
-                    <img src={fileUrl(`/storage/side_views/${s.key}.png`)} alt={s.label} style={{ width: '100%', height: 70, objectFit: 'contain' }} />
+                    <img src={`/side_views/${s.key}.png`} alt={s.label} style={{ width: '100%', height: 70, objectFit: 'contain' }} />
                     <div>{s.label}</div>
                   </label>
                 )
