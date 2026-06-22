@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuotes, useConstants, useUpdateQuote, useDeleteQuote } from '../hooks'
 import useAuthStore from '../store/authStore'
+import { fileUrl } from '../api/client'
 
 // Commits on blur only when the value actually changed
 function EditCell({ value, onCommit, type = 'text', width = 120 }) {
@@ -93,9 +94,9 @@ export default function AllQuotes() {
                     </select>
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
-                    {q.customer_pdf && <a href={q.customer_pdf} target="_blank" rel="noreferrer">PDF</a>}{' '}
-                    {q.artwork_url && <a href={q.artwork_url} target="_blank" rel="noreferrer">Art</a>}{' '}
-                    {q.crunched_artwork && <a href={q.crunched_artwork} target="_blank" rel="noreferrer">Crunch</a>}
+                    {q.customer_pdf && <a href={fileUrl(q.customer_pdf)} target="_blank" rel="noreferrer">PDF</a>}{' '}
+                    {q.artwork_url && <a href={fileUrl(q.artwork_url)} target="_blank" rel="noreferrer">Art</a>}{' '}
+                    {q.crunched_artwork && <a href={fileUrl(q.crunched_artwork)} target="_blank" rel="noreferrer">Crunch</a>}
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     <button className="ghost sm" onClick={() => setViewing(q)}>View</button>{' '}

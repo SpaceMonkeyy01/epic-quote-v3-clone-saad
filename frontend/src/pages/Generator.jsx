@@ -7,6 +7,7 @@ import { T, CUSTOM_TEMPLATES } from '../generator/catalog'
 import { autoAnswerFromAI } from '../generator/questions'
 import { SIDE_VIEWS, pickSideView } from '../generator/sideviews'
 import { rasterizePdf } from '../generator/pdfRaster'
+import { fileUrl } from '../api/client'
 import QA from '../generator/QA'
 import Proposal from '../components/Proposal'
 
@@ -155,7 +156,7 @@ export default function Generator() {
       let imageData = null
       if (quote?.customer_pdf && /\.pdf$/i.test(quote.customer_pdf)) {
         setAiStatus('Rendering the PDF for the AI…')
-        const dataUrl = await rasterizePdf(quote.customer_pdf)
+        const dataUrl = await rasterizePdf(fileUrl(quote.customer_pdf))
         if (dataUrl) { imageData = dataUrl.split(',')[1]; if (!artworkPath) setArtworkPath(dataUrl) }
         setAiStatus('Reading the drawing and generating specifications…')
       }
@@ -261,7 +262,7 @@ export default function Generator() {
               <label>Customer's PDF/image of the sign required</label>
               {quote?.customer_pdf ? (
                 <div className="muted" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <a href={quote.customer_pdf} target="_blank" rel="noreferrer">📎 View attached file</a>
+                  <a href={fileUrl(quote.customer_pdf)} target="_blank" rel="noreferrer">📎 View attached file</a>
                   <label style={{ cursor: 'pointer', textDecoration: 'underline' }}>
                     Replace
                     <input type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={onCustomerFile} />
@@ -334,7 +335,7 @@ export default function Generator() {
         {step === 'artwork' && (
           <div className="step">
             <h3>Artwork</h3>
-            {artworkPath && <img src={artworkPath} alt="artwork" style={{ maxWidth: 360, display: 'block', margin: '8px 0', border: '1px solid var(--border)', borderRadius: 8 }} />}
+            {artworkPath && <img src={fileUrl(artworkPath)} alt="artwork" style={{ maxWidth: 360, display: 'block', margin: '8px 0', border: '1px solid var(--border)', borderRadius: 8 }} />}
             <input ref={artInput} type="file" accept="image/*" onChange={onArtwork} />
             <div className="foot">
               <button className="ghost" onClick={back}>Back</button>

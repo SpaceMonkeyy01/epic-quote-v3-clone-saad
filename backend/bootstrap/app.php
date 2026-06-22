@@ -19,7 +19,10 @@ return Application::configure(basePath: dirname(__DIR__))
             Route::get('/storage/{path}', function (string $path) {
                 $disk = Storage::disk('public');
                 abort_unless($disk->exists($path), 404);
-                return response()->file($disk->path($path));
+                // CORS '*' so the SPA (a different origin in production) can fetch these via XHR
+                // (pdf.js rasterize) and html2canvas can read them crossOrigin for PDF export.
+                return response()->file($disk->path($path))
+                    ->header('Access-Control-Allow-Origin', '*');
             })->where('path', '.*');
         },
     )

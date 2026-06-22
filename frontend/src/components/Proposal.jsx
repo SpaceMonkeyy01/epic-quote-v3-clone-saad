@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import { buildSpecLines, money, esc } from '../generator/proposal'
 import { SIDE_VIEWS } from '../generator/sideviews'
+import { fileUrl } from '../api/client'
 
 /* M2 proposal preview: renders the captured quote as a print-ready document.
    Every labelled block is contentEditable; edits are captured into proposal_state
@@ -179,7 +180,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
           <div style={{ margin: '10px 40px 0', ...headCell, borderTop: '1px solid #777' }}>ITEM DETAILS</div>
           <div style={{ margin: '0 40px', border: '1px solid #777', borderTop: 'none', minHeight: 170, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
             {artworkPath
-              ? <img src={artworkPath} alt="artwork" crossOrigin="anonymous" style={{ maxHeight: 160, maxWidth: 520, objectFit: 'contain' }} />
+              ? <img src={fileUrl(artworkPath)} alt="artwork" crossOrigin="anonymous" style={{ maxHeight: 160, maxWidth: 520, objectFit: 'contain' }} />
               : <span style={{ color: '#bbb', fontStyle: 'italic', fontSize: 12, textTransform: 'none' }}>[ Customer artwork — add it in the Artwork step ]</span>}
             {dims && <div style={{ position: 'absolute', bottom: 6, right: 12, fontSize: 10 }}>{dims}</div>}
           </div>
@@ -211,7 +212,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
               {sideViews.length === 0
                 ? <span style={{ color: '#bbb', fontStyle: 'italic', fontSize: 11, textTransform: 'none' }}>[ No side view selected ]</span>
                 : sideViews.map((k) => (
-                    <img key={k} src={`/storage/side_views/${k}.png`} alt={k} crossOrigin="anonymous"
+                    <img key={k} src={fileUrl(`/storage/side_views/${k}.png`)} alt={k} crossOrigin="anonymous"
                       style={{ maxWidth: 150, maxHeight: 110, objectFit: 'contain', border: '1px solid #ccc' }} />
                   ))}
             </div>
@@ -250,7 +251,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                 return (
                   <label key={s.key} style={{ width: 120, fontSize: 10, textAlign: 'center', cursor: 'pointer', border: on ? '2px solid #f5a623' : '1px solid #ccc', borderRadius: 6, padding: 4 }}>
                     <input type="checkbox" checked={on} onChange={(e) => onSideViews(e.target.checked ? [...sideViews, s.key] : sideViews.filter((x) => x !== s.key))} />
-                    <img src={`/storage/side_views/${s.key}.png`} alt={s.label} style={{ width: '100%', height: 70, objectFit: 'contain' }} />
+                    <img src={fileUrl(`/storage/side_views/${s.key}.png`)} alt={s.label} style={{ width: '100%', height: 70, objectFit: 'contain' }} />
                     <div>{s.label}</div>
                   </label>
                 )

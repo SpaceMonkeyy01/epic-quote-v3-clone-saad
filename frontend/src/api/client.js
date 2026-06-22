@@ -23,4 +23,11 @@ client.interceptors.response.use(
   }
 )
 
+// Absolute URL for backend-served files. Dev: VITE_API_URL unset → relative (Vite proxies /storage).
+// Prod (split domains): prefixes the backend origin so /storage doesn't hit the static frontend → 404.
+export const fileUrl = (p) =>
+  p && typeof p === 'string' && p.startsWith('/storage')
+    ? (import.meta.env.VITE_API_URL || '') + p
+    : p
+
 export default client
