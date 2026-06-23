@@ -88,7 +88,7 @@ class QuoteController extends Controller
         $file = $request->file('customer_pdf');
         if ($file) {
             $request->validate([
-                'customer_pdf' => 'file|mimes:pdf,jpg,jpeg,png,gif,webp|max:25600',
+                'customer_pdf' => 'file|mimes:pdf,jpg,jpeg,png,gif,webp,avif,svg|max:25600',
             ]);
         }
 
@@ -337,7 +337,7 @@ class QuoteController extends Controller
     public function uploadPdf(Request $request, Quote $quote): JsonResponse
     {
         $this->assertAccess($request, $quote);
-        $request->validate(['file' => 'required|file|mimes:pdf,jpg,jpeg,png,gif,webp|max:25600']);
+        $request->validate(['file' => 'required|file|mimes:pdf,jpg,jpeg,png,gif,webp,avif,svg|max:25600']);
         $file = $request->file('file');
         $filename = $quote->quote_id.'_'.$this->safeFilename($file);
         $file->storeAs('pdfs', $filename, 'public');
@@ -354,7 +354,7 @@ class QuoteController extends Controller
     public function uploadArtwork(Request $request, Quote $quote): JsonResponse
     {
         $this->assertAccess($request, $quote);
-        $request->validate(['file' => 'required|file|mimes:jpg,jpeg,png,gif,webp|max:25600']);
+        $request->validate(['file' => 'required|file|mimes:jpg,jpeg,png,gif,webp,avif,svg|max:25600']);
         $file = $request->file('file');
         $ext = $file->getClientOriginalExtension();
         $filename = $quote->quote_id.'_'.time().'.'.$ext;
@@ -371,7 +371,7 @@ class QuoteController extends Controller
     public function uploadCrunchedArtwork(Request $request, Quote $quote): JsonResponse
     {
         $this->assertAccess($request, $quote);
-        $request->validate(['file' => 'required|file|mimes:pdf,jpg,jpeg,png,gif,webp|max:25600']);
+        $request->validate(['file' => 'required|file|mimes:pdf,jpg,jpeg,png,gif,webp,avif,svg|max:25600']);
         $file = $request->file('file');
         $ext = $file->getClientOriginalExtension();
         $filename = "crunched_{$quote->quote_id}_".time().".{$ext}";
