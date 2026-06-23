@@ -34,6 +34,32 @@ const PACKAGE = [
   { label: 'POWER SUPPLY', img: '/package/power-supply.png' },
 ]
 
+// Resizable image with a VISIBLE drag-handle (bottom-right). Size persists via data-rk
+// (read in captureState) and renders into the PDF; the handle is hidden during capture.
+function AdjImg({ rk, w: dw, h: dh, savedSizes, src, alt }) {
+  const saved = savedSizes?.[rk]
+  const [w, setW] = useState(saved?.w ? parseFloat(saved.w) : dw)
+  const [h, setH] = useState(saved?.h ? parseFloat(saved.h) : dh)
+  const onDown = (e) => {
+    e.preventDefault(); e.stopPropagation()
+    const sx = e.clientX, sy = e.clientY, sw = w, sh = h
+    const move = (ev) => {
+      setW(Math.max(40, Math.round(sw + ev.clientX - sx)))
+      setH(Math.max(30, Math.round(sh + ev.clientY - sy)))
+    }
+    const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up) }
+    document.addEventListener('mousemove', move)
+    document.addEventListener('mouseup', up)
+  }
+  return (
+    <div data-rk={rk} style={{ position: 'relative', display: 'inline-block', width: w, height: h, maxWidth: '100%', verticalAlign: 'top' }}>
+      <img src={src} alt={alt} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+      <span className="adj-handle" onMouseDown={onDown} title="Drag to resize"
+        style={{ position: 'absolute', right: -5, bottom: -5, width: 14, height: 14, background: '#f5a623', border: '2px solid #fff', borderRadius: 3, cursor: 'se-resize', zIndex: 50 }} />
+    </div>
+  )
+}
+
 export default function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, sideViews = [], onSideViews }) {
   const pageRef = useRef(null)
   const wrapRef = useRef(null)
@@ -104,18 +130,10 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
     const state = {}
     pageRef.current?.querySelectorAll('[data-key]').forEach((el) => { state[el.dataset.key] = el.innerHTML })
     const sizes = {}
-    pageRef.current?.querySelectorAll('[data-rk]').forEach((el) => { sizes[el.dataset.rk] = { w: el.style.width, h: el.style.height } })
+    pageRef.current?.querySelectorAll('[data-rk]').forEach((el) => { sizes[el.dataset.rk] = { w: el.offsetWidth + 'px', h: el.offsetHeight + 'px' } })
     state.__sizes = sizes
     return state
   }
-
-  // user-resizable images: restore a previously-dragged size, else a (bigger) default
-  const sz = (rk, w, h) => {
-    const s = savedState?.__sizes?.[rk]
-    return { width: s?.w || w, height: s?.h || h }
-  }
-  const rzBox = { resize: 'both', overflow: 'hidden', minWidth: 40, minHeight: 30 }
-  const rzImg = { width: '100%', height: '100%', objectFit: 'contain', display: 'block' }
 
   const flash = (m) => { setToast(m); setTimeout(() => setToast(''), 2500) }
 
@@ -131,10 +149,13 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
     const el = pageRef.current
     const prev = el.style.transform
     el.style.transform = 'none'
+    const handles = [...el.querySelectorAll('.adj-handle')]
+    handles.forEach((h) => { h.style.visibility = 'hidden' })   // don't print the resize grips
     try {
       return await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false })
     } finally {
       el.style.transform = prev
+      handles.forEach((h) => { h.style.visibility = '' })
     }
   }
 
@@ -199,9 +220,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
           <div style={{ margin: '10px 40px 0', ...headCell, borderTop: '1px solid #777' }}>ITEM DETAILS</div>
           <div style={{ margin: '0 40px', border: '1px solid #777', borderTop: 'none', minHeight: 170, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
             {artworkPath
-              ? <div data-rk="artwork" style={{ ...rzBox, display: 'inline-block', maxWidth: '100%', ...sz('artwork', 420, 200) }}>
-                  <img src={fileUrl(artworkPath)} alt="artwork" style={rzImg} />
-                </div>
+              ? <AdjImg rk="artwork" w={420} h={200} savedSizes={savedState?.__sizes} src={fileUrl(artworkPath)} alt="artwork" />
               : <span style={{ color: '#bbb', fontStyle: 'italic', fontSize: 12, textTransform: 'none' }}>[ Customer artwork — add it in the Artwork step ]</span>}
             {dims && <div style={{ position: 'absolute', bottom: 6, right: 12, fontSize: 10 }}>{dims}</div>}
           </div>
@@ -232,10 +251,8 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', justifyContent: 'space-around', minHeight: 130, boxSizing: 'border-box', padding: 8, borderBottom: '1px solid #777' }}>
                 {PACKAGE.map((p) => (
                   <div key={p.label} style={{ textAlign: 'center', fontSize: 8, lineHeight: 1.3 }}>
-                    <div data-rk={`pkg-${p.label}`} style={{ ...rzBox, margin: '0 auto 4px', ...sz(`pkg-${p.label}`, 96, 96) }}>
-                      <img src={p.img} alt={p.label} style={rzImg} />
-                    </div>
-                    {p.label}
+                    <AdjImg rk={`pkg-${p.label}`} w={96} h={96} savedSizes={savedState?.__sizes} src={p.img} alt={p.label} />
+                    <div style={{ marginTop: 4 }}>{p.label}</div>
                   </div>
                 ))}
               </div>
@@ -244,9 +261,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                 {sideViews.length === 0
                   ? <span style={{ color: '#bbb', fontStyle: 'italic', fontSize: 10, textTransform: 'none' }}>[ No side view selected ]</span>
                   : sideViews.map((k) => (
-                      <div key={k} data-rk={`sv-${k}`} style={{ ...rzBox, ...sz(`sv-${k}`, 240, 150) }}>
-                        <img src={`/side_views/${k}.png`} alt={k} style={rzImg} />
-                      </div>
+                      <AdjImg key={k} rk={`sv-${k}`} w={240} h={150} savedSizes={savedState?.__sizes} src={`/side_views/${k}.png`} alt={k} />
                     ))}
               </div>
             </div>
