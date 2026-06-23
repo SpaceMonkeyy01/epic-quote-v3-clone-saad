@@ -43,8 +43,10 @@ services:
         value: sync
       - key: FILESYSTEM_DISK
         value: local
-      - key: PUBLIC_DISK_ROOT     # uploads on the persistent disk so they survive redeploys
+      - key: PUBLIC_DISK_ROOT     # local-disk fallback root (used only if Cloudinary is unset)
         value: /var/data/public
+      - key: CLOUDINARY_URL       # cloudinary://<key>:<secret>@<cloud> — uploads go here (shared, permanent, CDN)
+        sync: false
 
   # ---------------- Frontend SPA (React/Vite, static) ----------------
   - type: web
