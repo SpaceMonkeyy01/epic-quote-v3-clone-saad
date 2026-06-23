@@ -125,7 +125,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
     return () => { clearTimeout(t); window.removeEventListener('resize', fit) }
   }, [])
 
-  const price = Number((mode === 'custom' ? customSpec?.price : answers?.price) || 0)
+  const price = Number((mode === 'custom' ? customSpec?.price : answers?.price) || 1200)
   const itemDesc = mode === 'custom'
     ? (customSpec?.itemDesc || 'CUSTOM SIGNAGE')
     : ((tpl?.desc || 'SIGN') + ' FOR ' + (info.company || ''))
