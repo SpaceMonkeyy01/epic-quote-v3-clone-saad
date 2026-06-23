@@ -360,13 +360,17 @@ class QuoteController extends Controller
         $ext = $file->getClientOriginalExtension();
         $filename = $quote->quote_id.'_'.time().'.'.$ext;
 
-        // Cloudinary first (permanent CDN URL, shared across instances, survives redeploys);
-        // fall back to the local disk only if Cloudinary isn't configured / the call fails.
-        $url = CloudinaryService::upload($file->getRealPath(), 'epic-quote/artwork', 'image');
-        if (!$url) {
+        // Cloudinary (permanent CDN URL, shared across instances). If it's configured we REQUIRE it to
+        // succeed (a failure returns a clear error instead of silently dropping to the broken local disk).
+        if (CloudinaryService::configured()) {
+            $url = CloudinaryService::upload($file->getRealPath(), 'epic-quote/artwork', 'image');
+            if (!$url) {
+                return response()->json(['error' => 'Cloudinary is configured but the upload failed — verify CLOUDINARY_URL.'], 502);
+            }
+        } else {
             $file->storeAs('artwork', $filename, 'public');
             if (!Storage::disk('public')->exists("artwork/{$filename}")) {
-                return response()->json(['error' => 'Upload could not be saved — server storage is not writable/persistent.'], 500);
+                return response()->json(['error' => 'Cloudinary not configured and local storage is not writable.'], 500);
             }
             $url = "/storage/artwork/{$filename}";
         }
