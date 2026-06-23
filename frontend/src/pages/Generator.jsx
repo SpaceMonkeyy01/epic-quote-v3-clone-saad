@@ -406,11 +406,6 @@ export default function Generator() {
         {step === 'preview' && (
           <div className="step">
             <h3>Proposal</h3>
-            <div style={{ background: 'var(--navy-700)', border: '1px solid var(--gold)', borderRadius: 8, padding: '12px 14px', margin: '4px 0 16px', maxWidth: 640 }}>
-              <label style={{ fontWeight: 700, display: 'block', marginBottom: 4 }}>💳 Payment link</label>
-              <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>Already have a payment link in hand? Paste it — the proposal's “Click here to make payment” button will use it. Leave blank otherwise.</div>
-              <input type="url" placeholder="https://…" value={paymentLink} onChange={(e) => setPaymentLink(e.target.value)} style={{ width: '100%' }} />
-            </div>
             <Proposal
               mode={mode}
               tpl={tpl}

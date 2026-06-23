@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useConstants, useCreateQuote } from '../hooks'
-import { extractParty } from '../api/quotes'
+import { extractParty, putGenerated } from '../api/quotes'
 import useAuthStore from '../store/authStore'
 
 const EMPTY = {
   company_name: '', client_name: '', contact: '', address: '',
-  job_name: '', special_requirements: '', sales_rep: '',
+  job_name: '', special_requirements: '', sales_rep: '', payment_link: '',
 }
 
 export default function AddQuoteModal({ onClose }) {
@@ -55,6 +55,10 @@ export default function AddQuoteModal({ onClose }) {
     if (file) payload.customer_pdf = file
     try {
       const created = await create.mutateAsync(payload)
+      // Payment link is captured here on the first page; persist it into generated_data.
+      if (form.payment_link?.trim()) {
+        try { await putGenerated(created.quote_id, { payment_link: form.payment_link.trim() }) } catch { /* non-fatal */ }
+      }
       // Mode is chosen here once and carried in the URL; the wizard never re-asks.
       navigate(`/quotes/${created.quote_id}/generate?mode=${choice}`)
     } catch (err) {
@@ -140,6 +144,11 @@ export default function AddQuoteModal({ onClose }) {
               {autofilling ? 'Reading…' : '⚡ Auto-fill fields from this text'}
             </button>
           )}
+        </div>
+
+        <div className="field">
+          <label>💳 Payment link (optional — paste it if you already have one)</label>
+          <input type="url" placeholder="https://…" value={form.payment_link} onChange={set('payment_link')} />
         </div>
 
         {choice === 'custom' && (
