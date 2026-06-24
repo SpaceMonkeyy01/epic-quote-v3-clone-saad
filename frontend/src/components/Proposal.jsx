@@ -90,6 +90,51 @@ function AdjImg({ rk, def, lay, onLay, src, alt, caption, lockAspect, scaleRef, 
   )
 }
 
+// Luminance-based text color so the swatch label stays readable on any fill.
+function swatchText(hex) {
+  const h = (hex || '').replace('#', '')
+  if (h.length < 6) return '#111'
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16)
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? '#111' : '#fff'
+}
+
+// Canva-style draggable color swatch: a filled block + name that PRINTS, plus a picker popover
+// (color wheel + name field) carrying className "adj-ui" so it is hidden from the PDF/PNG capture.
+function AdjSwatch({ rk, sw, onChange, onRemove, scaleRef, selected, onSelect }) {
+  const startDrag = (e) => {
+    if (e.target.closest('.adj-ui')) return            // don't drag while using the picker
+    e.preventDefault(); e.stopPropagation(); onSelect()
+    const sx = e.clientX, sy = e.clientY, x0 = sw.x, y0 = sw.y, sc = scaleRef.current || 1
+    const move = (ev) => onChange({ ...sw, x: Math.round(x0 + (ev.clientX - sx) / sc), y: Math.round(y0 + (ev.clientY - sy) / sc) })
+    const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up) }
+    document.addEventListener('mousemove', move); document.addEventListener('mouseup', up)
+  }
+  const has = !!sw.color
+  const bg = has ? sw.color : '#e5e5e5'
+  return (
+    <div data-rk={rk} onMouseDown={startDrag}
+      style={{ position: 'absolute', left: sw.x, top: sw.y, width: sw.w, height: sw.h, cursor: 'move' }}>
+      <div style={{ width: '100%', height: '100%', background: bg, color: swatchText(bg), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, border: '1px solid rgba(0,0,0,0.3)', overflow: 'hidden', padding: '0 4px', boxSizing: 'border-box' }}>
+        {sw.name || (has ? '' : 'TBD')}
+      </div>
+      {selected && (
+        <>
+          <div className="adj-ui" style={{ position: 'absolute', inset: -2, border: '1.5px solid #8b5cf6', pointerEvents: 'none' }} />
+          <div className="adj-ui" onMouseDown={(e) => e.stopPropagation()}
+            style={{ position: 'absolute', top: '100%', left: 0, marginTop: 6, zIndex: 70, background: '#fff', border: '1px solid #8b5cf6', borderRadius: 6, padding: 8, display: 'flex', gap: 6, alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.18)', textTransform: 'none', width: 210 }}>
+            <input type="color" value={has ? sw.color : '#000000'} onChange={(e) => onChange({ ...sw, color: e.target.value })}
+              title="Pick color" style={{ width: 34, height: 30, padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
+            <input type="text" value={sw.name || ''} placeholder="name / PMS" onChange={(e) => onChange({ ...sw, name: e.target.value })}
+              style={{ flex: 1, fontSize: 12, padding: '4px 6px', border: '1px solid #ccc', borderRadius: 4 }} />
+            <button type="button" onClick={onRemove} title="Remove swatch"
+              style={{ border: 'none', background: '#fee', color: '#c00', borderRadius: 4, cursor: 'pointer', fontWeight: 700, padding: '4px 7px' }}>×</button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, sideViews = [], onSideViews }) {
   const pageRef = useRef(null)
   const wrapRef = useRef(null)
@@ -100,6 +145,21 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
   const [pickingSV, setPickingSV] = useState(false)
   const [selId, setSelId] = useState(null)                          // selected adjustable image
   const [layout, setLayout] = useState(savedState?.__layout || {})  // persisted geometry per image
+  const [swatches, setSwatches] = useState(() => {
+    if (savedState?.__swatches) return savedState.__swatches
+    if (mode === 'custom' || !tpl?.colors?.length) return []
+    // seed one swatch per chooseable color row; reflect any BLACK/WHITE answer already given
+    return tpl.colors.filter((c) => c.ask).map((c, idx) => {
+      const ans = answers?.['color_' + tpl.colors.indexOf(c)]
+      const color = ans === 'BLACK' ? '#000000' : ans === 'WHITE' ? '#ffffff' : ''
+      return { id: 'seed' + idx, name: c.l, color, x: 300, y: 560 + idx * 30, w: 150, h: 26 }
+    })
+  })
+  const addSwatch = () => {
+    const id = 'sw' + Date.now()
+    setSwatches((s) => [...s, { id, name: '', color: '', x: 300, y: 560, w: 150, h: 26 }])
+    setSelId('swatch-' + id)
+  }
   const scaleRef = useRef(scale)
   scaleRef.current = scale
 
@@ -182,7 +242,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
   })
 
   const captureState = () => {
-    const state = { __layout: layout }
+    const state = { __layout: layout, __swatches: swatches }
     pageRef.current?.querySelectorAll('[data-key]').forEach((el) => { state[el.dataset.key] = el.innerHTML })
     return state
   }
@@ -333,6 +393,14 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                 : E('pay', { marginTop: 14, background: '#f5a623', padding: 14, textAlign: 'center', fontSize: 15, fontWeight: 800, letterSpacing: 0.5 })}
             </div>
           </div>
+
+          {/* draggable color swatches — the filled block prints; the picker chrome (.adj-ui) does not */}
+          {swatches.map((sw) => (
+            <AdjSwatch key={sw.id} rk={'swatch-' + sw.id} sw={sw} scaleRef={scaleRef}
+              selected={selId === 'swatch-' + sw.id} onSelect={() => setSelId('swatch-' + sw.id)}
+              onChange={(n) => setSwatches((arr) => arr.map((x) => (x.id === sw.id ? n : x)))}
+              onRemove={() => { setSwatches((arr) => arr.filter((x) => x.id !== sw.id)); setSelId(null) }} />
+          ))}
         </div>
         </div>
       </div>
@@ -359,6 +427,12 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
           )}
         </div>
       )}
+
+      {/* color swatches — a control, not part of the printed page */}
+      <div style={{ margin: '12px 0' }}>
+        <button type="button" className="ghost" onClick={addSwatch}>+ Add color swatch</button>
+        <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>Click a swatch to pick its color &amp; name; drag to place. The picker never appears in the PDF.</span>
+      </div>
 
       {/* actions */}
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 14 }}>
