@@ -146,11 +146,12 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
   const [selId, setSelId] = useState(null)                          // selected adjustable image
   const [layout, setLayout] = useState(savedState?.__layout || {})  // persisted geometry per image
   const [swatches, setSwatches] = useState(() => {
-    if (savedState?.__swatches) return savedState.__swatches
+    if (savedState?.__swatches?.length) return savedState.__swatches
     if (mode === 'custom' || !tpl?.colors?.length) return []
-    // seed one swatch per chooseable color row; reflect any BLACK/WHITE answer already given
-    return tpl.colors.filter((c) => c.ask).map((c, idx) => {
-      const ans = answers?.['color_' + tpl.colors.indexOf(c)]
+    // seed one swatch per color row (FACE / RETURN / TRIM / BACKER…), including fixed "TBD" rows
+    // like cabinets/push-thru; reflect any BLACK/WHITE answer already given, else leave it TBD.
+    return tpl.colors.map((c, idx) => {
+      const ans = answers?.['color_' + idx]
       const color = ans === 'BLACK' ? '#000000' : ans === 'WHITE' ? '#ffffff' : ''
       return { id: 'seed' + idx, name: c.l, color, x: 300, y: 560 + idx * 30, w: 150, h: 26 }
     })
