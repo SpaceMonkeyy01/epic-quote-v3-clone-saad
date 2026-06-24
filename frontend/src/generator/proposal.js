@@ -48,8 +48,9 @@ export function buildSpecLines(t, a = {}, ai = null) {
   if (t.colors && t.colors.length) {
     L.push('COLOR SPECS:')
     t.colors.forEach((c, i) => {
-      const v = c.fixed !== undefined ? c.fixed : (a['color_' + i] || '')
-      L.push('  • ' + c.l + ': ' + v)
+      let v = c.fixed !== undefined ? c.fixed : (a['color_' + i] || '')
+      if (v === 'TBD') v = ''   // leave blank rather than print TBD when the color isn't decided
+      L.push('  • ' + c.l + ':' + (v ? ' ' + v : ''))
     })
   }
   L.push('APPLICATION: ' + (a.application || t.app || 'EXTERIOR'))

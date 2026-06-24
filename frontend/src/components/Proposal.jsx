@@ -115,7 +115,7 @@ function AdjSwatch({ rk, sw, onChange, onRemove, scaleRef, selected, onSelect })
     <div data-rk={rk} onMouseDown={startDrag}
       style={{ position: 'absolute', left: sw.x, top: sw.y, width: sw.w, height: sw.h, cursor: 'move' }}>
       <div style={{ width: '100%', height: '100%', background: bg, color: swatchText(bg), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, border: '1px solid rgba(0,0,0,0.3)', overflow: 'hidden', padding: '0 4px', boxSizing: 'border-box' }}>
-        {sw.name || (has ? '' : 'TBD')}
+        {sw.name || ''}
       </div>
       {selected && (
         <>
@@ -150,13 +150,15 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
     // shrink any swatches saved at the old oversized default (no resize handle yet)
     if (savedState?.__swatches?.length) return savedState.__swatches.map((s) => ({ ...s, w: s.w > 90 ? SW_W : s.w, h: s.h > 22 ? SW_H : s.h }))
     if (mode === 'custom' || !tpl?.colors?.length) return []
-    // seed one swatch per color row (FACE / RETURN / TRIM / BACKER…), including fixed "TBD" rows.
-    // Label = the color value (BLACK/WHITE) like the template; the field name stays in the spec text.
-    return tpl.colors.map((c, idx) => {
+    // seed a swatch only for color rows that actually have a value (BLACK/WHITE answer); rows left
+    // TBD get no swatch — the rep adds one via "+ Add color swatch" once the color is known.
+    const seeds = []
+    tpl.colors.forEach((c, idx) => {
       const ans = answers?.['color_' + idx]
-      const color = ans === 'BLACK' ? '#000000' : ans === 'WHITE' ? '#ffffff' : ''
-      return { id: 'seed' + idx, name: ans || '', color, x: 300, y: 560 + idx * 24, w: SW_W, h: SW_H }
+      if (ans !== 'BLACK' && ans !== 'WHITE') return
+      seeds.push({ id: 'seed' + idx, name: ans, color: ans === 'BLACK' ? '#000000' : '#ffffff', x: 300, y: 560 + seeds.length * 24, w: SW_W, h: SW_H })
     })
+    return seeds
   })
   const addSwatch = () => {
     const id = 'sw' + Date.now()
@@ -245,7 +247,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
   })
 
   const captureState = () => {
-    const state = { __layout: layout, __swatches: swatches }
+    const state = { __layout: layout, __swatches: swatches.filter((s) => s.color || s.name) }
     pageRef.current?.querySelectorAll('[data-key]').forEach((el) => { state[el.dataset.key] = el.innerHTML })
     return state
   }
@@ -398,12 +400,12 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
           </div>
 
           {/* draggable color swatches — the filled block prints; the picker chrome (.adj-ui) does not */}
-          {swatches.map((sw) => (
+          {swatches.map((sw) => ((sw.color || sw.name || selId === 'swatch-' + sw.id) ? (
             <AdjSwatch key={sw.id} rk={'swatch-' + sw.id} sw={sw} scaleRef={scaleRef}
               selected={selId === 'swatch-' + sw.id} onSelect={() => setSelId('swatch-' + sw.id)}
               onChange={(n) => setSwatches((arr) => arr.map((x) => (x.id === sw.id ? n : x)))}
               onRemove={() => { setSwatches((arr) => arr.filter((x) => x.id !== sw.id)); setSelId(null) }} />
-          ))}
+          ) : null))}
         </div>
         </div>
       </div>
