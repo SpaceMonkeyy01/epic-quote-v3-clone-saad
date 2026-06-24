@@ -145,20 +145,22 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
   const [pickingSV, setPickingSV] = useState(false)
   const [selId, setSelId] = useState(null)                          // selected adjustable image
   const [layout, setLayout] = useState(savedState?.__layout || {})  // persisted geometry per image
+  const SW_W = 64, SW_H = 20   // compact swatch size, matching the Canva template baseline
   const [swatches, setSwatches] = useState(() => {
-    if (savedState?.__swatches?.length) return savedState.__swatches
+    // shrink any swatches saved at the old oversized default (no resize handle yet)
+    if (savedState?.__swatches?.length) return savedState.__swatches.map((s) => ({ ...s, w: s.w > 90 ? SW_W : s.w, h: s.h > 22 ? SW_H : s.h }))
     if (mode === 'custom' || !tpl?.colors?.length) return []
-    // seed one swatch per color row (FACE / RETURN / TRIM / BACKER…), including fixed "TBD" rows
-    // like cabinets/push-thru; reflect any BLACK/WHITE answer already given, else leave it TBD.
+    // seed one swatch per color row (FACE / RETURN / TRIM / BACKER…), including fixed "TBD" rows.
+    // Label = the color value (BLACK/WHITE) like the template; the field name stays in the spec text.
     return tpl.colors.map((c, idx) => {
       const ans = answers?.['color_' + idx]
       const color = ans === 'BLACK' ? '#000000' : ans === 'WHITE' ? '#ffffff' : ''
-      return { id: 'seed' + idx, name: c.l, color, x: 300, y: 560 + idx * 30, w: 150, h: 26 }
+      return { id: 'seed' + idx, name: ans || '', color, x: 300, y: 560 + idx * 24, w: SW_W, h: SW_H }
     })
   })
   const addSwatch = () => {
     const id = 'sw' + Date.now()
-    setSwatches((s) => [...s, { id, name: '', color: '', x: 300, y: 560, w: 150, h: 26 }])
+    setSwatches((s) => [...s, { id, name: '', color: '', x: 300, y: 560, w: SW_W, h: SW_H }])
     setSelId('swatch-' + id)
   }
   const scaleRef = useRef(scale)
