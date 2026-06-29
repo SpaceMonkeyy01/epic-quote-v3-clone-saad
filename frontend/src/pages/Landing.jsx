@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, useInView, animate, useMotionValue, useSpring, useTransform } from 'framer-motion'
+
+const Hero3D = lazy(() => import('../components/Hero3D'))
 
 /* ============================================================
    Public landing — premium dark + gold + Inter (matches
@@ -134,17 +136,10 @@ export default function Landing() {
             </motion.div>
           </div>
 
-          <motion.div className="ecl-herovis" initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, ease, delay: 0.2 }}>
-            <Tilt>
-              <div className="ecl-quote-card">
-                <div className="ecl-qc-head"><img src={LOGO} alt="" /><span className="ecl-qc-id">EC100066</span></div>
-                <div className="ecl-qc-row"><span>Channel Letters</span><b>$1,200</b></div>
-                <div className="ecl-qc-bar"><motion.span initial={{ width: 0 }} animate={{ width: '82%' }} transition={{ duration: 1.1, ease, delay: 0.8 }} /></div>
-                <div className="ecl-qc-row sm"><span>Face color</span><i className="sw black" /></div>
-                <div className="ecl-qc-row sm"><span>Return &amp; trim</span><i className="sw white" /></div>
-                <div className="ecl-qc-pay">Click here to make payment</div>
-              </div>
-            </Tilt>
+          <motion.div className="ecl-herovis" initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.9, ease, delay: 0.2 }}>
+            <Suspense fallback={<div className="ecl-3d-fb" />}>
+              <Hero3D />
+            </Suspense>
           </motion.div>
         </div>
       </section>
@@ -283,7 +278,8 @@ const CSS = `
 .ecl-herocta { display:flex; gap:11px; flex-wrap:wrap; }
 .ecl-herocta.center { justify-content:center; }
 
-.ecl-herovis { display:flex; justify-content:center; }
+.ecl-herovis { position:relative; height:440px; display:flex; align-items:center; justify-content:center; }
+.ecl-3d-fb { width:60%; height:60%; border-radius:50%; background:radial-gradient(circle,rgba(249,166,0,.18),transparent 65%); }
 .ecl-quote-card { width:308px; background:linear-gradient(160deg,#1a1a20,#101015); border:1px solid #2c2c34; border-radius:16px; padding:18px;
   box-shadow:0 30px 70px rgba(0,0,0,.6), 0 0 0 1px rgba(249,166,0,.06); }
 .ecl-qc-head { display:flex; align-items:center; justify-content:space-between; padding-bottom:12px; border-bottom:1px solid var(--line); margin-bottom:12px; }
