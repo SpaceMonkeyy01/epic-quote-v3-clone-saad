@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
+import Landing from './pages/Landing'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import AllQuotes from './pages/AllQuotes'
@@ -17,6 +18,7 @@ function Coming({ phase }) {
 export default function App() {
   return (
     <Routes>
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
 
       <Route

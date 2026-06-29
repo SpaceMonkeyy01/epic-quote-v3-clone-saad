@@ -37,3 +37,4 @@ Thumbs.db
 # big local-only sample drawings
 /assets/*.pdf
 /assets/*.png
+.gstack/
