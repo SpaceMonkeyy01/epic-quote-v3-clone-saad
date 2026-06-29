@@ -5,17 +5,17 @@
    near-black + gold #f9a600 + Inter.
 ============================================================ */
 :root {
-  --navy-900: #0a0a0c;   /* app background (near-black) */
-  --navy-800: #101014;   /* sidebar */
-  --navy-700: #17171d;   /* panels / cards */
-  --navy-600: #21212a;   /* hover / inputs */
-  --navy-500: #2c2c38;
-  --border:   #2c2c36;
-  --border-soft: #232329;
+  --navy-900: #070a12;   /* app background (blueprint navy, matches sign-in) */
+  --navy-800: #0a1220;   /* sidebar */
+  --navy-700: #0d1626;   /* panels / cards */
+  --navy-600: #16233f;   /* hover / inputs */
+  --navy-500: #1f2e47;
+  --border:   #1c2a44;
+  --border-soft: #18243a;
 
-  --text:      #f2f3f5;
-  --text-dim:  #b7b9c1;   /* raised for contrast (AA on cards) */
-  --text-faint:#86868f;   /* raised from #65789a which failed 4.5:1 */
+  --text:      #e8edf5;
+  --text-dim:  #9fb0cd;
+  --text-faint:#6f84a8;
 
   --gold:   #f9a600;     /* brand gold (epiccraftings.com) */
   --gold-h: #ffbe33;
