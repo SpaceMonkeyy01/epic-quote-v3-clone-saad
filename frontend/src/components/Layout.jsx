@@ -17,7 +17,7 @@ export default function Layout() {
     <div className="app">
       <aside className="sidebar">
         <div className="brand-lock">
-          <img src="/epic-craftings-logo.png" alt="Epic Craftings" />
+          <img src="/quote-logo-t.png" alt="Epic Craftings" />
         </div>
         <NavLink to="/dashboard" className={link}>Dashboard</NavLink>
         <NavLink to="/quotes" className={link}>All Quotes</NavLink>

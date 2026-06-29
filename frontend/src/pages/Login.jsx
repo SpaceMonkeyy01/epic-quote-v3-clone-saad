@@ -33,7 +33,7 @@ export default function Login() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-logo">
-          <img src="/epic-craftings-logo.png" alt="Epic Craftings" />
+          <img src="/quote-logo-t.png" alt="Epic Craftings" />
         </div>
         <p style={{ textAlign: 'center', color: 'var(--text-dim)', margin: '4px 0 28px', fontSize: 13 }}>
           Signage Sales Management
