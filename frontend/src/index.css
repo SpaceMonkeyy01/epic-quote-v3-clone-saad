@@ -157,6 +157,11 @@ td input:focus, td select:focus { background: var(--navy-900); }
 ============================================================ */
 .overlay { position: fixed; inset: 0; background: rgba(5, 9, 18, 0.72); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
 .modal { background: var(--navy-700); border: 1px solid var(--border); border-radius: 14px; padding: 26px; width: 580px; max-width: 100%; max-height: 90vh; overflow: auto; box-shadow: var(--shadow-lg); }
+.modal-quote { width: 620px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg-btn { background: var(--navy-800); color: var(--text-dim); border: none; padding: 8px 14px; font: inherit; font-size: 13px; cursor: pointer; }
+.seg-btn + .seg-btn { border-left: 1px solid var(--border); }
+.seg-btn.on { background: var(--gold); color: #1a1305; font-weight: 700; }
 .modal h2 { margin-bottom: 18px; font-size: 19px; }
 .modal .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .modal .field { margin-bottom: 13px; }
@@ -201,6 +206,24 @@ td input:focus, td select:focus { background: var(--navy-900); }
 .sign-opt { padding: 11px 13px; border-bottom: 1px solid var(--border-soft); cursor: pointer; font-size: 13px; transition: background .1s; }
 .sign-opt:hover { background: var(--navy-600); }
 .sign-opt.sel { background: var(--gold-soft); color: var(--gold); font-weight: 600; }
+.sign-opt.ai { color: var(--gold); font-weight: 600; }
+
+/* Print → real vector PDF: show ONLY the proposal page at full size, drop the app chrome,
+   the gray frame, the fit-scale and the selection handles. Text stays selectable; the
+   payment <a> stays a clickable link. */
+@media print {
+  @page { size: 816px auto; margin: 6mm; }
+  html, body { background: #fff !important; }
+  body * { visibility: hidden !important; }
+  .proposal-wrap, .proposal-wrap * { visibility: visible !important; }
+  .proposal-wrap {
+    position: absolute !important; left: 0 !important; top: 0 !important; width: auto !important;
+    background: #fff !important; padding: 0 !important; border-radius: 0 !important; overflow: visible !important;
+  }
+  .proposal-fit { width: 816px !important; height: auto !important; margin: 0 !important; }
+  #proposal-print-root { transform: none !important; box-shadow: none !important; }
+  .adj-ui { display: none !important; }
+}
 .tmpl-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .spec-dump { background: var(--navy-900); border: 1px solid var(--border); border-radius: 10px; padding: 15px; font-size: 12px; overflow: auto; max-height: 380px; color: var(--text-dim); line-height: 1.5; }
 

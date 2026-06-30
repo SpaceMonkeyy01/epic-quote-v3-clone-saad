@@ -47,6 +47,10 @@ export const uploadArtwork = (quoteId, file) =>
 export const uploadCustomerFile = (quoteId, file) =>
   client.post(`/quotes/${quoteId}/pdf`, fileForm(file), MULTIPART).then((r) => r.data.path)
 
+// Store an additional (non-primary) upload — kept so multi-file jobs lose nothing.
+export const uploadExtraFile = (quoteId, file) =>
+  client.post(`/quotes/${quoteId}/extra-file`, fileForm(file), MULTIPART).then((r) => r.data.path)
+
 export const generateSpecs = (quoteId, projectInfo, sideViewKeys = '', imageData = null) =>
   client.post('/ai/generate-specs', {
     quote_id: quoteId, project_info: projectInfo, side_view_keys: sideViewKeys,

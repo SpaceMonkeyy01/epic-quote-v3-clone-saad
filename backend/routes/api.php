@@ -25,6 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('quotes/{quote}/status', [App\Http\Controllers\Api\QuoteController::class, 'updateStatus']);
     Route::put('quotes/{quote}/tags', [App\Http\Controllers\Api\QuoteController::class, 'updateTags']);
     Route::post('quotes/{quote}/pdf', [App\Http\Controllers\Api\QuoteController::class, 'uploadPdf']);
+    Route::post('quotes/{quote}/extra-file', [App\Http\Controllers\Api\QuoteController::class, 'uploadExtraFile']);
     Route::post('quotes/{quote}/artwork', [App\Http\Controllers\Api\QuoteController::class, 'uploadArtwork']);
     Route::post('quotes/{quote}/crunched-artwork', [App\Http\Controllers\Api\QuoteController::class, 'uploadCrunchedArtwork']);
     Route::get('quotes/{quote}/generated', [App\Http\Controllers\Api\QuoteController::class, 'getGenerated']);

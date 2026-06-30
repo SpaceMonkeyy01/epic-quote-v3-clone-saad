@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import html2canvas from 'html2canvas'
-import { jsPDF } from 'jspdf'
 import { buildSpecLines, money, esc } from '../generator/proposal'
 import { SIDE_VIEWS } from '../generator/sideviews'
 import { fileUrl } from '../api/client'
@@ -34,53 +33,76 @@ const PACKAGE = [
   { label: 'POWER SUPPLY', img: '/package/power-supply.png' },
 ]
 
-// Canva-style adjustable image: click to select (purple box + 4 corner handles + rotate grip),
-// drag the body to move, a corner to resize, the top grip to rotate. Absolute-positioned, so
-// resizing one element never reflows the page. Geometry is reported up via onLay (persisted in
-// proposal_state.__layout); selection chrome carries className "adj-ui" so PDF capture hides it.
-function AdjImg({ rk, def, lay, onLay, src, alt, caption, lockAspect, cors, scaleRef, selected, onSelect }) {
+// Canva-style adjustable image. Click to select, then:
+//  • drag the body to move, the top grip to rotate
+//  • CORNER circles resize (scale the image)
+//  • EDGE bars crop (shrink the visible window; the image itself stays put and is clipped)
+// Absolute-positioned, so changing one never reflows the page. Geometry (incl. the crop window
+// ix/iy/iw/ih) is reported up via onLay; selection chrome carries "adj-ui" so PDF capture hides it.
+function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, selected, onSelect }) {
   const init = lay || def
-  const [box, setBox] = useState({ x: init.x, y: init.y, w: init.w, h: init.h, rot: init.rot || 0 })
+  const [box, setBox] = useState(() => ({
+    x: init.x, y: init.y, w: init.w, h: init.h, rot: init.rot || 0,
+    ix: init.ix ?? 0, iy: init.iy ?? 0, iw: init.iw ?? init.w, ih: init.ih ?? init.h,
+  }))
   const rootRef = useRef(null)
-  const start = (kind, corner) => (e) => {
+  const start = (kind, handle) => (e) => {
     e.preventDefault(); e.stopPropagation(); onSelect()
     const sx = e.clientX, sy = e.clientY, b0 = { ...box }, sc = scaleRef.current || 1
     let cx = 0, cy = 0
     if (kind === 'rot' && rootRef.current) { const r = rootRef.current.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2 }
     const move = (ev) => {
       const dx = (ev.clientX - sx) / sc, dy = (ev.clientY - sy) / sc
-      if (kind === 'move') setBox({ ...b0, x: Math.round(b0.x + dx), y: Math.round(b0.y + dy) })
-      else if (kind === 'rot') setBox({ ...b0, rot: Math.round(Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180 / Math.PI + 90) })
-      else {
-        const L = corner.includes('l'), T = corner.includes('t'), R = corner.includes('r'), B = corner.includes('b')
+      if (kind === 'move') { setBox({ ...b0, x: Math.round(b0.x + dx), y: Math.round(b0.y + dy) }); return }
+      if (kind === 'rot') { setBox({ ...b0, rot: Math.round(Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180 / Math.PI + 90) }); return }
+      if (kind === 'resize') {
+        const L = handle.includes('l'), T = handle.includes('t'), R = handle.includes('r'), B = handle.includes('b')
         let w = b0.w, h = b0.h
         if (R) w = b0.w + dx; if (L) w = b0.w - dx; if (B) h = b0.h + dy; if (T) h = b0.h - dy
         w = Math.max(30, Math.round(w)); h = Math.max(20, Math.round(h))
         if (lockAspect && b0.w) h = Math.max(20, Math.round(w * b0.h / b0.w))  // keep the logo's proportions
         let x = b0.x, y = b0.y
         if (L) x = Math.round(b0.x + (b0.w - w)); if (T) y = Math.round(b0.y + (b0.h - h))
-        setBox({ ...b0, w, h, x, y })
+        const rw = w / b0.w, rh = h / b0.h   // scale the image (crop window) with the frame
+        setBox({ ...b0, w, h, x, y, ix: Math.round(b0.ix * rw), iy: Math.round(b0.iy * rh), iw: Math.round(b0.iw * rw), ih: Math.round(b0.ih * rh) })
+        return
       }
+      // crop: move one frame edge, keep the image absolutely still → clips it
+      let { x, y, w, h, ix, iy } = b0
+      if (handle === 'r') w = Math.max(24, Math.round(b0.w + dx))
+      if (handle === 'b') h = Math.max(24, Math.round(b0.h + dy))
+      if (handle === 'l') { const nw = Math.max(24, Math.round(b0.w - dx)); const used = b0.w - nw; x = Math.round(b0.x + used); w = nw; ix = Math.round(b0.ix - used) }
+      if (handle === 't') { const nh = Math.max(24, Math.round(b0.h - dy)); const used = b0.h - nh; y = Math.round(b0.y + used); h = nh; iy = Math.round(b0.iy - used) }
+      setBox({ ...b0, x, y, w, h, ix, iy })
     }
     const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); setBox((b) => { onLay(b); return b }) }
     document.addEventListener('mousemove', move); document.addEventListener('mouseup', up)
   }
-  const hdl = { position: 'absolute', width: 11, height: 11, background: '#fff', border: '1.5px solid #8b5cf6', borderRadius: '50%', zIndex: 60 }
+  const dot = { position: 'absolute', width: 11, height: 11, background: '#fff', border: '1.5px solid #8b5cf6', borderRadius: '50%', zIndex: 60 }
   const corners = { tl: { left: -6, top: -6, cursor: 'nwse-resize' }, tr: { right: -6, top: -6, cursor: 'nesw-resize' }, bl: { left: -6, bottom: -6, cursor: 'nesw-resize' }, br: { right: -6, bottom: -6, cursor: 'nwse-resize' } }
+  const bar = { position: 'absolute', background: '#fff', border: '1.5px solid #8b5cf6', borderRadius: 2, zIndex: 60 }
+  const edges = {
+    l: { left: -4, top: '50%', marginTop: -11, width: 7, height: 22, cursor: 'ew-resize' },
+    r: { right: -4, top: '50%', marginTop: -11, width: 7, height: 22, cursor: 'ew-resize' },
+    t: { top: -4, left: '50%', marginLeft: -11, width: 22, height: 7, cursor: 'ns-resize' },
+    b: { bottom: -4, left: '50%', marginLeft: -11, width: 22, height: 7, cursor: 'ns-resize' },
+  }
   return (
     <div ref={rootRef} data-rk={rk} onMouseDown={start('move')}
       style={{ position: 'absolute', left: box.x, top: box.y, width: box.w, height: box.h, transform: `rotate(${box.rot}deg)`, cursor: 'move' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', pointerEvents: 'none' }}>
+      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
         <img src={src} alt={alt} draggable={false} crossOrigin={cors ? 'anonymous' : undefined}
-          onLoad={lockAspect ? (e) => { const r = e.target.naturalWidth / e.target.naturalHeight; if (r > 0) setBox((b) => ({ ...b, h: Math.max(20, Math.round(b.w / r)) })) } : undefined}
-          style={{ flex: 1, minHeight: 0, width: '100%', objectFit: 'contain', display: 'block' }} />
-        {caption && <div style={{ fontSize: 8, textAlign: 'center', marginTop: 2, lineHeight: 1.2 }}>{caption}</div>}
+          onLoad={lockAspect ? (e) => { const r = e.target.naturalWidth / e.target.naturalHeight; if (r > 0) setBox((b) => { const h = Math.max(20, Math.round(b.w / r)); return { ...b, h, ix: 0, iy: 0, iw: b.w, ih: h } }) } : undefined}
+          style={{ position: 'absolute', left: box.ix, top: box.iy, width: box.iw, height: box.ih, objectFit: 'contain', display: 'block', pointerEvents: 'none' }} />
       </div>
       {selected && (
         <>
           <div className="adj-ui" style={{ position: 'absolute', inset: 0, border: '1.5px solid #8b5cf6', pointerEvents: 'none' }} />
           {Object.entries(corners).map(([c, pos]) => (
-            <span key={c} className="adj-ui" onMouseDown={start('resize', c)} style={{ ...hdl, ...pos }} />
+            <span key={c} className="adj-ui" title="Resize" onMouseDown={start('resize', c)} style={{ ...dot, ...pos }} />
+          ))}
+          {Object.entries(edges).map(([c, pos]) => (
+            <span key={c} className="adj-ui" title="Crop" onMouseDown={start('crop', c)} style={{ ...bar, ...pos }} />
           ))}
           <span className="adj-ui" onMouseDown={start('rot')} title="Rotate"
             style={{ position: 'absolute', top: -26, left: '50%', marginLeft: -8, width: 16, height: 16, background: '#fff', border: '1.5px solid #8b5cf6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#8b5cf6', cursor: 'grab', zIndex: 60 }}>⟳</span>
@@ -100,12 +122,20 @@ function swatchText(hex) {
 
 // Canva-style draggable color swatch: a filled block + name that PRINTS, plus a picker popover
 // (color wheel + name field) carrying className "adj-ui" so it is hidden from the PDF/PNG capture.
-function AdjSwatch({ rk, sw, onChange, onRemove, onPick, canPick, scaleRef, selected, onSelect }) {
+function AdjSwatch({ rk, sw, onChange, onRemove, onPick, canPick, scaleRef, selected, onSelect, onDragEnd }) {
   const startDrag = (e) => {
     if (e.target.closest('.adj-ui')) return            // don't drag while using the picker
     e.preventDefault(); e.stopPropagation(); onSelect()
     const sx = e.clientX, sy = e.clientY, x0 = sw.x, y0 = sw.y, sc = scaleRef.current || 1
     const move = (ev) => onChange({ ...sw, x: Math.round(x0 + (ev.clientX - sx) / sc), y: Math.round(y0 + (ev.clientY - sy) / sc) })
+    const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); onDragEnd && onDragEnd() }
+    document.addEventListener('mousemove', move); document.addEventListener('mouseup', up)
+  }
+  // Horizontal-only resize from the right edge.
+  const startResize = (e) => {
+    e.preventDefault(); e.stopPropagation(); onSelect()
+    const sx = e.clientX, w0 = sw.w, sc = scaleRef.current || 1
+    const move = (ev) => onChange({ ...sw, w: Math.max(28, Math.round(w0 + (ev.clientX - sx) / sc)) })
     const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up) }
     document.addEventListener('mousemove', move); document.addEventListener('mouseup', up)
   }
@@ -120,6 +150,8 @@ function AdjSwatch({ rk, sw, onChange, onRemove, onPick, canPick, scaleRef, sele
       {selected && (
         <>
           <div className="adj-ui" style={{ position: 'absolute', inset: -2, border: '1.5px solid #8b5cf6', pointerEvents: 'none' }} />
+          <span className="adj-ui" onMouseDown={startResize} title="Drag to widen"
+            style={{ position: 'absolute', right: -5, top: '50%', marginTop: -8, width: 9, height: 16, background: '#fff', border: '1.5px solid #8b5cf6', borderRadius: 2, cursor: 'ew-resize', zIndex: 71 }} />
           <div className="adj-ui" onMouseDown={(e) => e.stopPropagation()}
             style={{ position: 'absolute', top: '100%', left: 0, marginTop: 6, zIndex: 70, background: '#fff', border: '1px solid #8b5cf6', borderRadius: 6, padding: 8, display: 'flex', gap: 6, alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.18)', textTransform: 'none', width: 246 }}>
             <input type="color" value={has ? sw.color : '#000000'} onChange={(e) => onChange({ ...sw, color: e.target.value })}
@@ -144,7 +176,7 @@ function AdjSwatch({ rk, sw, onChange, onRemove, onPick, canPick, scaleRef, sele
 const LOUPE = 185, SRC = 38   // eyedropper magnifier: loupe diameter (px) and source pixels across it
                               // (~5.5px per pixel — pixels stay visible but you keep enough context to aim)
 
-export default function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, sideViews = [], onSideViews }) {
+export default function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, proposalNotes, sideViews = [], onSideViews }) {
   const pageRef = useRef(null)
   const wrapRef = useRef(null)
   const [scale, setScale] = useState(1)
@@ -154,26 +186,43 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
   const [pickingSV, setPickingSV] = useState(false)
   const [selId, setSelId] = useState(null)                          // selected adjustable image
   const [layout, setLayout] = useState(savedState?.__layout || {})  // persisted geometry per image
-  const SW_W = 64, SW_H = 20   // compact swatch size, matching the Canva template baseline
+  const SW_W = 96, SW_H = 20   // default swatch size (now horizontally resizable)
+  const colorHex = (a) => (a === 'BLACK' ? '#000000' : a === 'WHITE' ? '#ffffff' : '')
+  const colorAns = (re) => {
+    if (!tpl?.colors) return ''
+    const i = tpl.colors.findIndex((c) => re.test(c.l || ''))
+    const a = i >= 0 ? answers?.['color_' + i] : ''
+    return (a === 'BLACK' || a === 'WHITE') ? a : ''
+  }
   const [swatches, setSwatches] = useState(() => {
-    // shrink any swatches saved at the old oversized default (no resize handle yet)
-    if (savedState?.__swatches?.length) return savedState.__swatches.map((s) => ({ ...s, w: s.w > 90 ? SW_W : s.w, h: s.h > 22 ? SW_H : s.h }))
-    if (mode === 'custom' || !tpl?.colors?.length) return []
-    // seed a swatch only for color rows that actually have a value (BLACK/WHITE answer); rows left
-    // TBD get no swatch — the rep adds one via "+ Add color swatch" once the color is known.
-    const seeds = []
-    tpl.colors.forEach((c, idx) => {
-      const ans = answers?.['color_' + idx]
-      if (ans !== 'BLACK' && ans !== 'WHITE') return
-      seeds.push({ id: 'seed' + idx, name: ans, color: ans === 'BLACK' ? '#000000' : '#ffffff', x: 300, y: 560 + seeds.length * 24, w: SW_W, h: SW_H })
-    })
-    return seeds
+    if (savedState?.__swatches?.length) return savedState.__swatches.map((s) => ({ ...s, h: s.h > 22 ? SW_H : s.h }))
+    if (mode === 'custom') return []
+    // Two default chips on one horizontal row: FACE and RETURN & TRIM — pre-filled from the answers
+    // when known, else an empty labelled chip the rep clicks to set.
+    const faceA = colorAns(/face/i), retA = colorAns(/return|trim/i)
+    // Stacked and left-aligned (same x), sitting in the open right area of the specs column near
+    // the FACE / RETURN & TRIM colour lines. Both draggable; new chips snap to a chip's row.
+    return [
+      { id: 'face', name: faceA || 'FACE', color: colorHex(faceA), x: 300, y: 690, w: SW_W, h: SW_H },
+      { id: 'rettrim', name: retA || 'RETURN & TRIM', color: colorHex(retA), x: 300, y: 712, w: SW_W, h: SW_H },
+    ]
   })
+  // Add a chip to the RIGHT of the existing ones, on the same row (auto-aligned).
   const addSwatch = () => {
     const id = 'sw' + Date.now()
-    setSwatches((s) => [...s, { id, name: '', color: '', x: 300, y: 560, w: SW_W, h: SW_H }])
+    setSwatches((s) => {
+      const row = s.find((x) => x.id === 'face') || s[0]
+      const rightX = s.reduce((m, x) => Math.max(m, x.x + x.w), row ? row.x : 300)
+      return [...s, { id, name: '', color: '', x: rightX + 16, y: row ? row.y : 470, w: SW_W, h: SW_H }]
+    })
     setSelId('swatch-' + id)
   }
+  // After a drag, snap a chip's row to a neighbour so rows stay aligned.
+  const snapRow = (id) => setSwatches((arr) => {
+    const me = arr.find((s) => s.id === id); if (!me) return arr
+    const near = arr.find((s) => s.id !== id && Math.abs(s.y - me.y) <= 18)
+    return near ? arr.map((s) => (s.id === id ? { ...s, y: near.y } : s)) : arr
+  })
   const [pickFor, setPickFor] = useState(null)   // swatch id currently sampling a color from the artwork
   const [loupe, setLoupe] = useState(null)       // { left, top, hex } magnifier following the cursor
   const artCanvasRef = useRef(null)              // cached CORS-readable canvas of the artwork (natural size)
@@ -269,8 +318,19 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
     : ((tpl?.desc || 'SIGN') + ' FOR ' + (info.company || ''))
 
   const specHTML = useMemo(() => {
-    if (mode === 'custom') return esc(customSpec?.specText || '').replace(/\n/g, '<br>')
-    return buildSpecLines(tpl, answers, aiResult).map(esc).join('<br>')
+    // Break any run-on text (semicolon- or newline-separated) into clean one-per-line bullets
+    // so a dumped paragraph reads as a tidy spec list instead of a wall of text.
+    const toLines = (text) => (text || '').split(/\r?\n|;\s*/).map((s) => s.trim()).filter(Boolean)
+    const lines = mode === 'custom'
+      ? toLines(customSpec?.specText)
+      : buildSpecLines(tpl, answers, aiResult).flatMap((l) => toLines(l))
+    // Bullet ONLY the face-colour and return/trim-colour lines (the two with swatches); the rest stay
+    // plain. Strip any existing bullet/indent first so colour rows don't end up double-bulleted.
+    return lines.map((l) => {
+      const clean = l.replace(/^[••\-\s]+/, '').trim()
+      const isColor = /COLOR/i.test(clean) && (/FACE/i.test(clean) || (/TRIM/i.test(clean) && /RETURN/i.test(clean)))
+      return (isColor ? '• ' : '') + esc(clean)
+    }).join('<br>')
   }, [mode, tpl, answers, customSpec, aiResult])
 
   const today = new Date()
@@ -286,7 +346,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
       unitPrice: money(price),
       totalPrice: money(price),
       specBody: specHTML,
-      notes: tpl?.notes ? esc(tpl.notes) : '&nbsp;',
+      notes: proposalNotes ? esc(proposalNotes).replace(/\n/g, '<br>') : (tpl?.notes ? esc(tpl.notes) : '&nbsp;'),
       subtotal: money(price),
       dep1: money(price / 2),
       dep2: money(price / 2),
@@ -327,6 +387,65 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
 
   const flash = (m) => { setToast(m); setTimeout(() => setToast(''), 2500) }
 
+  // ---- Auto-save: persist edits + geometry automatically (debounced) so nothing is lost and the
+  // layout/crop stays locked when you leave the proposal and come back. ----
+  const saveTimer = useRef(null)
+  const mounted = useRef(false)
+  const queueSave = () => {
+    if (!onSave) return
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      saveTimer.current = null
+      try { onSave(captureState()); flash('Saved') } catch { /* ignore */ }
+    }, 700)
+  }
+  useEffect(() => { if (!mounted.current) { mounted.current = true; return } queueSave() }, [layout, swatches]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const el = pageRef.current; if (!el) return
+    const h = () => queueSave()
+    el.addEventListener('input', h)
+    return () => el.removeEventListener('input', h)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Flush a pending save on unmount so a quick Back right after an edit still persists.
+  useEffect(() => () => { if (saveTimer.current) { clearTimeout(saveTimer.current); try { onSave?.(captureState()) } catch { /* ignore */ } } }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---- Anchor the two default colour chips to the FACE COLOR / RETURN & TRIM lines (once). The rep
+  // can still drag them; saved positions win on reopen. ----
+  const anchoredRef = useRef(false)
+  useEffect(() => {
+    if (anchoredRef.current) return
+    if (savedState?.__swatches?.length) { anchoredRef.current = true; return }
+    const page = pageRef.current; if (!page) return
+    const spec = page.querySelector('[data-key="specBody"]'); if (!spec) return
+    const sc = scaleRef.current || 1
+    const pageRect = page.getBoundingClientRect()
+    const linePos = (re) => {
+      const walker = document.createTreeWalker(spec, NodeFilter.SHOW_TEXT)
+      let n
+      while ((n = walker.nextNode())) {
+        const m = re.exec(n.textContent || '')
+        if (m) {
+          const range = document.createRange()
+          range.setStart(n, m.index)
+          range.setEnd(n, Math.min((n.textContent || '').length, m.index + m[0].length))
+          const r = range.getBoundingClientRect()
+          return { x: (r.right - pageRect.left) / sc + 10, y: (r.top - pageRect.top) / sc - 2 }
+        }
+      }
+      return null
+    }
+    const fp = linePos(/FACE COLOR/i)
+    const rp = linePos(/(?:RETURN|TRIM)[^A-Za-z]{0,4}(?:&|AND)?[^A-Za-z]{0,4}(?:TRIM|RETURNS?)[^A-Za-z]{0,4}COLOR/i)
+    if (fp || rp) {
+      const X = Math.round(Math.max(fp?.x || 0, rp?.x || 0))
+      setSwatches((arr) => arr.map((s) => (
+        s.id === 'face' && fp ? { ...s, x: X, y: Math.round(fp.y) }
+          : s.id === 'rettrim' && rp ? { ...s, x: X, y: Math.round(rp.y) }
+            : s)))
+    }
+    anchoredRef.current = true
+  }, [specHTML, scale]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const doSave = async () => {
     setBusy('save')
     try { await onSave(captureState()); flash('Saved') }
@@ -360,22 +479,17 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
     } catch (e) { flash('PNG failed: ' + e.message) } finally { setBusy('') }
   }
 
-  const downloadPDF = async () => {
-    setBusy('pdf')
-    try {
-      const c = await render()
-      const w = 816, h = (c.height * w) / c.width
-      const doc = new jsPDF({ orientation: h > w ? 'portrait' : 'landscape', unit: 'px', format: [w, h] })
-      doc.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, w, h)
-      doc.save(`${info.quoteId || 'quote'}.pdf`)
-      flash('PDF downloaded')
-    } catch (e) { flash('PDF failed: ' + e.message) } finally { setBusy('') }
+  const downloadPDF = () => {
+    // Real vector PDF via the browser's print pipeline: sharp, selectable text and a clickable
+    // payment link. (An image-based PDF pixelates the text and the link isn't clickable.)
+    flash("Opening your browser's Save-as-PDF…")
+    setTimeout(() => window.print(), 150)
   }
 
   return (
     <div>
       <div className="edit-hint" style={{ marginBottom: 10, fontSize: 13, color: 'var(--muted, #8a94a6)' }}>
-        ✏️ Click any text on the proposal to edit it. Save keeps your edits; PDF embeds none of the handles.
+        ✏️ Click any text to edit it. Edits and layout save automatically. Click an image for resize corners + crop edges.
       </div>
       {pickFor && (
         <div style={{ position: 'fixed', top: 12, left: '50%', transform: 'translateX(-50%)', background: '#8b5cf6', color: '#fff', padding: '8px 16px', borderRadius: 6, zIndex: 200, fontSize: 13, fontWeight: 600, boxShadow: '0 4px 14px rgba(0,0,0,0.25)' }}>
@@ -392,12 +506,13 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
         </div>
       )}
 
-      <div ref={wrapRef} style={{ overflow: 'hidden', background: '#5a6270', padding: 20, borderRadius: 10 }}>
-        <div style={{ width: 816 * scale, height: scaledH, margin: '0 auto' }}>
+      <div ref={wrapRef} className="proposal-wrap" style={{ overflow: 'hidden', background: '#5a6270', padding: 20, borderRadius: 10 }}>
+        <div className="proposal-fit" style={{ width: 816 * scale, height: scaledH, margin: '0 auto' }}>
         <div
           ref={pageRef}
+          id="proposal-print-root"
           style={{
-            width: 816, minHeight: 1056, background: '#fff', color: '#111',
+            width: 816, minHeight: 560, background: '#fff', color: '#111',
             fontFamily: "'Roboto', Arial, sans-serif", fontSize: 12, textTransform: 'uppercase',
             boxSizing: 'border-box', paddingBottom: 36, position: 'relative',
             transformOrigin: 'top left', transform: `scale(${scale})`,
@@ -436,12 +551,12 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
           <div style={{ margin: '7px 40px 0', display: 'grid', gridTemplateColumns: '1fr 56px 104px 104px' }}>
             <div style={{ ...headCell, borderTop: '1px solid #777' }}>ITEM DESCRIPTION</div>
             <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>QTY</div>
-            <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none' }}>UNIT PRICE</div>
-            <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none' }}>TOTAL PRICE</div>
+            <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>UNIT PRICE</div>
+            <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>TOTAL PRICE</div>
             {E('itemDesc', { ...cell, borderTop: 'none' })}
             <div style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }}>1</div>
-            {E('unitPrice', { ...cell, borderTop: 'none', borderLeft: 'none' })}
-            {E('totalPrice', { ...cell, borderTop: 'none', borderLeft: 'none' })}
+            {E('unitPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' })}
+            {E('totalPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' })}
           </div>
 
           {/* specs (left) + package & side view (right): ONE outer frame; the divider is the left
@@ -455,9 +570,14 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
             </div>
             <div>
               <div style={secHead}>PACKAGE INCLUDES</div>
-              <div style={{ position: 'relative', height: 104, borderBottom: '1px solid #777' }}>
-                {PACKAGE.map((p, i) => (
-                  <AdjImg key={p.label} {...adjProps(`pkg-${p.label}`, { x: 18 + i * 122, y: 8, w: 92, h: 86 })} src={p.img} alt={p.label} caption={p.label} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: 8, borderBottom: '1px solid #777' }}>
+                {PACKAGE.map((p) => (
+                  <div key={p.label} style={{ border: '1px solid #999', borderRadius: 4, padding: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#fff' }}>
+                    <div style={{ height: 118, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <img src={p.img} alt={p.label} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', transform: 'scale(1.18)' }} />
+                    </div>
+                    <div style={{ fontSize: 8.5, fontWeight: 700, textAlign: 'center', marginTop: 3, lineHeight: 1.2 }}>{p.label}</div>
+                  </div>
                 ))}
               </div>
               <div style={secHead}>SIDE VIEW</div>
@@ -465,7 +585,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                 {sideViews.length === 0
                   ? <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 10, textTransform: 'none' }}>[ No side view selected ]</span>
                   : sideViews.map((k, i) => (
-                      <AdjImg key={k} {...adjProps(`sv-${k}`, { x: 46 + i * 12, y: 12 + i * 12, w: 160, h: 184 })} src={`/side_views/${k}.png`} alt={k} />
+                      <AdjImg key={k} {...adjProps(`sv-${k}`, { x: 16 + i * 14, y: 10 + i * 14, w: 230, h: 188 })} src={`/side_views/${k}.png`} alt={k} />
                     ))}
               </div>
             </div>
@@ -491,11 +611,12 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
           </div>
 
           {/* draggable color swatches — the filled block prints; the picker chrome (.adj-ui) does not */}
-          {swatches.map((sw) => ((sw.color || sw.name || selId === 'swatch-' + sw.id) ? (
+          {swatches.map((sw) => ((sw.id === 'face' || sw.id === 'rettrim' || sw.color || sw.name || selId === 'swatch-' + sw.id) ? (
             <AdjSwatch key={sw.id} rk={'swatch-' + sw.id} sw={sw} scaleRef={scaleRef}
               selected={selId === 'swatch-' + sw.id} onSelect={() => setSelId('swatch-' + sw.id)}
               onChange={(n) => setSwatches((arr) => arr.map((x) => (x.id === sw.id ? n : x)))}
               onRemove={() => { setSwatches((arr) => arr.filter((x) => x.id !== sw.id)); setSelId(null) }}
+              onDragEnd={() => snapRow(sw.id)}
               onPick={() => { artCanvasRef.current = null; setPickFor(sw.id) }} canPick={!!artworkPath} />
           ) : null))}
         </div>
@@ -534,8 +655,8 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
       {/* actions */}
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 14 }}>
         <button className="ghost" disabled={busy} onClick={doSave}>{busy === 'save' ? 'Saving…' : '💾 Save edits'}</button>
-        <button disabled={busy} onClick={downloadPNG}>{busy === 'png' ? 'Rendering…' : '⬇ PNG'}</button>
-        <button disabled={busy} onClick={downloadPDF}>{busy === 'pdf' ? 'Rendering…' : '⬇ Download PDF'}</button>
+        <button className="ghost" disabled={busy} onClick={downloadPNG}>{busy === 'png' ? 'Rendering…' : '⬇ PNG image'}</button>
+        <button disabled={busy} onClick={downloadPDF}>🖨️ Save as PDF</button>
         {toast && <span style={{ alignSelf: 'center', color: '#2e7d32', fontWeight: 600 }}>{toast}</span>}
       </div>
     </div>

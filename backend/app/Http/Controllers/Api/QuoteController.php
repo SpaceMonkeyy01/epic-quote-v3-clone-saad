@@ -315,6 +315,8 @@ class QuoteController extends Controller
         $this->assertAccess($request, $quote);
         $data = $request->all();
 
+        // Merge into the existing bundle (top-level keys) so a partial save never wipes the rest.
+        $data = array_merge($quote->generated_data ?? [], $data);
         $quote->generated_data = $data;
         if (in_array($data['quote_type'] ?? null, ['generator', 'custom'], true)) {
             $quote->quote_type = $data['quote_type'];
@@ -347,6 +349,23 @@ class QuoteController extends Controller
         }
         $quote->update(['customer_pdf' => $filename]);
         ActivityLog::record($request->user()->id, 'file_uploaded', "{$quote->quote_id}: Customer PDF/Drawing ({$filename})");
+
+        return response()->json(['path' => "/storage/pdfs/{$filename}"]);
+    }
+
+    // POST /api/quotes/{quote}/extra-file — an additional (non-primary) upload so multi-file jobs
+    // lose nothing. Stored alongside the primary; the frontend records the path in generated_data.
+    public function uploadExtraFile(Request $request, Quote $quote): JsonResponse
+    {
+        $this->assertAccess($request, $quote);
+        $request->validate(['file' => 'required|file|mimes:pdf,jpg,jpeg,png,gif,webp,avif,svg|max:25600']);
+        $file = $request->file('file');
+        $filename = $quote->quote_id.'_x'.substr(md5((string) microtime(true)), 0, 6).'_'.$this->safeFilename($file);
+        $file->storeAs('pdfs', $filename, 'public');
+        if (!Storage::disk('public')->exists("pdfs/{$filename}")) {
+            return response()->json(['error' => 'Upload could not be saved — server storage is not writable/persistent.'], 500);
+        }
+        ActivityLog::record($request->user()->id, 'file_uploaded', "{$quote->quote_id}: Extra upload ({$filename})");
 
         return response()->json(['path' => "/storage/pdfs/{$filename}"]);
     }

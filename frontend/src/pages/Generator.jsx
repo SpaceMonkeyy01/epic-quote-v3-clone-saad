@@ -3,6 +3,8 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { getQuote, updateQuote, putGenerated, uploadArtwork, uploadCustomerFile, generateSpecs } from '../api/quotes'
 import { getLogo } from '../api/meta'
+import { useConstants } from '../hooks'
+import useAuthStore from '../store/authStore'
 import { T, CUSTOM_TEMPLATES } from '../generator/catalog'
 import { autoAnswerFromAI } from '../generator/questions'
 import { SIDE_VIEWS, pickSideView } from '../generator/sideviews'
@@ -42,6 +44,9 @@ export default function Generator() {
   const qc = useQueryClient()
   const [searchParams] = useSearchParams()
   const [autoAi, setAutoAi] = useState(false)
+  const { data: constants } = useConstants()
+  const admin = useAuthStore((s) => s.isAdmin)()
+  const reps = constants?.sales_reps || []
 
   const [quote, setQuote] = useState(null)
   const [gd, setGd] = useState(null)            // existing generated_data
@@ -50,7 +55,7 @@ export default function Generator() {
   const [loading, setLoading] = useState(true)
 
   // wizard state
-  const [client, setClient] = useState({ company_name: '', client_name: '', contact: '', address: '', job_name: '' })
+  const [client, setClient] = useState({ company_name: '', client_name: '', contact: '', address: '', job_name: '', sales_rep: '' })
   const [special, setSpecial] = useState('')
   const [tpl, setTpl] = useState(null)
   const [answers, setAnswers] = useState({})
@@ -66,6 +71,8 @@ export default function Generator() {
   const [aiStatus, setAiStatus] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const artInput = useRef(null)
+  const [showDrawing, setShowDrawing] = useState(false)   // in-app viewer for the customer's file
+  const [proposalNotes, setProposalNotes] = useState('')  // net-new notes (asked last), shown on the proposal
 
   useEffect(() => {
     (async () => {
@@ -76,7 +83,7 @@ export default function Generator() {
       setClient({
         company_name: q.company_name || '', client_name: q.client_name || '',
         contact: q.contact || '', address: q.address || '',
-        job_name: g.job_name || q.job_name || '',
+        job_name: g.job_name || q.job_name || '', sales_rep: q.sales_rep || '',
       })
       setSpecial(q.special_requirements || '')
       if (g.tpl_name) setTpl(T.find((t) => t.n === g.tpl_name) || null)
@@ -88,6 +95,7 @@ export default function Generator() {
       else if (q.customer_pdf && /\.(png|jpe?g|gif|webp|svg)$/i.test(q.customer_pdf)) setArtworkPath(q.customer_pdf)
       if (g.side_views) setSideViews(g.side_views)
       if (g.payment_link) setPaymentLink(g.payment_link)
+      setProposalNotes(g.proposal_notes || '')
       getLogo().then((l) => setLogoUrl(l.logo)).catch(() => {})
 
       // Mode comes from the intake choice (?mode=ai|custom) or the persisted quote_type — never re-asked.
@@ -110,6 +118,7 @@ export default function Generator() {
 
   const flow = mode ? FLOWS[mode] : []
   const flowIndex = flow.indexOf(step)
+  const aiSuggestedName = ai && ai.signType ? (matchSignType(ai.signType)?.n || null) : null
   const goto = (s) => setStep(s)
   const next = () => goto(flow[flowIndex + 1])
   const back = () => (flowIndex > 0 ? goto(flow[flowIndex - 1]) : navigate('/dashboard'))
@@ -126,6 +135,7 @@ export default function Generator() {
       artwork_path: (artworkPath && !artworkPath.startsWith('blob:') && !artworkPath.startsWith('data:')) ? artworkPath : null,
       side_views: sideViews,
       payment_link: paymentLink,
+      proposal_notes: proposalNotes,
       ...extra,
     }
     await putGenerated(quoteId, payload)
@@ -138,6 +148,7 @@ export default function Generator() {
   // --- step handlers ---
   const saveClient = async () => {
     await updateQuote(quoteId, client)
+    await saveProgress()        // also persists the payment link
     next()
   }
   const onArtwork = async (e) => {
@@ -166,6 +177,7 @@ export default function Generator() {
       await updateQuote(quoteId, { special_requirements: special })
       // vector/CAD PDFs carry no extractable text — render page 1 to an image so vision can read it
       let imageData = null
+      let artPath = artworkPath
       if (quote?.customer_pdf && /\.pdf$/i.test(quote.customer_pdf)) {
         setAiStatus('Rendering the PDF for the AI…')
         const dataUrl = await rasterizePdf(fileUrl(quote.customer_pdf))
@@ -176,7 +188,7 @@ export default function Generator() {
             try {
               const blob = await (await fetch(dataUrl)).blob()
               const path = await uploadArtwork(quoteId, new File([blob], 'drawing.png', { type: 'image/png' }))
-              setArtworkPath(path)
+              artPath = path; setArtworkPath(path)
             } catch { setArtworkPath(dataUrl) }
           }
         }
@@ -201,7 +213,17 @@ export default function Generator() {
       }
       // hybrid side-view: deterministic map (by sign type) fused with the Groq-vision suggestion
       const sv = pickSideView(found?.n || result.signType, result.sideViewKey, result.sideViewConfidence || 0)
-      if (sv.selected) setSideViews([sv.selected])
+      const svSel = sv.selected ? [sv.selected] : []
+      if (sv.selected) setSideViews(svSel)
+      // Persist the AI result NOW, so reopening/edit-back keeps the specs, sign type and side view
+      // instead of losing them (the old code saved AI only at a much later step).
+      await saveProgress({
+        ai: result,
+        tpl_name: found?.n || null,
+        side_views: svSel,
+        job_name: prefill.job_name || client.job_name || '',
+        artwork_path: (artPath && !artPath.startsWith('blob:') && !artPath.startsWith('data:')) ? artPath : null,
+      })
       setAiStatus('')
     } catch (err) {
       setAiStatus('⚠ AI generation failed: ' + (err.response?.data?.error || err.message))
@@ -219,17 +241,13 @@ export default function Generator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoAi, step])
 
-  // AI mode now routes through the Q&A pages (sign type + specs) so the rep can review/adjust
-  // the AI-extracted values instead of jumping straight to artwork.
-  const continueFromAI = () => {
-    if (!tpl) setAiStatus('AI did not return a matching sign type — please pick one manually.')
-    goto('signtype')
-  }
-
-  // project-step forward: save the brief, then continue (to artwork if AI matched a sign type, else sign-type)
-  const proceedFromProject = async () => {
-    await updateQuote(quoteId, { special_requirements: special })
-    continueFromAI()
+  // Pick a sign type → go straight to its questions (one click, no separate Next button).
+  // Re-picking the SAME type keeps the answers already entered (fixes edit-back wiping specs).
+  const pickSign = (t) => {
+    if (tpl?.n === t.n) { goto('specs'); return }
+    setTpl(t)
+    setAnswers(ai ? autoAnswerFromAI(t, ai) : {})
+    goto('specs')
   }
 
   const finishSpecs = (finalAnswers) => { setAnswers(finalAnswers) }
@@ -257,7 +275,10 @@ export default function Generator() {
           <h1>{mode === 'custom' ? 'Custom Quote Creator' : 'Quote Generator'}</h1>
           <div className="muted">{quoteId} — {quote?.company_name}</div>
         </div>
-        <button className="ghost" onClick={() => navigate('/dashboard')}>Exit</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {quote?.customer_pdf && <button className="ghost" onClick={() => setShowDrawing(true)}>📎 View drawing</button>}
+          <button className="ghost" onClick={() => navigate('/dashboard')}>Exit</button>
+        </div>
       </div>
 
       {/* progress bar */}
@@ -275,54 +296,50 @@ export default function Generator() {
                 <input value={client[k]} onChange={(e) => setClient({ ...client, [k]: e.target.value })} />
               </div>
             ))}
+            <div className="field">
+              <label>Sales Representative</label>
+              {admin ? (
+                <select value={client.sales_rep} onChange={(e) => setClient({ ...client, sales_rep: e.target.value })}>
+                  <option value="">— select —</option>
+                  {reps.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+              ) : (<input value={client.sales_rep || '—'} disabled />)}
+            </div>
+            <div className="field">
+              <label>💳 Payment link (optional)</label>
+              <input type="url" placeholder="https://…" value={paymentLink} onChange={(e) => setPaymentLink(e.target.value)} />
+            </div>
             <div className="foot"><button className="ghost" onClick={back}>Back</button><button onClick={saveClient}>Next →</button></div>
           </div>
         )}
 
         {step === 'project' && (
           <div className="step">
-            <h3>Project Information</h3>
-            <div className="field">
-              <label>Special Requirements</label>
-              <textarea rows={4} value={special} onChange={(e) => setSpecial(e.target.value)} />
-            </div>
+            <h3>{aiLoading ? 'Reading your upload(s)…' : 'Project'}</h3>
             <div className="field">
               {quote?.customer_pdf ? (
-                <div className="muted" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <a href={fileUrl(quote.customer_pdf)} target="_blank" rel="noreferrer">📎 View attached file</a>
-                  <label style={{ cursor: 'pointer', textDecoration: 'underline' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <button type="button" className="ghost sm" onClick={() => setShowDrawing(true)}>📎 View the customer's drawing</button>
+                  <label className="muted" style={{ cursor: 'pointer', textDecoration: 'underline' }}>
                     Replace
                     <input type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={onCustomerFile} />
                   </label>
                 </div>
               ) : (
-                <input type="file" accept=".pdf,image/*" onChange={onCustomerFile} />
+                <>
+                  <label>Customer's drawing (optional)</label>
+                  <input type="file" accept=".pdf,image/*" onChange={onCustomerFile} />
+                </>
               )}
             </div>
             <div className="ai-box">
-              <button onClick={runAI} disabled={aiLoading}>{aiLoading ? 'Generating…' : '⚡ Generate Specs with AI'}</button>
-              <span className="muted" style={{ marginLeft: 10 }}>Optional — or fill specs manually in the next steps.</span>
+              {!ai
+                ? <button onClick={runAI} disabled={aiLoading}>{aiLoading ? 'Reading…' : '⚡ Read the drawing with AI'}</button>
+                : <span><b style={{ color: '#9ae6b4' }}>✔ Specs ready.</b><button className="ghost sm" style={{ marginLeft: 10 }} onClick={runAI} disabled={aiLoading}>{aiLoading ? 'Reading…' : '↻ Re-read'}</button></span>}
+              {!ai && <span className="muted" style={{ marginLeft: 10 }}>Or skip and pick the sign type yourself.</span>}
               {aiStatus && <p className="muted" style={{ marginTop: 8 }}>{aiStatus}</p>}
-              {ai && (
-                <div className="ai-result">
-                  <b style={{ color: '#c4b5fd' }}>✔ AI specifications generated</b>
-                  {[['Our Client (retail)', ai.companyName], ['End Customer', ai.endCustomer], ['Sign Type', ai.signType], ['Job Name', ai.jobName], ['Dimensions', ai.dimensions],
-                    ['Returns', ai.returns], ['Trim Cap', ai.trimcap], ['Mounting', ai.mounting],
-                    ['Illumination', ai.illumination], ['Face Color', ai.faceColor], ['Return Color', ai.returnColor],
-                    ['Application', ai.application], ['Price', ai.price != null ? '$' + ai.price : null], ['Notes', ai.notes]]
-                    .filter(([, v]) => v != null && v !== '')
-                    .map(([k, v]) => <div key={k} className="line"><b>{k}:</b> {String(v)}</div>)}
-                  {ai.fullSpec && (
-                    <div style={{ marginTop: 10 }}>
-                      <label>Full extracted specification</label>
-                      <pre className="spec-dump" style={{ maxHeight: 220 }}>{ai.fullSpec}</pre>
-                    </div>
-                  )}
-                  <p className="muted" style={{ marginTop: 6 }}>Pre-filled from the drawing — review above, then click Next.</p>
-                </div>
-              )}
             </div>
-            <div className="foot"><button className="ghost" onClick={back}>Back</button><button onClick={proceedFromProject}>Next →</button></div>
+            <div className="foot"><button className="ghost" onClick={back}>Back</button><button onClick={() => goto('signtype')}>Next →</button></div>
           </div>
         )}
 
@@ -330,20 +347,20 @@ export default function Generator() {
           <div className="step">
             <h3>Select Sign Type</h3>
             <input placeholder="Search sign types…" value={signSearch} onChange={(e) => setSignSearch(e.target.value)} style={{ marginBottom: 12 }} />
+            <p className="muted" style={{ marginTop: -4, marginBottom: 10 }}>Click a sign type to continue.</p>
             <div className="sign-list">
               {T.filter((t) => t.n.toLowerCase().includes(signSearch.toLowerCase())).map((t) => (
                 <div
                   key={t.n}
-                  className={'sign-opt' + (tpl?.n === t.n ? ' sel' : '')}
-                  onClick={() => setTpl(t)}
+                  className={'sign-opt' + (tpl?.n === t.n ? ' sel' : '') + (aiSuggestedName === t.n ? ' ai' : '')}
+                  onClick={() => pickSign(t)}
                 >
-                  {t.n}{ai && tpl?.n === t.n ? '  ⚡ AI suggested' : ''}
+                  {t.n}{aiSuggestedName === t.n ? '  ⚡ AI suggested' : ''}
                 </div>
               ))}
             </div>
             <div className="foot">
               <button className="ghost" onClick={back}>Back</button>
-              <button disabled={!tpl} onClick={() => { setAnswers(ai ? autoAnswerFromAI(tpl, ai) : {}); next() }}>Next →</button>
             </div>
           </div>
         )}
@@ -361,13 +378,17 @@ export default function Generator() {
 
         {step === 'artwork' && (
           <div className="step">
-            <h3>Artwork</h3>
-            {artworkPath && <img src={fileUrl(artworkPath)} alt="artwork" style={{ maxWidth: 360, display: 'block', margin: '8px 0', border: '1px solid var(--border)', borderRadius: 8 }} />}
+            <h3>Artwork &amp; Notes</h3>
+            {artworkPath && <img src={fileUrl(artworkPath)} alt="artwork" onError={(e) => { e.currentTarget.style.display = 'none'; setArtErr('The saved artwork could not be loaded — please re-upload it.') }} style={{ maxWidth: 360, display: 'block', margin: '8px 0', border: '1px solid var(--border)', borderRadius: 8 }} />}
             <input ref={artInput} type="file" accept="image/*" onChange={onArtwork} />
             {artErr && <p style={{ color: '#ff6b6b', fontSize: 13, marginTop: 8 }}>{artErr}</p>}
+            <div className="field" style={{ marginTop: 18 }}>
+              <label>Notes for the proposal (anything special not already on the drawing)</label>
+              <textarea rows={3} value={proposalNotes} onChange={(e) => setProposalNotes(e.target.value)} placeholder="e.g. install timeline, special finish, access notes…" />
+            </div>
             <div className="foot">
               <button className="ghost" onClick={back}>Back</button>
-              <button className="ghost" onClick={() => { setArtworkPath(null); toPreview() }}>Skip</button>
+              <button className="ghost" onClick={() => { setArtworkPath(null); toPreview() }}>Skip artwork</button>
               <button onClick={toPreview}>{saving ? 'Saving…' : 'Next →'}</button>
             </div>
           </div>
@@ -416,6 +437,7 @@ export default function Generator() {
               logo={logo}
               aiResult={ai}
               paymentLink={paymentLink}
+              proposalNotes={proposalNotes}
               savedState={gd?.proposal_state}
               sideViews={sideViews}
               onSideViews={setSideViews}
@@ -428,6 +450,23 @@ export default function Generator() {
           </div>
         )}
       </div>
+
+      {showDrawing && quote?.customer_pdf && (
+        <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && setShowDrawing(false)}>
+          <div className="modal" style={{ width: 'min(900px, 96%)', height: '88vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <b>Customer's drawing</b>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <a className="ghost sm" href={fileUrl(quote.customer_pdf)} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Open in new tab</a>
+                <button className="ghost sm" onClick={() => setShowDrawing(false)}>Close</button>
+              </div>
+            </div>
+            {/\.pdf$/i.test(quote.customer_pdf)
+              ? <iframe title="Customer drawing" src={fileUrl(quote.customer_pdf)} style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 8, background: '#fff', minHeight: 0 }} />
+              : <img src={fileUrl(quote.customer_pdf)} alt="Customer drawing" style={{ flex: 1, objectFit: 'contain', minHeight: 0 }} />}
+          </div>
+        </div>
+      )}
     </>
   )
 }

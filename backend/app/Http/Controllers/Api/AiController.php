@@ -84,7 +84,7 @@ Respond ONLY with a JSON object, no markdown fences, no preamble, with these key
  "contact": "the RETAIL sign company's email and/or phone (from the title block/footer/logo block), else null",
  "address": "the RETAIL sign company's mailing address (from the title block/footer/logo block), else null",
  "signType": "one of the sign types above, verbatim",
- "jobName": "short job name",
+ "jobName": "the sign TYPE / description (e.g. Two-Sided Push Thru Blade Sign), NOT the project title",
  "dimensions": "primary sign overall dimensions, like 29\\" X 100\\"",
  "returns": "like 3\\" DEEP or null",
  "trimcap": "METALLIC TRIM CAP | JEWLITE TRIM CAP | STANDARD TRIM CAP | N/A | null",
@@ -143,15 +143,15 @@ You are a sign-industry assistant for Epic Craftings, a WHOLESALE sign manufactu
 CONTENT:
 {$info}
 
-The RETAIL sign company (OUR client) appears in the title block / footer / logo / contact details (e.g. "FastSigns Allentown"). The drawing's "Client:" field is the END customer (e.g. "28 TEN Group") — that is NOT our client.
+The RETAIL sign company (OUR client) is usually shown ONLY as a LOGO / company name in a CORNER of the drawing (header or bottom-left), e.g. "Mountain Dog Sign Company" — read the logo carefully, it is rarely in the body text. The drawing's "Client:" field is the END customer (e.g. "Takisaki Inc") — that is NOT our client. Do not put the project title (e.g. "GEG Jack & Dan's - Storefront Blade") in either name field.
 
 Respond ONLY with a JSON object (no markdown, no preamble); use empty string "" when unknown:
 {
- "companyName": "the RETAIL sign company that sent this — OUR client",
- "clientName": "the end customer (often the drawing's 'Client:' field)",
+ "companyName": "the RETAIL sign company that sent this (OUR client) — read it from the logo/company name in the corner",
+ "clientName": "the end customer (the drawing's 'Client:' field)",
  "contact": "the retail company's email and/or phone",
  "address": "the retail company's mailing address",
- "jobName": "a short job name"
+ "jobName": "the sign TYPE / description (e.g. Two-Sided Push Thru Blade Sign), NOT the project title"
 }
 PROMPT;
 
