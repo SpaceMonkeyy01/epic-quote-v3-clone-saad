@@ -112,8 +112,8 @@ export default function AddQuoteModal({ onClose }) {
 
   const back = () => { setChoice(null); setRevealed(false); setFiles([]); setForm(EMPTY) }
 
-  // The party fields — shared by AI (after read) and Custom.
-  const partyFields = (
+  // Party fields that AI fills in (shown only after the read in AI mode; always in Custom).
+  const extractedFields = (
     <>
       <div className="field">
         <label>Company Name {choice === 'ai' && <span className="muted" style={{ fontWeight: 400 }}>(the sign company on the drawing)</span>}</label>
@@ -125,6 +125,11 @@ export default function AddQuoteModal({ onClose }) {
       </div>
       <div className="field"><label>Address</label><input value={form.address} onChange={set('address')} /></div>
       <div className="field"><label>Job Name</label><input value={form.job_name} onChange={set('job_name')} /></div>
+    </>
+  )
+  // Rep + payment link — not AI-driven, so always shown up front.
+  const repPayFields = (
+    <>
       <div className="field">
         <label>Sales Representative {!isAdmin() && '(you)'}</label>
         {isAdmin() ? (
@@ -205,13 +210,15 @@ export default function AddQuoteModal({ onClose }) {
 
           {revealed && (
             <>
-              {partyFields}
-              <button type="button" className="ghost sm" disabled={autofilling}
+              {extractedFields}
+              <button type="button" className="ghost sm" disabled={autofilling} style={{ marginBottom: 14 }}
                 onClick={() => (source === 'file' ? files.length && autofillFromFiles(files) : autofillFromText())}>
                 {autofilling ? 'Reading…' : '↻ Re-read'}
               </button>
             </>
           )}
+
+          {repPayFields}
 
           {error && <p className="err">{error}</p>}
 
@@ -231,7 +238,8 @@ export default function AddQuoteModal({ onClose }) {
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose(false)}>
       <form className="modal modal-quote" onSubmit={submit}>
         <h2>New Quote — Custom</h2>
-        {partyFields}
+        {extractedFields}
+        {repPayFields}
         <div className="field">
           <label>Special Requirements</label>
           <textarea rows={2} value={form.special_requirements} onChange={set('special_requirements')} />

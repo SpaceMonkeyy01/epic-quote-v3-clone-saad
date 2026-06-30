@@ -122,10 +122,11 @@ function swatchText(hex) {
 
 // Canva-style draggable color swatch: a filled block + name that PRINTS, plus a picker popover
 // (color wheel + name field) carrying className "adj-ui" so it is hidden from the PDF/PNG capture.
-function AdjSwatch({ rk, sw, onChange, onRemove, onPick, canPick, scaleRef, selected, onSelect, onDragEnd }) {
+function AdjSwatch({ rk, sw, onChange, onRemove, onPick, canPick, scaleRef, selected, onSelect, onDragEnd, locked }) {
   const startDrag = (e) => {
     if (e.target.closest('.adj-ui')) return            // don't drag while using the picker
     e.preventDefault(); e.stopPropagation(); onSelect()
+    if (locked) return                                  // FACE / RETURN&TRIM are auto-anchored, not draggable
     const sx = e.clientX, sy = e.clientY, x0 = sw.x, y0 = sw.y, sc = scaleRef.current || 1
     const move = (ev) => onChange({ ...sw, x: Math.round(x0 + (ev.clientX - sx) / sc), y: Math.round(y0 + (ev.clientY - sy) / sc) })
     const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); onDragEnd && onDragEnd() }
@@ -187,24 +188,14 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
   const [selId, setSelId] = useState(null)                          // selected adjustable image
   const [layout, setLayout] = useState(savedState?.__layout || {})  // persisted geometry per image
   const SW_W = 96, SW_H = 20   // default swatch size (now horizontally resizable)
-  const colorHex = (a) => (a === 'BLACK' ? '#000000' : a === 'WHITE' ? '#ffffff' : '')
-  const colorAns = (re) => {
-    if (!tpl?.colors) return ''
-    const i = tpl.colors.findIndex((c) => re.test(c.l || ''))
-    const a = i >= 0 ? answers?.['color_' + i] : ''
-    return (a === 'BLACK' || a === 'WHITE') ? a : ''
-  }
   const [swatches, setSwatches] = useState(() => {
     if (savedState?.__swatches?.length) return savedState.__swatches.map((s) => ({ ...s, h: s.h > 22 ? SW_H : s.h }))
     if (mode === 'custom') return []
-    // Two default chips on one horizontal row: FACE and RETURN & TRIM — pre-filled from the answers
-    // when known, else an empty labelled chip the rep clicks to set.
-    const faceA = colorAns(/face/i), retA = colorAns(/return|trim/i)
-    // Stacked and left-aligned (same x), sitting in the open right area of the specs column near
-    // the FACE / RETURN & TRIM colour lines. Both draggable; new chips snap to a chip's row.
+    // Two default chips, stacked + left-aligned, anchored later to the FACE / RETURN & TRIM colour
+    // lines. Default first BLACK, second WHITE (the common pair); the rep adjusts via the picker.
     return [
-      { id: 'face', name: faceA || 'FACE', color: colorHex(faceA), x: 300, y: 690, w: SW_W, h: SW_H },
-      { id: 'rettrim', name: retA || 'RETURN & TRIM', color: colorHex(retA), x: 300, y: 712, w: SW_W, h: SW_H },
+      { id: 'face', name: 'BLACK', color: '#000000', x: 300, y: 690, w: SW_W, h: SW_H },
+      { id: 'rettrim', name: 'WHITE', color: '#ffffff', x: 300, y: 712, w: SW_W, h: SW_H },
     ]
   })
   // Add a chip to the RIGHT of the existing ones, on the same row (auto-aligned).
@@ -328,8 +319,13 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
     // plain. Strip any existing bullet/indent first so colour rows don't end up double-bulleted.
     return lines.map((l) => {
       const clean = l.replace(/^[••\-\s]+/, '').trim()
-      const isColor = /COLOR/i.test(clean) && (/FACE/i.test(clean) || (/TRIM/i.test(clean) && /RETURN/i.test(clean)))
-      return (isColor ? '• ' : '') + esc(clean)
+      // A swatch line is the FACE colour line, or a RETURN/TRIM colour line in any wording
+      // ("RETURN COLOR", "RETURN & TRIM COLOR", "TRIM & RETURNS COLOR"). NOT "BACKER COLOR".
+      const hasColor = /COLOR/i.test(clean)
+      const isColor = hasColor && (/FACE/i.test(clean) || /RETURN/i.test(clean) || /TRIM/i.test(clean))
+      // On those lines drop the colour word after the colon — the swatch shows the colour.
+      if (isColor) return '• ' + esc(clean.replace(/:\s*.*$/, ':'))
+      return esc(clean)
     }).join('<br>')
   }, [mode, tpl, answers, customSpec, aiResult])
 
@@ -409,41 +405,45 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
   // Flush a pending save on unmount so a quick Back right after an edit still persists.
   useEffect(() => () => { if (saveTimer.current) { clearTimeout(saveTimer.current); try { onSave?.(captureState()) } catch { /* ignore */ } } }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---- Anchor the two default colour chips to the FACE COLOR / RETURN & TRIM lines (once). The rep
-  // can still drag them; saved positions win on reopen. ----
-  const anchoredRef = useRef(false)
+  // ---- Data-driven colour chips: scan the real FACE / RETURN / TRIM colour lines and glue one chip
+  // snug to the right of each, vertically centred. Handles every catalog wording, incl. a combined
+  // "FACE & RETURN COLOR" line (then just one chip — the second is hidden). Re-runs on spec/scale
+  // change so it never drifts; these chips are locked from dragging (extra chips stay free). ----
+  const [hideRet, setHideRet] = useState(false)
   useEffect(() => {
-    if (anchoredRef.current) return
-    if (savedState?.__swatches?.length) { anchoredRef.current = true; return }
     const page = pageRef.current; if (!page) return
     const spec = page.querySelector('[data-key="specBody"]'); if (!spec) return
     const sc = scaleRef.current || 1
     const pageRect = page.getBoundingClientRect()
-    const linePos = (re) => {
-      const walker = document.createTreeWalker(spec, NodeFilter.SHOW_TEXT)
-      let n
-      while ((n = walker.nextNode())) {
-        const m = re.exec(n.textContent || '')
-        if (m) {
-          const range = document.createRange()
-          range.setStart(n, m.index)
-          range.setEnd(n, Math.min((n.textContent || '').length, m.index + m[0].length))
-          const r = range.getBoundingClientRect()
-          return { x: (r.right - pageRect.left) / sc + 10, y: (r.top - pageRect.top) / sc - 2 }
-        }
-      }
-      return null
+    const lines = []
+    const walker = document.createTreeWalker(spec, NodeFilter.SHOW_TEXT)
+    let n
+    while ((n = walker.nextNode())) {
+      const txt = n.textContent || ''
+      if (!/COLOR/i.test(txt)) continue
+      const hasFace = /FACE/i.test(txt), hasRet = /RETURN|TRIM/i.test(txt)
+      if (!hasFace && !hasRet) continue            // skip BACKER / RACEWAY / "COLOR SPECS"
+      const idx = txt.search(/COLOR/i)
+      const range = document.createRange()
+      range.setStart(n, 0); range.setEnd(n, Math.min(txt.length, idx + 5))   // measure up to "…COLOR"
+      const r = range.getBoundingClientRect()
+      lines.push({ hasFace, hasRet, x: Math.round((r.right - pageRect.left) / sc + 8), y: Math.round((r.top - pageRect.top) / sc + (r.height / sc - SW_H) / 2) })
     }
-    const fp = linePos(/FACE COLOR/i)
-    const rp = linePos(/(?:RETURN|TRIM)[^A-Za-z]{0,4}(?:&|AND)?[^A-Za-z]{0,4}(?:TRIM|RETURNS?)[^A-Za-z]{0,4}COLOR/i)
-    if (fp || rp) {
-      const X = Math.round(Math.max(fp?.x || 0, rp?.x || 0))
-      setSwatches((arr) => arr.map((s) => (
-        s.id === 'face' && fp ? { ...s, x: X, y: Math.round(fp.y) }
-          : s.id === 'rettrim' && rp ? { ...s, x: X, y: Math.round(rp.y) }
-            : s)))
-    }
-    anchoredRef.current = true
+    const faceLine = lines.find((l) => l.hasFace) || lines[0]
+    const retLine = lines.find((l) => l !== faceLine && l.hasRet)
+    setHideRet(!retLine)
+    if (!faceLine) return
+    const target = { face: { x: faceLine.x, y: faceLine.y } }
+    if (retLine) target.rettrim = { x: retLine.x, y: retLine.y }
+    setSwatches((arr) => {
+      let changed = false
+      const next = arr.map((s) => {
+        const t = target[s.id]
+        if (t && (s.x !== t.x || s.y !== t.y)) { changed = true; return { ...s, x: t.x, y: t.y } }
+        return s
+      })
+      return changed ? next : arr
+    })
   }, [specHTML, scale]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const doSave = async () => {
@@ -514,7 +514,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
           style={{
             width: 816, minHeight: 560, background: '#fff', color: '#111',
             fontFamily: "'Roboto', Arial, sans-serif", fontSize: 12, textTransform: 'uppercase',
-            boxSizing: 'border-box', paddingBottom: 36, position: 'relative',
+            boxSizing: 'border-box', paddingBottom: 14, position: 'relative',
             transformOrigin: 'top left', transform: `scale(${scale})`,
           }}
         >
@@ -570,14 +570,9 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
             </div>
             <div>
               <div style={secHead}>PACKAGE INCLUDES</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: 8, borderBottom: '1px solid #777' }}>
-                {PACKAGE.map((p) => (
-                  <div key={p.label} style={{ border: '1px solid #999', borderRadius: 4, padding: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#fff' }}>
-                    <div style={{ height: 118, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <img src={p.img} alt={p.label} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', transform: 'scale(1.18)' }} />
-                    </div>
-                    <div style={{ fontSize: 8.5, fontWeight: 700, textAlign: 'center', marginTop: 3, lineHeight: 1.2 }}>{p.label}</div>
-                  </div>
+              <div style={{ position: 'relative', height: 150, borderBottom: '1px solid #777' }}>
+                {PACKAGE.map((p, i) => (
+                  <AdjImg key={p.label} {...adjProps(`pkg-${p.label}`, { x: 6 + i * 130, y: 8, w: 122, h: 134 })} src={p.img} alt={p.label} />
                 ))}
               </div>
               <div style={secHead}>SIDE VIEW</div>
@@ -594,7 +589,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
           {/* totals + terms */}
           <div style={{ margin: '12px 40px 0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
             {E('terms', { fontSize: 8.5, lineHeight: 1.6, textTransform: 'none' })}
-            <div>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 800, marginBottom: 6 }}>
                 <span>SUBTOTAL</span>{E('subtotal')}
               </div>
@@ -611,8 +606,9 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
           </div>
 
           {/* draggable color swatches — the filled block prints; the picker chrome (.adj-ui) does not */}
-          {swatches.map((sw) => ((sw.id === 'face' || sw.id === 'rettrim' || sw.color || sw.name || selId === 'swatch-' + sw.id) ? (
+          {swatches.map((sw) => ((sw.id === 'rettrim' && hideRet) ? null : (sw.id === 'face' || sw.id === 'rettrim' || sw.color || sw.name || selId === 'swatch-' + sw.id) ? (
             <AdjSwatch key={sw.id} rk={'swatch-' + sw.id} sw={sw} scaleRef={scaleRef}
+              locked={sw.id === 'face' || sw.id === 'rettrim'}
               selected={selId === 'swatch-' + sw.id} onSelect={() => setSelId('swatch-' + sw.id)}
               onChange={(n) => setSwatches((arr) => arr.map((x) => (x.id === sw.id ? n : x)))}
               onRemove={() => { setSwatches((arr) => arr.filter((x) => x.id !== sw.id)); setSelId(null) }}

@@ -338,6 +338,16 @@ export default function Generator() {
                 : <span><b style={{ color: '#9ae6b4' }}>✔ Specs ready.</b><button className="ghost sm" style={{ marginLeft: 10 }} onClick={runAI} disabled={aiLoading}>{aiLoading ? 'Reading…' : '↻ Re-read'}</button></span>}
               {!ai && <span className="muted" style={{ marginLeft: 10 }}>Or skip and pick the sign type yourself.</span>}
               {aiStatus && <p className="muted" style={{ marginTop: 8 }}>{aiStatus}</p>}
+              {ai && (
+                <div className="ai-result">
+                  {[['Our Client (retail)', ai.companyName], ['End Customer', ai.endCustomer], ['Sign Type', ai.signType], ['Job Name', ai.jobName], ['Dimensions', ai.dimensions],
+                    ['Returns', ai.returns], ['Trim Cap', ai.trimcap], ['Mounting', ai.mounting], ['Illumination', ai.illumination],
+                    ['Face Color', ai.faceColor], ['Return Color', ai.returnColor], ['Application', ai.application],
+                    ['Price', ai.price != null ? '$' + ai.price : null], ['Notes', ai.notes]]
+                    .filter(([, v]) => v != null && v !== '')
+                    .map(([k, v]) => <div key={k} className="line"><b>{k}:</b> {String(v)}</div>)}
+                </div>
+              )}
             </div>
             <div className="foot"><button className="ghost" onClick={back}>Back</button><button onClick={() => goto('signtype')}>Next →</button></div>
           </div>
