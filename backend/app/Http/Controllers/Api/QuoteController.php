@@ -56,7 +56,7 @@ class QuoteController extends Controller
         $address     = trim((string) $request->input('address', ''));
         $jobName     = trim((string) $request->input('job_name', ''));
         $special     = trim((string) $request->input('special_requirements', ''));
-        $salesRep    = (string) $request->input('sales_rep', '');
+        $salesRep    = trim((string) $request->input('sales_rep', ''));
         $quoteSource = (string) $request->input('quote_source', '');
         $orderId     = trim((string) $request->input('order_id', ''));
         $qid         = trim((string) $request->input('quote_id', ''));
@@ -68,8 +68,9 @@ class QuoteController extends Controller
 
         // --- validation ---
         // Company is optional: AI mode is PDF-first and fills it from the drawing (workstream B).
-        if (!in_array($salesRep, AppConstants::SALES_REPS, true)) {
-            return response()->json(['error' => 'Invalid Sales Representative'], 400);
+        // Sales rep can be any typed name (not limited to the preset list), just required + sane length.
+        if ($salesRep === '' || mb_strlen($salesRep) > 80) {
+            return response()->json(['error' => 'Sales Representative is required (max 80 chars)'], 400);
         }
         // Quote ID is auto-generated server-side (unique EC number). Quote source + order ID
         // were dropped as a UX/feature decision. Only validate a Quote ID if one was supplied.
@@ -198,12 +199,13 @@ class QuoteController extends Controller
             if (!$user->isAdmin()) {
                 return response()->json(['error' => 'Only admins can change the Sales Representative'], 403);
             }
-            if (!in_array($data['sales_rep'], AppConstants::SALES_REPS, true)) {
-                return response()->json(['error' => 'Invalid Sales Representative'], 400);
+            $newRep = trim((string) $data['sales_rep']);
+            if ($newRep === '' || mb_strlen($newRep) > 80) {
+                return response()->json(['error' => 'Sales Representative is required (max 80 chars)'], 400);
             }
-            if ($data['sales_rep'] !== $quote->sales_rep) {
-                $changes[] = "Sales Rep: {$quote->sales_rep} -> {$data['sales_rep']}";
-                $quote->sales_rep = $data['sales_rep'];
+            if ($newRep !== $quote->sales_rep) {
+                $changes[] = "Sales Rep: {$quote->sales_rep} -> {$newRep}";
+                $quote->sales_rep = $newRep;
             }
         }
 

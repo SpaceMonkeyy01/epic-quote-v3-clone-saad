@@ -33,6 +33,7 @@ export default function AddQuoteModal({ onClose }) {
   const [error, setError] = useState('')
   const [autofilling, setAutofilling] = useState(false)
   const [revealed, setRevealed] = useState(false) // party fields show only after AI reads
+  const [repOther, setRepOther] = useState(false)  // typing a custom sales rep
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
@@ -132,12 +133,28 @@ export default function AddQuoteModal({ onClose }) {
     <>
       <div className="field">
         <label>Sales Representative {!isAdmin() && '(you)'}</label>
-        {isAdmin() ? (
-          <select value={form.sales_rep} onChange={set('sales_rep')}>
-            <option value="">— select —</option>
-            {reps.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
-        ) : (<input value={user?.full_name || ''} disabled />)}
+        {isAdmin() ? (() => {
+          const custom = repOther || (form.sales_rep && !reps.includes(form.sales_rep))
+          return (
+            <>
+              <select
+                value={custom ? '__other__' : form.sales_rep}
+                onChange={(e) => {
+                  if (e.target.value === '__other__') { setRepOther(true); setForm((f) => ({ ...f, sales_rep: '' })) }
+                  else { setRepOther(false); setForm((f) => ({ ...f, sales_rep: e.target.value })) }
+                }}
+              >
+                <option value="">— select —</option>
+                {reps.map((r) => <option key={r} value={r}>{r}</option>)}
+                <option value="__other__">Other (type a name)…</option>
+              </select>
+              {custom && (
+                <input style={{ marginTop: 8 }} placeholder="Type the sales rep's name" autoFocus
+                  value={form.sales_rep} onChange={set('sales_rep')} />
+              )}
+            </>
+          )
+        })() : (<input value={user?.full_name || ''} disabled />)}
       </div>
       <div className="field">
         <label>💳 Payment link (optional — paste it if you already have one)</label>

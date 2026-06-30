@@ -73,6 +73,7 @@ export default function Generator() {
   const artInput = useRef(null)
   const [showDrawing, setShowDrawing] = useState(false)   // in-app viewer for the customer's file
   const [proposalNotes, setProposalNotes] = useState('')  // net-new notes (asked last), shown on the proposal
+  const [repOther, setRepOther] = useState(false)         // typing a custom sales rep
 
   useEffect(() => {
     (async () => {
@@ -298,12 +299,28 @@ export default function Generator() {
             ))}
             <div className="field">
               <label>Sales Representative</label>
-              {admin ? (
-                <select value={client.sales_rep} onChange={(e) => setClient({ ...client, sales_rep: e.target.value })}>
-                  <option value="">— select —</option>
-                  {reps.map((r) => <option key={r} value={r}>{r}</option>)}
-                </select>
-              ) : (<input value={client.sales_rep || '—'} disabled />)}
+              {admin ? (() => {
+                const custom = repOther || (client.sales_rep && !reps.includes(client.sales_rep))
+                return (
+                  <>
+                    <select
+                      value={custom ? '__other__' : client.sales_rep}
+                      onChange={(e) => {
+                        if (e.target.value === '__other__') { setRepOther(true); setClient({ ...client, sales_rep: '' }) }
+                        else { setRepOther(false); setClient({ ...client, sales_rep: e.target.value }) }
+                      }}
+                    >
+                      <option value="">— select —</option>
+                      {reps.map((r) => <option key={r} value={r}>{r}</option>)}
+                      <option value="__other__">Other (type a name)…</option>
+                    </select>
+                    {custom && (
+                      <input style={{ marginTop: 8 }} placeholder="Type the sales rep's name" autoFocus
+                        value={client.sales_rep} onChange={(e) => setClient({ ...client, sales_rep: e.target.value })} />
+                    )}
+                  </>
+                )
+              })() : (<input value={client.sales_rep || '—'} disabled />)}
             </div>
             <div className="field">
               <label>💳 Payment link (optional)</label>
