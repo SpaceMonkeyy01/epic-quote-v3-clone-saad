@@ -39,17 +39,25 @@ class DashboardController extends Controller
         $totalQuotesMonth = $monthQuotes->count();
         $totalAmountMonth = (float) $monthQuotes->sum('price');
 
-        $ordersQuery = Order::query()
-            ->join('quotes', 'orders.quote_id', '=', 'quotes.id')
-            ->when(!$user->isAdmin(), fn ($qq) => $qq->where('quotes.sales_rep', $user->full_name));
+        // Conversion = quotes that reached "Done" (won) ÷ quotes created this month. The orders table
+        // is unused, so "Done" is the real, meaningful signal for converted/won.
+        $doneMonth = $monthQuotes->where('status', 'Done')->count();
+        $conversion = $totalQuotesMonth ? ($doneMonth / $totalQuotesMonth * 100) : 0;
+        $totalSalesValue = (float) $monthQuotes->where('status', 'Done')->sum('price');
 
-        $ordersMonth = (clone $ordersQuery)
-            ->whereBetween('orders.confirmed_at', [$monthStart, $nextMonth])
-            ->count();
-
-        $conversion = $totalQuotesMonth ? ($ordersMonth / $totalQuotesMonth * 100) : 0;
-
-        $totalSalesValue = (float) (clone $ordersQuery)->sum('orders.total_value');
+        // Quotes-per-month trend (last 6 months) for the sparkline, plus % change vs last month.
+        $trend = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $mStart = $now->copy()->startOfMonth()->subMonths($i);
+            $mEnd = $mStart->copy()->addMonth();
+            $trend[] = [
+                'label' => $mStart->format('M'),
+                'count' => $allQuotes->filter(fn ($q) => $q->created_at && $q->created_at >= $mStart && $q->created_at < $mEnd)->count(),
+            ];
+        }
+        $lastMonthStart = $monthStart->copy()->subMonth();
+        $lastMonthCount = $allQuotes->filter(fn ($q) => $q->created_at && $q->created_at >= $lastMonthStart && $q->created_at < $monthStart)->count();
+        $quotesDelta = $lastMonthCount ? (int) round(($totalQuotesMonth - $lastMonthCount) / $lastMonthCount * 100) : null;
 
         $openQuotes   = $allQuotes->where('status', '!=', 'Done');
         $pendingCount = $openQuotes->count();
@@ -81,13 +89,15 @@ class DashboardController extends Controller
             'pipeline_value'  => $pipelineValue,
             'avg_quote_value' => $avgQuoteValue,
             'needs_attention' => $needsAttention,
+            'quotes_trend'    => $trend,
+            'quotes_delta'    => $quotesDelta,
             'totals'      => [
                 'total_quotes_month' => $totalQuotesMonth,
                 'total_amount_month' => $totalAmountMonth,
             ],
             'reports' => [
                 'total_quotes_created'   => $totalQuotesMonth,
-                'total_orders_confirmed' => $ordersMonth,
+                'total_orders_confirmed' => $doneMonth,
                 'conversion_rate'        => round($conversion, 1),
                 'total_sales_value'      => $totalSalesValue,
                 'pending_count'          => $pendingCount,
@@ -112,7 +122,7 @@ class DashboardController extends Controller
                 ->whereBetween('created_at', [$start, $end])
                 ->get();
             $received  = $quotes->count();
-            $converted = $quotes->where('order_confirmed', true)->count();
+            $converted = $quotes->where('status', 'Done')->count();   // "Done" = won/converted
             $rate = $received ? ($converted / $received * 100) : 0;
             return [
                 'total_quotes_received' => $received,

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuotes, useConstants, useUpdateQuote, useDeleteQuote } from '../hooks'
+import { useQuotes, useConstants, useUpdateQuote, useUpdateStatus, useDeleteQuote } from '../hooks'
 import useAuthStore from '../store/authStore'
 import { fileUrl } from '../api/client'
 
@@ -25,6 +25,7 @@ export default function AllQuotes() {
   const { isAdmin } = useAuthStore()
   const { data: constants } = useConstants()
   const update = useUpdateQuote()
+  const updateStatus = useUpdateStatus()
   const del = useDeleteQuote()
 
   const [search, setSearch] = useState('')
@@ -89,7 +90,7 @@ export default function AllQuotes() {
                     ) : (q.sales_rep || '—')}
                   </td>
                   <td>
-                    <select value={q.status} style={{ width: 150 }} onChange={(e) => patch(q.quote_id, 'status', e.target.value)}>
+                    <select value={q.status} style={{ width: 150 }} onChange={(e) => updateStatus.mutate({ id: q.quote_id, status: e.target.value })}>
                       {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </td>

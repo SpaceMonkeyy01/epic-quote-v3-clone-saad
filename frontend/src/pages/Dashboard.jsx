@@ -41,6 +41,15 @@ export default function Dashboard() {
   const attnCount = ATTN.reduce((n, s) => n + (cards[s] || 0), 0)
   const openCount = dash?.reports?.pending_count ?? 0
 
+  // sparkline for "Quotes this month" — built from real monthly counts (dash.quotes_trend)
+  const trend = dash?.quotes_trend || []
+  const trendMax = Math.max(1, ...trend.map((t) => t.count))
+  const trendPts = trend.map((t, i) => {
+    const x = trend.length > 1 ? (i / (trend.length - 1)) * 120 : 0
+    const y = 22 - (t.count / trendMax) * 20
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+
   const hour = new Date().getHours()
   const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
   const dateStr = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
@@ -61,7 +70,16 @@ export default function Dashboard() {
       </div>
 
       <div className="kpis">
-        <div className="kpi"><div className="k">Quotes this month</div><div className="v">{dash?.totals?.total_quotes_month ?? '—'}</div><div className="sub">{dash?.month_label || ''}</div></div>
+        <div className="kpi">
+          <div className="k">Quotes this month</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 5 }}>
+            <div style={{ fontSize: 23, fontWeight: 700 }}>{dash?.totals?.total_quotes_month ?? '—'}</div>
+            {dash?.quotes_delta != null && <div style={{ fontSize: 11, fontWeight: 600, color: dash.quotes_delta >= 0 ? '#97c459' : '#f0997b' }}>{dash.quotes_delta >= 0 ? '+' : ''}{dash.quotes_delta}%</div>}
+          </div>
+          {trend.length > 1
+            ? <svg width="100%" height="22" viewBox="0 0 120 22" preserveAspectRatio="none" style={{ marginTop: 6, display: 'block' }} aria-hidden="true"><polyline points={trendPts} fill="none" stroke="var(--gold)" strokeWidth="1.6" /></svg>
+            : <div className="sub">{dash?.month_label || ''}</div>}
+        </div>
         <div className="kpi"><div className="k">Pipeline value</div><div className="v">{dash ? money(dash.pipeline_value) : '—'}</div><div className="sub">{openCount} open quote{openCount === 1 ? '' : 's'}</div></div>
         <div className="kpi"><div className="k">Avg quote value</div><div className="v">{dash ? money(dash.avg_quote_value) : '—'}</div><div className="sub">across open work</div></div>
         <div className="kpi attn"><div className="k">Needs attention</div><div className="v">{dash ? attnCount : '—'}</div><div className="sub">act today</div></div>
