@@ -446,13 +446,6 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
     })
   }, [specHTML, scale]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const doSave = async () => {
-    setBusy('save')
-    try { await onSave(captureState()); flash('Saved') }
-    catch { flash('Save failed') }
-    finally { setBusy('') }
-  }
-
   const render = async () => {
     // capture at the page's true 816px size (drop the fit-to-fit scale during render)
     const el = pageRef.current
@@ -650,7 +643,6 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
 
       {/* actions */}
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 14 }}>
-        <button className="ghost" disabled={busy} onClick={doSave}>{busy === 'save' ? 'Saving…' : '💾 Save edits'}</button>
         <button className="ghost" disabled={busy} onClick={downloadPNG}>{busy === 'png' ? 'Rendering…' : '⬇ PNG image'}</button>
         <button disabled={busy} onClick={downloadPDF}>🖨️ Save as PDF</button>
         {toast && <span style={{ alignSelf: 'center', color: '#2e7d32', fontWeight: 600 }}>{toast}</span>}
