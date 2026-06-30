@@ -563,9 +563,9 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
             </div>
             <div>
               <div style={secHead}>PACKAGE INCLUDES</div>
-              <div style={{ position: 'relative', height: 208, borderBottom: '1px solid #777' }}>
+              <div style={{ position: 'relative', height: 150, borderBottom: '1px solid #777' }}>
                 {PACKAGE.map((p, i) => (
-                  <AdjImg key={p.label} {...adjProps(`pkg-${p.label}`, { x: 8, y: 8 + i * 100, w: 248, h: 92 })} src={p.img} alt={p.label} />
+                  <AdjImg key={p.label} {...adjProps(`pkg-${p.label}`, { x: 6 + i * 130, y: 8, w: 122, h: 134 })} src={p.img} alt={p.label} />
                 ))}
               </div>
               <div style={secHead}>SIDE VIEW</div>
