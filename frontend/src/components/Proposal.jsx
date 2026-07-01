@@ -585,14 +585,16 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
           <div style={{ margin: '12px 40px 0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
             {E('terms', { fontSize: 8.5, lineHeight: 1.6, textTransform: 'none' })}
             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 800, marginBottom: 6 }}>
-                <span>SUBTOTAL</span>{E('subtotal')}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 6 }}>
-                <span>50% DEPOSIT DUE NOW</span>{E('dep1')}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
-                <span>50% DUE ON SHIPMENT</span>{E('dep2')}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 800, marginBottom: 6 }}>
+                  <span>SUBTOTAL</span>{E('subtotal')}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 6 }}>
+                  <span>50% DEPOSIT DUE NOW</span>{E('dep1')}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
+                  <span>50% DUE ON SHIPMENT</span>{E('dep2')}
+                </div>
               </div>
               {paymentLink
                 ? <a href={paymentLink} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 14, background: '#f5a623', padding: 14, textAlign: 'center', fontSize: 15, fontWeight: 800, letterSpacing: 0.5, color: '#111', textDecoration: 'none' }}>CLICK HERE TO MAKE PAYMENT</a>
