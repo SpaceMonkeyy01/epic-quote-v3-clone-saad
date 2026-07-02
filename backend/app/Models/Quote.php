@@ -70,7 +70,7 @@ class Quote extends Model
             'address'              => $this->address,
             'job_name'             => $this->job_name,
             'special_requirements' => $this->special_requirements,
-            'customer_pdf'         => $this->customer_pdf ? "/storage/pdfs/{$this->customer_pdf}" : null,
+            'customer_pdf'         => self::fileRef($this->customer_pdf, 'pdfs'),
             'sales_rep'            => $this->sales_rep,
             'quote_source'         => $this->quote_source,
             'status'               => $this->status,
@@ -78,7 +78,7 @@ class Quote extends Model
             'price'                => $this->price,
             'quote_type'           => $this->quote_type,
             'artwork_url'          => $gd['artwork_path'] ?? null,
-            'crunched_artwork'     => $this->crunched_artwork ? "/storage/artwork/{$this->crunched_artwork}" : null,
+            'crunched_artwork'     => self::fileRef($this->crunched_artwork, 'artwork'),
             'added_by'             => $this->creator?->full_name ?? '',
             'created_by_name'      => $this->finalCreator?->full_name ?? '',
             'payment_link'         => $this->payment_link,
@@ -92,6 +92,18 @@ class Quote extends Model
         }
 
         return $data;
+    }
+
+    /**
+     * Public reference for a stored file column. Absolute URLs (Cloudinary CDN — permanent,
+     * survives redeploys) pass through untouched; bare filenames get the local /storage prefix.
+     */
+    public static function fileRef(?string $value, string $dir): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+        return preg_match('#^https?://#i', $value) ? $value : "/storage/{$dir}/{$value}";
     }
 
     // Relationships

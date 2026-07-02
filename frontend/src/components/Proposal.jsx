@@ -643,6 +643,14 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
       {/* color swatches — a control, not part of the printed page */}
       <div style={{ margin: '12px 0' }}>
         <button type="button" className="ghost" onClick={addSwatch}>+ Add color swatch</button>
+        <button
+          type="button" className="ghost" style={{ marginLeft: 8 }}
+          title="Replace the SPECIFICATIONS text with a fresh version built from the current answers (use after changing specs on an older quote). Your other edits are kept."
+          onClick={() => {
+            const el = document.querySelector('#proposal-print-root [data-key="specBody"]')
+            if (el) { el.innerHTML = specHTML; queueSave(); flash('Spec text rebuilt from the current answers.') }
+          }}
+        >↻ Rebuild spec text</button>
         <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>Click a swatch to pick its color &amp; name; drag to place. The picker never appears in the PDF.</span>
       </div>
 

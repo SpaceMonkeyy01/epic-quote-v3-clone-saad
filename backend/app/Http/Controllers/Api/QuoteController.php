@@ -126,11 +126,11 @@ class QuoteController extends Controller
             [$num, $autoId] = Setting::nextQuoteId();
             $qid = $qid !== '' ? $qid : $autoId;   // auto-generate a unique EC id when none supplied
 
-            // store customer file as {qid}_{original}
+            // store customer file as {qid}_{original} — permanent (Cloudinary) like every upload
             $pdfFilename = null;
             if ($file) {
-                $pdfFilename = $qid.'_'.$this->safeFilename($file);
-                $file->storeAs('pdfs', $pdfFilename, 'public');
+                $stored = $this->storeUploadPermanently($file, 'pdfs', $qid.'_'.$this->safeFilename($file));
+                $pdfFilename = $stored[0] ?? null;
             }
 
             return Quote::create([
@@ -339,20 +339,42 @@ class QuoteController extends Controller
     }
 
     // POST /api/quotes/{quote}/pdf — customer PDF/image (#37 replace)
+    /**
+     * Store an uploaded file permanently. Cloudinary first (permanent CDN, survives redeploys —
+     * the local disk on Render is EPHEMERAL and wiped every deploy, which is how the team lost
+     * their old drawings); local public disk only as the no-Cloudinary fallback.
+     * Returns [dbValue, publicPath] or null when nothing could be saved.
+     */
+    private function storeUploadPermanently($file, string $dir, string $filename): ?array
+    {
+        if (CloudinaryService::configured()) {
+            $url = CloudinaryService::upload($file->getRealPath(), "epic-quote/{$dir}", 'auto');
+            if ($url) {
+                return [$url, $url];
+            }
+            return null; // configured but failed — caller returns a clear error, never silently ephemeral
+        }
+        $file->storeAs($dir, $filename, 'public');
+        if (!Storage::disk('public')->exists("{$dir}/{$filename}")) {
+            return null;
+        }
+        return [$filename, "/storage/{$dir}/{$filename}"];
+    }
+
     public function uploadPdf(Request $request, Quote $quote): JsonResponse
     {
         $this->assertAccess($request, $quote);
         $request->validate(['file' => 'required|file|mimes:pdf,jpg,jpeg,png,gif,webp,avif,svg|max:25600']);
         $file = $request->file('file');
         $filename = $quote->quote_id.'_'.$this->safeFilename($file);
-        $file->storeAs('pdfs', $filename, 'public');
-        if (!Storage::disk('public')->exists("pdfs/{$filename}")) {
-            return response()->json(['error' => 'Upload could not be saved — server storage is not writable/persistent.'], 500);
+        $stored = $this->storeUploadPermanently($file, 'pdfs', $filename);
+        if (!$stored) {
+            return response()->json(['error' => 'Upload could not be saved — check Cloudinary/storage configuration.'], 502);
         }
-        $quote->update(['customer_pdf' => $filename]);
+        $quote->update(['customer_pdf' => $stored[0]]);
         ActivityLog::record($request->user()->id, 'file_uploaded', "{$quote->quote_id}: Customer PDF/Drawing ({$filename})");
 
-        return response()->json(['path' => "/storage/pdfs/{$filename}"]);
+        return response()->json(['path' => $stored[1]]);
     }
 
     // POST /api/quotes/{quote}/extra-file — an additional (non-primary) upload so multi-file jobs
@@ -363,13 +385,13 @@ class QuoteController extends Controller
         $request->validate(['file' => 'required|file|mimes:pdf,jpg,jpeg,png,gif,webp,avif,svg|max:25600']);
         $file = $request->file('file');
         $filename = $quote->quote_id.'_x'.substr(md5((string) microtime(true)), 0, 6).'_'.$this->safeFilename($file);
-        $file->storeAs('pdfs', $filename, 'public');
-        if (!Storage::disk('public')->exists("pdfs/{$filename}")) {
-            return response()->json(['error' => 'Upload could not be saved — server storage is not writable/persistent.'], 500);
+        $stored = $this->storeUploadPermanently($file, 'pdfs', $filename);
+        if (!$stored) {
+            return response()->json(['error' => 'Upload could not be saved — check Cloudinary/storage configuration.'], 502);
         }
         ActivityLog::record($request->user()->id, 'file_uploaded', "{$quote->quote_id}: Extra upload ({$filename})");
 
-        return response()->json(['path' => "/storage/pdfs/{$filename}"]);
+        return response()->json(['path' => $stored[1]]);
     }
 
     // POST /api/quotes/{quote}/artwork — artwork image (#67); path saved into generated_data
@@ -408,11 +430,14 @@ class QuoteController extends Controller
         $file = $request->file('file');
         $ext = $file->getClientOriginalExtension();
         $filename = "crunched_{$quote->quote_id}_".time().".{$ext}";
-        $file->storeAs('artwork', $filename, 'public');
-        $quote->update(['crunched_artwork' => $filename]);
+        $stored = $this->storeUploadPermanently($file, 'artwork', $filename);
+        if (!$stored) {
+            return response()->json(['error' => 'Upload could not be saved — check Cloudinary/storage configuration.'], 502);
+        }
+        $quote->update(['crunched_artwork' => $stored[0]]);
         ActivityLog::record($request->user()->id, 'file_uploaded', "{$quote->quote_id}: Crunched Dimension Artwork ({$filename})");
 
-        return response()->json(['path' => "/storage/artwork/{$filename}"]);
+        return response()->json(['path' => $stored[1]]);
     }
 
     // --- Deferred to later phases (routes exist; not yet implemented) ---

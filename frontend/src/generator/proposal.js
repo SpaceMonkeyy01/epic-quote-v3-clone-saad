@@ -1,7 +1,17 @@
 /* Proposal spec-line builder — ports V1 templateSpecLines() / V2 buildSpecBody().
    Generates the Specifications block from a sign-type template + captured answers. */
 
+import { parseDims, composeDims } from './questions'
+
 const ILLUM_DEFAULT = '6500K LED MODULES (3 YEAR WARRANTY)'
+
+// Canonical dimensions string for the spec. Standard signs are 2D (H × W — depth lives in
+// RETURNS); only monuments keep 3 parts. Also normalizes older saved strings (l_w_h, l*w*h,
+// or 3-part strings saved before this rule) so every proposal renders the same clean format.
+function specDims(t, a) {
+  const p = parseDims(a.dimensions)
+  return composeDims(p.l, p.w, t && t.mono ? p.h : '')
+}
 
 export function money(n) {
   return '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -18,7 +28,7 @@ export function buildSpecLines(t, a = {}, ai = null) {
   if (t.mono) {
     const body = (ai && ai.fullSpec) ? ai.fullSpec : [
       'SIGN TYPE: ' + t.st,
-      'OVERALL DIMENSIONS: ' + (a.dimensions || ''),
+      'OVERALL DIMENSIONS: ' + specDims(t, a),
       'ILLUMINATED : ' + (t.illum === 'none' ? 'N/A' : (a.illumination || '6500K LED MODULES (3 YEAR WARRANTY)')),
       'MOUNTING: ' + (a.mounting || t.mountDef || ''),
       'PAINT FINISH: SATIN',
@@ -32,7 +42,7 @@ export function buildSpecLines(t, a = {}, ai = null) {
   L.push('FACE: ' + t.face)
   if (t.neon) L.push('NEON COLORS: ' + (a.neoncolors || ''))
   ;(t.extra || []).forEach((x) => L.push(x))
-  L.push((t.dimsLabel || 'OVERALL DIMENSIONS') + ': ' + (a.dimensions || ''))
+  L.push((t.dimsLabel || 'OVERALL DIMENSIONS') + ': ' + specDims(t, a))
   if (t.ret !== null && t.ret !== undefined) L.push('RETURNS: ' + (a.returns || t.ret))
   if (t.neon) L.push('SHAPE: CUT TO SHAPE')
   L.push((t.illum === 'none' || t.neon ? 'FINISH' : 'PAINT FINISH') + ': SATIN')
