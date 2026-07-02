@@ -536,11 +536,29 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
     el.style.transform = 'none'
     const handles = [...el.querySelectorAll('.adj-ui')]
     handles.forEach((h) => { h.style.visibility = 'hidden' })   // don't print selection chrome
+    // html2canvas ignores object-fit:contain and STRETCHES images to their box (squashed
+    // package/side-view images in the PNG). Emulate the letterboxing with explicit geometry
+    // for the capture, then restore.
+    const imgs = [...el.querySelectorAll('[data-rk] img')].filter((im) => im.naturalWidth > 0)
+    const savedCss = imgs.map((im) => ({ im, css: im.style.cssText }))
+    imgs.forEach((im) => {
+      const bw = im.offsetWidth, bh = im.offsetHeight
+      if (!bw || !bh) return
+      const r = im.naturalWidth / im.naturalHeight
+      let w = bw, h = bw / r
+      if (h > bh) { h = bh; w = bh * r }
+      im.style.left = (parseFloat(im.style.left || 0) + (bw - w) / 2) + 'px'
+      im.style.top = (parseFloat(im.style.top || 0) + (bh - h) / 2) + 'px'
+      im.style.width = w + 'px'
+      im.style.height = h + 'px'
+      im.style.objectFit = 'fill'
+    })
     try {
       return await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false })
     } finally {
       el.style.transform = prev
       handles.forEach((h) => { h.style.visibility = '' })
+      savedCss.forEach(({ im, css }) => { im.style.cssText = css })
     }
   }
 
