@@ -34,6 +34,8 @@
 .DS_Store
 Thumbs.db
 *.log
+auditor/*
+.claude/*
 # big local-only sample drawings
 /assets/*.pdf
 /assets/*.png
