@@ -26,7 +26,14 @@ export function buildSpecLines(t, a = {}, ai = null) {
   if (!t) return []
   // monuments are free-form: render the AI's full spec (or a minimal block) instead of templated lines
   if (t.mono) {
-    const body = (ai && ai.fullSpec) ? ai.fullSpec : [
+    let body = (ai && ai.fullSpec) ? String(ai.fullSpec) : null
+    if (body && t.customType) {
+      // the rep explicitly typed this sign type — it overrides whatever type name the AI read
+      body = /^SIGN TYPE\s*:/im.test(body)
+        ? body.replace(/^SIGN TYPE\s*:.*$/im, 'SIGN TYPE: ' + t.st)
+        : 'SIGN TYPE: ' + t.st + '\n' + body
+    }
+    body = body ?? [
       'SIGN TYPE: ' + t.st,
       'OVERALL DIMENSIONS: ' + specDims(t, a),
       'ILLUMINATED : ' + (t.illum === 'none' ? 'N/A' : (a.illumination || '6500K LED MODULES (3 YEAR WARRANTY)')),

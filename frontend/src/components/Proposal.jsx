@@ -3,6 +3,11 @@ import html2canvas from 'html2canvas'
 import { buildSpecLines, money, esc } from '../generator/proposal'
 import { SIDE_VIEWS } from '../generator/sideviews'
 import { fileUrl } from '../api/client'
+import { uploadExtraFile } from '../api/quotes'
+
+// A side-view entry is either a catalog key (renders from /side_views/) or an uploaded
+// file path / CDN URL (renders through fileUrl). Same list, both kinds.
+const svSrc = (k) => (/^(https?:|\/storage)/i.test(String(k)) ? fileUrl(k) : `/side_views/${k}.png`)
 
 /* M2 proposal preview: renders the captured quote as a print-ready document.
    Every labelled block is contentEditable; edits are captured into proposal_state
@@ -358,6 +363,11 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
     ;['unitPrice', 'totalPrice', 'subtotal', 'dep1', 'dep2', 'infoLeft', 'infoRight', 'itemDesc'].forEach((k) => {
       if (!dirty.has(k)) merged[k] = def[k]
     })
+    // A saved spec belongs to the sign type it was written for — if the type has changed
+    // since, the saved text is guaranteed wrong, so rebuild it fresh for the new type.
+    if (savedState?.specBody && savedState.__specTpl && tpl?.n && savedState.__specTpl !== tpl.n) {
+      merged.specBody = def.specBody
+    }
     return merged
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -381,7 +391,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
   const dirtyRef = useRef(new Set(savedState?.__dirty || []))
 
   const captureState = () => {
-    const state = { __layout: layout, __swatches: swatches.filter((s) => s.color || s.name), __dirty: [...dirtyRef.current] }
+    const state = { __layout: layout, __swatches: swatches.filter((s) => s.color || s.name), __dirty: [...dirtyRef.current], __specTpl: tpl?.n || null }
     pageRef.current?.querySelectorAll('[data-key]').forEach((el) => { state[el.dataset.key] = el.innerHTML })
     return state
   }
@@ -584,7 +594,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                 {sideViews.length === 0
                   ? <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 10, textTransform: 'none' }}>[ No side view selected ]</span>
                   : sideViews.map((k, i) => (
-                      <AdjImg key={k} {...adjProps(`sv-${k}`, { x: 16 + i * 14, y: 10 + i * 14, w: 230, h: 188 })} src={`/side_views/${k}.png`} alt={k} />
+                      <AdjImg key={k} {...adjProps(`sv-${k}`, { x: 16 + i * 14, y: 10 + i * 14, w: 230, h: 188 })} src={svSrc(k)} alt={String(k)} />
                     ))}
               </div>
             </div>
@@ -643,6 +653,31 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                   </label>
                 )
               })}
+              {/* side views the team uploaded themselves (stored paths/URLs, not catalog keys) */}
+              {sideViews.filter((k) => !SIDE_VIEWS.some((s) => s.key === k)).map((k) => (
+                <label key={k} style={{ width: 120, fontSize: 10, textAlign: 'center', cursor: 'pointer', border: '2px solid #f5a623', borderRadius: 6, padding: 4 }}>
+                  <input type="checkbox" checked onChange={() => onSideViews(sideViews.filter((x) => x !== k))} />
+                  <img src={svSrc(k)} alt="uploaded side view" style={{ width: '100%', height: 70, objectFit: 'contain' }} />
+                  <div>YOUR UPLOAD</div>
+                </label>
+              ))}
+              <label style={{ width: 120, fontSize: 11, textAlign: 'center', cursor: 'pointer', border: '1px dashed #999', borderRadius: 6, padding: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 96, color: 'var(--text-dim, #888)' }}>
+                <input
+                  type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0]
+                    if (!f || !info?.quoteId) return
+                    e.target.value = ''
+                    try {
+                      const path = await uploadExtraFile(info.quoteId, f)
+                      onSideViews([...sideViews, path])
+                      flash('Side view uploaded.')
+                    } catch { flash('Upload failed — try again.') }
+                  }}
+                />
+                <span style={{ fontSize: 22, lineHeight: 1 }}>⬆</span>
+                <span>Upload your own</span>
+              </label>
             </div>
           )}
         </div>

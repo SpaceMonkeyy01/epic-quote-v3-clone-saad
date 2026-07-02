@@ -24,6 +24,14 @@ const isCloudDoc = (p) => /res\.cloudinary\.com/.test(p || '') && /\.(pdf|ai)$/i
 const cloudRaster = (p, w = 1600) =>
   p.replace('/upload/', `/upload/pg_1,f_png,w_${w}/`).replace(/\.(pdf|ai)$/i, '.png')
 
+// A sign type the catalog doesn't have: free-form template (like monuments) — the spec body
+// comes from the AI's full reading of the drawing when available, and the wizard asks the
+// generic questions (dimensions, illumination, mounting, colors, application, price).
+const makeCustomTpl = (name) => {
+  const N = name.trim().toUpperCase()
+  return { n: N, st: N, mono: true, illum: 'led', mountDef: '', desc: N, customType: true }
+}
+
 // Robust AI signType → catalog match: exact → normalized → contains → best token overlap.
 // The model often returns a near-name (e.g. "1\" DEEP RAISED ALUMINUM LETTERS") that isn't
 // verbatim in the catalog; this still snaps it to the closest real sign type.
@@ -73,6 +81,7 @@ export default function Generator() {
   const [customSpec, setCustomSpec] = useState(null)
   const [logo, setLogoUrl] = useState(null)
   const [signSearch, setSignSearch] = useState('')
+  const [customType, setCustomType] = useState('')   // free-typed sign type (not in the catalog)
   const [saving, setSaving] = useState(false)
   const [ai, setAi] = useState(null)
   const [aiStatus, setAiStatus] = useState('')
@@ -96,7 +105,7 @@ export default function Generator() {
         job_name: g.job_name || q.job_name || '', sales_rep: q.sales_rep || '',
       })
       setSpecial(q.special_requirements || '')
-      if (g.tpl_name) setTpl(T.find((t) => t.n === g.tpl_name) || null)
+      if (g.tpl_name) setTpl(T.find((t) => t.n === g.tpl_name) || makeCustomTpl(g.tpl_name))
       setAnswers(g.answers || {})
       setAi(g.ai || null)
       setCustomSpec(g.custom_spec || null)
@@ -280,6 +289,15 @@ export default function Generator() {
     if (tpl?.n === t.n) { goto('specs'); return }
     setTpl(t)
     setAnswers(ai ? autoAnswerFromAI(t, ai) : {})
+    // a different sign type makes any saved spec text wrong — drop it so the proposal
+    // rebuilds the SPECIFICATIONS block for the new type (other proposal edits are kept)
+    setGd((g) => {
+      if (!g?.proposal_state?.specBody) return g
+      const ps = { ...g.proposal_state }
+      delete ps.specBody
+      ps.__dirty = (ps.__dirty || []).filter((k) => k !== 'specBody')
+      return { ...g, proposal_state: ps }
+    })
     goto('specs')
   }
 
@@ -409,12 +427,22 @@ export default function Generator() {
               {aiStatus && <p className="muted" style={{ marginTop: 8 }}>{aiStatus}</p>}
               {ai && (
                 <div className="ai-result">
+                  {/* every field, always — '—' marks what the AI couldn't read (an empty box looked like nothing was retrieved) */}
                   {[['Our Client (retail)', ai.companyName], ['End Customer', ai.endCustomer], ['Sign Type', ai.signType], ['Job Name', ai.jobName], ['Dimensions', ai.dimensions],
                     ['Returns', ai.returns], ['Trim Cap', ai.trimcap], ['Mounting', ai.mounting], ['Illumination', ai.illumination],
                     ['Face Color', ai.faceColor], ['Return Color', ai.returnColor], ['Application', ai.application],
                     ['Price', ai.price != null ? '$' + ai.price : null], ['Notes', ai.notes]]
-                    .filter(([, v]) => v != null && v !== '')
-                    .map(([k, v]) => <div key={k} className="line"><b>{k}:</b> {String(v)}</div>)}
+                    .map(([k, v]) => (
+                      <div key={k} className="line">
+                        <b>{k}:</b> <span style={v == null || v === '' ? { color: 'var(--text-faint)' } : undefined}>{v == null || v === '' ? '—' : String(v)}</span>
+                      </div>
+                    ))}
+                  {ai.fullSpec && (
+                    <details style={{ marginTop: 8 }}>
+                      <summary style={{ cursor: 'pointer', color: 'var(--gold)', fontSize: 13 }}>Full reading from the drawing</summary>
+                      <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: 12.5, color: 'var(--text-dim)', marginTop: 6 }}>{ai.fullSpec}</pre>
+                    </details>
+                  )}
                 </div>
               )}
             </div>
@@ -428,6 +456,11 @@ export default function Generator() {
             <input placeholder="Search sign types…" value={signSearch} onChange={(e) => setSignSearch(e.target.value)} style={{ marginBottom: 12 }} />
             <p className="muted" style={{ marginTop: -4, marginBottom: 10 }}>Click a sign type to continue.</p>
             <div className="sign-list">
+              {tpl?.customType && (
+                <div className="sign-opt sel" onClick={() => pickSign(tpl)}>
+                  {tpl.n}  ✏️ your custom type
+                </div>
+              )}
               {T.filter((t) => t.n.toLowerCase().includes(signSearch.toLowerCase())).map((t) => (
                 <div
                   key={t.n}
@@ -437,6 +470,18 @@ export default function Generator() {
                   {t.n}{aiSuggestedName === t.n ? '  ⚡ AI suggested' : ''}
                 </div>
               ))}
+            </div>
+            <div className="field" style={{ marginTop: 14 }}>
+              <label>Can't find it? Type the sign type yourself</label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <input
+                  placeholder="e.g. CHANNEL LETTERS WITH BACKER"
+                  value={customType}
+                  onChange={(e) => setCustomType(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && customType.trim()) pickSign(makeCustomTpl(customType)) }}
+                />
+                <button disabled={!customType.trim()} onClick={() => pickSign(makeCustomTpl(customType))}>Use this type →</button>
+              </div>
             </div>
             <div className="foot">
               <button className="ghost" onClick={back}>Back</button>
