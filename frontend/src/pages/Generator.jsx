@@ -53,6 +53,7 @@ export default function Generator() {
   const [mode, setMode] = useState(null)        // 'generator' | 'custom'
   const [step, setStep] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')   // set when the quote can't be loaded (e.g. bad/deleted id)
 
   // wizard state
   const [client, setClient] = useState({ company_name: '', client_name: '', contact: '', address: '', job_name: '', sales_rep: '' })
@@ -78,6 +79,7 @@ export default function Generator() {
 
   useEffect(() => {
     (async () => {
+     try {
       const q = await getQuote(quoteId)
       setQuote(q)
       const g = q.generated_data || {}
@@ -114,7 +116,12 @@ export default function Generator() {
           if (modeParam === 'ai' && !g.ai) setAutoAi(true)      // auto-run extraction once
         }
       }
-      setLoading(false)
+     } catch (e) {
+        // bad / deleted quote id, or the API is down — show a real message instead of spinning forever
+        setLoadError(e?.response?.status === 404 ? 'notfound' : 'error')
+     } finally {
+        setLoading(false)
+     }
     })()
   }, [quoteId])
 
@@ -265,6 +272,18 @@ export default function Generator() {
   const toPreview = async () => { setSaving(true); await saveProgress(); setSaving(false); goto('preview') }
 
   if (loading) return <div className="center">Loading…</div>
+
+  if (loadError) return (
+    <div className="center" style={{ flexDirection: 'column', gap: 14 }}>
+      <h2 style={{ margin: 0 }}>{loadError === 'notfound' ? "This quote doesn't exist" : "Couldn't load this quote"}</h2>
+      <p className="muted" style={{ margin: 0, textAlign: 'center', maxWidth: 420 }}>
+        {loadError === 'notfound'
+          ? 'The quote may have been deleted, or the link is out of date.'
+          : 'Something went wrong reaching the server. Check your connection and try again.'}
+      </p>
+      <button onClick={() => navigate('/dashboard')}>Back to dashboard</button>
+    </div>
+  )
 
   // mode picker (#55)
   if (!mode) {

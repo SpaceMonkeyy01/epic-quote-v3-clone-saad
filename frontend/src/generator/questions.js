@@ -6,7 +6,15 @@ export function buildQuestions(t, ai = {}) {
   ai = ai || {}
   const qs = []
 
-  qs.push({ key: 'dimensions', q: 'Overall dimensions (L × W × H)', type: 'dims', def: ai.dimensions || null, aiSet: !!ai.dimensions })
+  // Dimensions are 2D (Height × Width) for every standard sign — depth is NOT a dimension
+  // here, it lives in its own Returns/Thickness question (or is fixed, e.g. flat-cut letters).
+  // Only monuments are true 3D boxes with L × W × H.
+  qs.push({
+    key: 'dimensions', type: 'dims',
+    q: t.mono ? 'Overall dimensions (L × W × H)' : 'Overall dimensions (H × W)',
+    parts: t.mono ? 3 : 2,
+    def: ai.dimensions || null, aiSet: !!ai.dimensions,
+  })
 
   // monuments are free-form — ask only the high-level fields (V2 parity); spec body comes from AI fullSpec
   if (t.mono) {
@@ -72,6 +80,16 @@ export function autoAnswerFromAI(t, ai) {
   const qs = buildQuestions(t, ai)
   const answers = {}
   qs.forEach((q) => {
+    if (q.type === 'dims') {
+      // normalize the AI's raw string into parts + the canonical composed string,
+      // dropping the depth part for 2-part (H × W) sign types
+      const p = parseDims(q.def)
+      answers.dim_l = p.l
+      answers.dim_w = p.w
+      answers.dim_h = (q.parts || 3) === 3 ? p.h : ''
+      answers.dimensions = composeDims(answers.dim_l, answers.dim_w, answers.dim_h)
+      return
+    }
     if (q.def != null) answers[q.key] = q.def
     else if (q.type === 'chips' && q.options?.length) answers[q.key] = q.options[0]
     else answers[q.key] = ''

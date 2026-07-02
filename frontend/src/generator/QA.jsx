@@ -12,13 +12,15 @@ export default function QA({ tpl, ai, initialAnswers = {}, onComplete }) {
     const a = {}
     questions.forEach((q) => {
       if (q.type === 'dims') {
-        // seed the 3 parts from saved parts, else parse the saved/AI string
+        // seed the parts from saved parts, else parse the saved/AI string
         const src = (initialAnswers.dim_l || initialAnswers.dim_w || initialAnswers.dim_h)
           ? { l: initialAnswers.dim_l, w: initialAnswers.dim_w, h: initialAnswers.dim_h }
           : parseDims(initialAnswers.dimensions ?? q.def)
         a.dim_l = src.l || ''
         a.dim_w = src.w || ''
-        a.dim_h = src.h || ''
+        // 2-part mode (standard signs, H × W): the 3rd number in an AI/old string is the
+        // DEPTH — it already lives in the Returns/Thickness answer, so drop it here.
+        a.dim_h = (q.parts || 3) === 3 ? (src.h || '') : ''
         a.dimensions = composeDims(a.dim_l, a.dim_w, a.dim_h)
         return
       }
@@ -48,16 +50,16 @@ export default function QA({ tpl, ai, initialAnswers = {}, onComplete }) {
           <label>{q.q}{q.aiSet ? '  ⚡ AI' : ''}</label>
           {q.type === 'dims' ? (
             <div className="dims-row">
-              {['dim_l', 'dim_w', 'dim_h'].map((part, i) => (
+              {(q.parts === 2 ? ['dim_l', 'dim_w'] : ['dim_l', 'dim_w', 'dim_h']).map((part, i, arr) => (
                 <div className="dims-cell" key={part}>
                   <input
                     type="text"
                     inputMode="decimal"
-                    placeholder={['L', 'W', 'H'][i]}
+                    placeholder={(q.parts === 2 ? ['H', 'W'] : ['L', 'W', 'H'])[i]}
                     value={answers[part] ?? ''}
                     onChange={(e) => setDim(part, e.target.value)}
                   />
-                  {i < 2 && <span className="dims-x">×</span>}
+                  {i < arr.length - 1 && <span className="dims-x">×</span>}
                 </div>
               ))}
               <span className="dims-unit">in</span>

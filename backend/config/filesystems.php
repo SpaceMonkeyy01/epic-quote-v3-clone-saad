@@ -7,7 +7,10 @@ return [
         'local' => [
             'driver' => 'local',
             'root'   => storage_path('app/private'),
-            'serve'  => true,
+            // false — Laravel 12's built-in serve registers its own GET /storage/{path}
+            // route that SHADOWS our custom one in bootstrap/app.php (which adds the CORS
+            // headers the SPA needs, on both hit and miss). Ours must win.
+            'serve'  => false,
             'throw'  => false,
         ],
 
