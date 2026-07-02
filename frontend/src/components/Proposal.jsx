@@ -706,7 +706,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                   <span>50% DUE ON SHIPMENT</span>{E('dep2')}
                 </div>
               </div>
-              {paymentLink
+              {(paymentLink && /^https?:\/\//i.test(paymentLink))   // only real web links render as a button (never javascript:/data:)
                 ? <a href={paymentLink} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 14, background: '#f5a623', padding: 14, textAlign: 'center', fontSize: 15, fontWeight: 800, letterSpacing: 0.5, color: '#111', textDecoration: 'none' }}>CLICK HERE TO MAKE PAYMENT</a>
                 : E('pay', { marginTop: 14, background: '#f5a623', padding: 14, textAlign: 'center', fontSize: 15, fontWeight: 800, letterSpacing: 0.5 })}
             </div>
