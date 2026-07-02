@@ -5,8 +5,10 @@ import { getQuote, updateQuote, putGenerated, uploadArtwork, uploadCustomerFile,
 import { getLogo } from '../api/meta'
 import { useConstants } from '../hooks'
 import useAuthStore from '../store/authStore'
-import { T, CUSTOM_TEMPLATES } from '../generator/catalog'
-import { autoAnswerFromAI } from '../generator/questions'
+import { T } from '../generator/catalog'
+import { autoAnswerFromAI, parseDims, composeDims } from '../generator/questions'
+import { buildSpecLines } from '../generator/proposal'
+import { listCatalog, saveCatalogItem } from '../api/catalog'
 import { SIDE_VIEWS, pickSideView } from '../generator/sideviews'
 import { rasterizePdf } from '../generator/pdfRaster'
 import { fileUrl } from '../api/client'
@@ -15,7 +17,7 @@ import Proposal from '../components/Proposal'
 
 const FLOWS = {
   generator: ['client', 'project', 'signtype', 'specs', 'artwork', 'preview'],
-  custom: ['customspecs', 'preview'], // straight to the questions; client captured at intake
+  custom: ['client', 'customspecs', 'preview'], // Back from the questions shows client details, not the dashboard
 }
 
 // Cloudinary-stored PDF/Illustrator drawings can't render in an <img>/<iframe> directly —
@@ -27,9 +29,9 @@ const cloudRaster = (p, w = 1600) =>
 // A sign type the catalog doesn't have: free-form template (like monuments) — the spec body
 // comes from the AI's full reading of the drawing when available, and the wizard asks the
 // generic questions (dimensions, illumination, mounting, colors, application, price).
-const makeCustomTpl = (name) => {
+const makeCustomTpl = (name, storedSpec = null) => {
   const N = name.trim().toUpperCase()
-  return { n: N, st: N, mono: true, illum: 'led', mountDef: '', desc: N, customType: true }
+  return { n: N, st: N, mono: true, illum: 'led', mountDef: '', desc: N, customType: true, storedSpec }
 }
 
 // Robust AI signType → catalog match: exact → normalized → contains → best token overlap.
@@ -82,6 +84,12 @@ export default function Generator() {
   const [logo, setLogoUrl] = useState(null)
   const [signSearch, setSignSearch] = useState('')
   const [customType, setCustomType] = useState('')   // free-typed sign type (not in the catalog)
+  const [signLib, setSignLib] = useState([])          // team's saved custom sign types (shared, both modes)
+  const [customTypeSel, setCustomTypeSel] = useState('')  // dropdown selection on the custom-specs page
+  const [newTypeName, setNewTypeName] = useState('')
+  const [newTypeSpec, setNewTypeSpec] = useState('')
+  const [customDimsStatus, setCustomDimsStatus] = useState('')
+  const customDimsTried = useRef(false)
   const [saving, setSaving] = useState(false)
   const [ai, setAi] = useState(null)
   const [aiStatus, setAiStatus] = useState('')
@@ -105,7 +113,7 @@ export default function Generator() {
         job_name: g.job_name || q.job_name || '', sales_rep: q.sales_rep || '',
       })
       setSpecial(q.special_requirements || '')
-      if (g.tpl_name) setTpl(T.find((t) => t.n === g.tpl_name) || makeCustomTpl(g.tpl_name))
+      if (g.tpl_name) setTpl(T.find((t) => t.n === g.tpl_name) || makeCustomTpl(g.tpl_name, g.tpl_stored_spec || null))
       setAnswers(g.answers || {})
       setAi(g.ai || null)
       setCustomSpec(g.custom_spec || null)
@@ -153,6 +161,7 @@ export default function Generator() {
       quote_type: mode,
       job_name: client.job_name,
       tpl_name: tpl?.n || null,
+      tpl_stored_spec: tpl?.storedSpec || null,
       answers,
       ai,
       custom_spec: customSpec,
@@ -302,7 +311,71 @@ export default function Generator() {
   }
 
   const finishSpecs = (finalAnswers) => { setAnswers(finalAnswers) }
-  const toPreview = async () => { setSaving(true); await saveProgress(); setSaving(false); goto('preview') }
+  const toPreview = async () => {
+    setSaving(true)
+    try { await updateQuote(quoteId, { special_requirements: special }) } catch { /* non-fatal */ }
+    await saveProgress()
+    setSaving(false)
+    goto('preview')
+  }
+
+  // typed custom sign type (AI mode) — use it AND save the name to the team catalog so it
+  // shows up in both modes from now on
+  const useTypedSignType = () => {
+    if (!customType.trim()) return
+    const NAME = customType.trim().toUpperCase()
+    saveCatalogItem('sign_type', NAME, {}).then((item) => setSignLib((l) => [...l.filter((x) => x.name !== NAME), item])).catch(() => {})
+    pickSign(makeCustomTpl(NAME))
+  }
+
+  // ---- custom (manual) mode helpers ----
+  // load the team's saved custom sign types once (shared with AI mode's sign list)
+  useEffect(() => { listCatalog('sign_type').then(setSignLib).catch(() => {}) }, [])
+
+  // one dimension box changed → recompose the canonical H×W×D string AND keep the spec text's
+  // dimensions line in sync, so the proposal can never show different numbers than the boxes
+  const setCustomDim = (part, v) => {
+    setCustomSpec((cs) => {
+      const p = parseDims(cs?.dims)
+      p[part] = v
+      const dims = composeDims(p.l, p.w, p.h)
+      let specText = cs?.specText || ''
+      if (/^(.*DIMENSIONS[^:]*):.*$/im.test(specText)) {
+        specText = specText.replace(/^(.*DIMENSIONS[^:]*):.*$/im, `$1: ${dims}`)
+      }
+      return { ...cs, dims, specText }
+    })
+  }
+
+  // manual mode still has the customer's drawing — read the dimensions off it automatically
+  // (once) when they haven't been entered yet, instead of making the rep squint at the PDF
+  useEffect(() => {
+    if (step !== 'customspecs' || customDimsTried.current) return
+    if (!quote?.customer_pdf || String(customSpec?.dims || '').trim() !== '') return
+    customDimsTried.current = true
+    ;(async () => {
+      try {
+        setCustomDimsStatus('⚡ reading the drawing…')
+        let imageData = null
+        if (isCloudDoc(quote.customer_pdf)) {
+          const blob = await (await fetch(cloudRaster(quote.customer_pdf, 1200))).blob()
+          const dataUrl = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob) })
+          imageData = String(dataUrl).split(',')[1]
+        } else if (/\.pdf$/i.test(quote.customer_pdf)) {
+          const dataUrl = await rasterizePdf(fileUrl(quote.customer_pdf))
+          if (dataUrl) imageData = dataUrl.split(',')[1]
+        }
+        const result = await generateSpecs(quoteId, special, '', imageData)
+        if (result?.dimensions) {
+          const p = parseDims(result.dimensions)
+          setCustomSpec((cs) => ({ ...cs, dims: composeDims(p.l, p.w, p.h) }))
+          setCustomDimsStatus('⚡ read from the drawing')
+        } else {
+          setCustomDimsStatus('')
+        }
+      } catch { setCustomDimsStatus('') }
+    })()
+  }, [step, quote?.customer_pdf]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) return <div className="center">Loading…</div>
 
@@ -470,17 +543,26 @@ export default function Generator() {
                   {t.n}{aiSuggestedName === t.n ? '  ⚡ AI suggested' : ''}
                 </div>
               ))}
+              {signLib.filter((s) => s.name.toLowerCase().includes(signSearch.toLowerCase())).map((s) => (
+                <div
+                  key={'lib' + s.id}
+                  className={'sign-opt' + (tpl?.n === s.name ? ' sel' : '')}
+                  onClick={() => pickSign(makeCustomTpl(s.name, s.data?.spec || null))}
+                >
+                  {s.name}  ✏️ team custom type
+                </div>
+              ))}
             </div>
             <div className="field" style={{ marginTop: 14 }}>
-              <label>Can't find it? Type the sign type yourself</label>
+              <label>Can't find it? Type the sign type yourself (it gets saved for the whole team)</label>
               <div style={{ display: 'flex', gap: 10 }}>
                 <input
                   placeholder="e.g. CHANNEL LETTERS WITH BACKER"
                   value={customType}
                   onChange={(e) => setCustomType(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && customType.trim()) pickSign(makeCustomTpl(customType)) }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && customType.trim()) useTypedSignType() }}
                 />
-                <button disabled={!customType.trim()} onClick={() => pickSign(makeCustomTpl(customType))}>Use this type →</button>
+                <button disabled={!customType.trim()} onClick={useTypedSignType}>Use this type →</button>
               </div>
             </div>
             <div className="foot">
@@ -528,18 +610,68 @@ export default function Generator() {
         {step === 'customspecs' && (
           <div className="step">
             <h3>Custom Specifications</h3>
-            <div className="tmpl-row">
-              {CUSTOM_TEMPLATES.map((t, i) => (
-                <button key={i} className="ghost sm" onClick={() => setCustomSpec({
-                  itemDesc: t.itemDesc.replace('[COMPANY NAME]', client.company_name || 'CUSTOMER'),
-                  dims: t.dims, specText: t.spec, application: t.application, price: customSpec?.price || '',
-                })}>{t.name}</button>
-              ))}
+            <div className="field">
+              <label>Sign type — the full catalog, the team's saved custom types, or type a new one</label>
+              <select
+                value={customTypeSel}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setCustomTypeSel(v)
+                  if (v === '' || v === '__new__') return
+                  const cat = T.find((t) => t.n === v)
+                  const stored = signLib.find((s) => s.name === v)
+                  const specText = cat
+                    ? buildSpecLines(cat, {}, null).join('\n')
+                    : (stored?.data?.spec || `SIGN TYPE: ${v}`)
+                  setCustomSpec({
+                    ...customSpec,
+                    itemDesc: `${(cat?.desc || v)} FOR ${client.company_name || 'CUSTOMER'}`,
+                    specText,
+                    application: customSpec?.application || 'EXTERIOR',
+                    price: customSpec?.price || '',
+                  })
+                }}
+              >
+                <option value="">— pick a sign type (prefills the spec) —</option>
+                {T.map((t) => <option key={t.n} value={t.n}>{t.n}</option>)}
+                {signLib.length > 0 && <option disabled>── team's custom types ──</option>}
+                {signLib.map((s) => <option key={'lib' + s.id} value={s.name}>{s.name} ✏️</option>)}
+                <option value="__new__">➕ Type a new sign type…</option>
+              </select>
             </div>
+            {customTypeSel === '__new__' && (
+              <div className="field" style={{ border: '1px dashed var(--border)', borderRadius: 8, padding: 12 }}>
+                <label>New sign type name</label>
+                <input placeholder="e.g. CHANNEL LETTERS WITH BACKER" value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} />
+                <label style={{ marginTop: 10 }}>Its spec template (optional — paste one from a past quote; it gets saved for the whole team, in both modes)</label>
+                <textarea rows={5} value={newTypeSpec} onChange={(e) => setNewTypeSpec(e.target.value)} placeholder={'SIGN TYPE: …\nFACE: …\nRETURNS: …'} />
+                <button className="ghost sm" style={{ marginTop: 8 }} disabled={!newTypeName.trim()} onClick={async () => {
+                  const NAME = newTypeName.trim().toUpperCase()
+                  const spec = newTypeSpec.trim() || `SIGN TYPE: ${NAME}`
+                  try { const item = await saveCatalogItem('sign_type', NAME, { spec }); setSignLib((l) => [...l.filter((x) => x.name !== NAME), item]) } catch { /* still usable locally */ }
+                  setCustomSpec({ ...customSpec, itemDesc: `${NAME} FOR ${client.company_name || 'CUSTOMER'}`, specText: spec, application: customSpec?.application || 'EXTERIOR', price: customSpec?.price || '' })
+                  setCustomTypeSel(NAME)
+                  setNewTypeName(''); setNewTypeSpec('')
+                }}>Save & use this type</button>
+              </div>
+            )}
             <div className="field"><label>Item Description</label><input value={customSpec?.itemDesc || ''} onChange={(e) => setCustomSpec({ ...customSpec, itemDesc: e.target.value })} /></div>
             <div className="grid2">
-              <div className="field"><label>Dimensions</label><input value={customSpec?.dims || ''} onChange={(e) => setCustomSpec({ ...customSpec, dims: e.target.value })} /></div>
-              <div className="field"><label>Price (USD)</label><input type="number" value={customSpec?.price || ''} onChange={(e) => setCustomSpec({ ...customSpec, price: e.target.value })} /></div>
+              <div className="field">
+                <label>Overall dimensions (H × W × D){customDimsStatus ? `  ${customDimsStatus}` : ''}</label>
+                <div className="dims-row">
+                  {['l', 'w', 'h'].map((part, i) => (
+                    <div className="dims-cell" key={part}>
+                      <input type="text" inputMode="decimal" placeholder={['H', 'W', 'D'][i]}
+                        value={parseDims(customSpec?.dims)[part] || ''}
+                        onChange={(e) => setCustomDim(part, e.target.value)} />
+                      {i < 2 && <span className="dims-x">×</span>}
+                    </div>
+                  ))}
+                  <span className="dims-unit">in</span>
+                </div>
+              </div>
+              <div className="field"><label>Price (USD)</label><input type="number" min={0} value={customSpec?.price || ''} onChange={(e) => setCustomSpec({ ...customSpec, price: e.target.value })} /></div>
             </div>
             <div className="field">
               <label>Application</label>
@@ -548,15 +680,21 @@ export default function Generator() {
               </select>
             </div>
             <div className="field"><label>Specification Text</label><textarea rows={10} value={customSpec?.specText || ''} onChange={(e) => setCustomSpec({ ...customSpec, specText: e.target.value })} /></div>
+            <div className="field">
+              <label>Special requirements (anything unusual about this job)</label>
+              <textarea rows={2} value={special} onChange={(e) => setSpecial(e.target.value)} placeholder="e.g. rush order, special finish, permits…" />
+            </div>
             <div className="foot">
               <button className="ghost" onClick={back}>Back</button>
               {(() => {
                 const n = Number(customSpec?.price)
-                const bad = String(customSpec?.price ?? '').trim() === '' || !Number.isFinite(n) || n <= 0
+                const badPrice = String(customSpec?.price ?? '').trim() === '' || !Number.isFinite(n) || n <= 0
+                const noDims = !String(customSpec?.dims || '').trim()
+                const hint = noDims ? 'Enter the dimensions to continue' : badPrice ? 'Enter a real price (more than $0) to continue' : ''
                 return (
                   <>
-                    {bad && <span style={{ color: 'var(--text-faint)', fontSize: 12, alignSelf: 'center' }}>Enter a real price (more than $0) to continue</span>}
-                    <button disabled={bad} onClick={toPreview}>{saving ? 'Saving…' : 'Next →'}</button>
+                    {hint && <span style={{ color: 'var(--text-faint)', fontSize: 12, alignSelf: 'center' }}>{hint}</span>}
+                    <button disabled={badPrice || noDims} onClick={toPreview}>{saving ? 'Saving…' : 'Next →'}</button>
                   </>
                 )
               })()}

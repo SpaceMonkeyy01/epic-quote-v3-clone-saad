@@ -265,10 +265,8 @@ export default function AddQuoteModal({ onClose }) {
         <h2>New Quote — Custom</h2>
         {extractedFields}
         {repPayFields}
-        <div className="field">
-          <label>Special Requirements</label>
-          <textarea rows={2} value={form.special_requirements} onChange={set('special_requirements')} />
-        </div>
+        {/* Special requirements moved to the Custom Specifications page (the step before the
+            preview) — intake stays about who the client is, not the job's fine print. */}
         <div className="field">
           <label>Customer's sign drawing(s) (optional, PDF or image)</label>
           <input type="file" accept=".pdf,image/*" multiple onChange={(e) => setFiles(Array.from(e.target.files || []))} />

@@ -26,7 +26,8 @@ export function buildSpecLines(t, a = {}, ai = null) {
   if (!t) return []
   // monuments are free-form: render the AI's full spec (or a minimal block) instead of templated lines
   if (t.mono) {
-    let body = (ai && ai.fullSpec) ? String(ai.fullSpec) : null
+    // custom types: AI's full drawing reading > the team's saved spec template > minimal block
+    let body = (ai && ai.fullSpec) ? String(ai.fullSpec) : (t.storedSpec ? String(t.storedSpec) : null)
     if (body && t.customType) {
       // the rep explicitly typed this sign type — it overrides whatever type name the AI read
       body = /^SIGN TYPE\s*:/im.test(body)

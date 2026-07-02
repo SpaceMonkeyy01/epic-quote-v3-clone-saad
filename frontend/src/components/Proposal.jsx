@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import html2canvas from 'html2canvas'
 import { buildSpecLines, money, esc } from '../generator/proposal'
+import { parseDims } from '../generator/questions'
 import { SIDE_VIEWS } from '../generator/sideviews'
 import { fileUrl } from '../api/client'
 import { uploadExtraFile } from '../api/quotes'
+import { listCatalog, saveCatalogItem } from '../api/catalog'
 
 // A side-view entry is either a catalog key (renders from /side_views/) or an uploaded
 // file path / CDN URL (renders through fileUrl). Same list, both kinds.
@@ -117,6 +119,57 @@ function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, sel
   )
 }
 
+// Dimension annotation: an arrowed measurement line with an editable size label, shown beside
+// the artwork (like a shop drawing). Drag the body to move, pull the end dot to change length,
+// click the label to type the size. The line + label print; the purple chrome does not.
+function AdjDim({ rk, lay, onLay, scaleRef, selected, onSelect, onRemove }) {
+  const [d, setD] = useState(lay)
+  const start = (kind) => (e) => {
+    e.preventDefault(); e.stopPropagation(); onSelect()
+    const sx = e.clientX, sy = e.clientY, d0 = { ...d }, sc = scaleRef.current || 1
+    const move = (ev) => {
+      const dx = (ev.clientX - sx) / sc, dy = (ev.clientY - sy) / sc
+      if (kind === 'move') setD({ ...d0, x: Math.round(d0.x + dx), y: Math.round(d0.y + dy) })
+      else setD({ ...d0, len: Math.max(24, Math.round(d0.len + (d0.vert ? dy : dx))) })
+    }
+    const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); setD((v) => { onLay(v); return v }) }
+    document.addEventListener('mousemove', move); document.addEventListener('mouseup', up)
+  }
+  const C = '#c0392b'
+  const head = { position: 'absolute', width: 0, height: 0 }
+  return (
+    <div data-rk={rk} onMouseDown={start('move')}
+      style={{ position: 'absolute', left: d.x, top: d.y, width: d.vert ? 14 : d.len, height: d.vert ? d.len : 14, cursor: 'move', zIndex: 55 }}>
+      {d.vert ? (
+        <>
+          <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 0, borderLeft: `1.2px solid ${C}` }} />
+          <span style={{ ...head, left: '50%', top: 0, marginLeft: -4, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderBottom: `6px solid ${C}` }} />
+          <span style={{ ...head, left: '50%', bottom: 0, marginLeft: -4, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: `6px solid ${C}` }} />
+        </>
+      ) : (
+        <>
+          <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 0, borderTop: `1.2px solid ${C}` }} />
+          <span style={{ ...head, top: '50%', left: 0, marginTop: -4, borderTop: '4px solid transparent', borderBottom: '4px solid transparent', borderRight: `6px solid ${C}` }} />
+          <span style={{ ...head, top: '50%', right: 0, marginTop: -4, borderTop: '4px solid transparent', borderBottom: '4px solid transparent', borderLeft: `6px solid ${C}` }} />
+        </>
+      )}
+      <span contentEditable suppressContentEditableWarning spellCheck={false}
+        onMouseDown={(e) => e.stopPropagation()}
+        onBlur={(e) => { const label = e.target.innerText.trim(); setD((v) => { const n = { ...v, label }; onLay(n); return n }) }}
+        style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', background: '#fff', color: C, fontSize: 9, fontWeight: 700, padding: '0 3px', whiteSpace: 'nowrap', outline: 'none', textTransform: 'none' }}
+      >{d.label}</span>
+      {selected && (
+        <>
+          <span className="adj-ui" title="Length" onMouseDown={start('len')}
+            style={{ position: 'absolute', ...(d.vert ? { left: '50%', bottom: -6, marginLeft: -5 } : { right: -6, top: '50%', marginTop: -5 }), width: 11, height: 11, background: '#fff', border: '1.5px solid #8b5cf6', borderRadius: '50%', cursor: d.vert ? 'ns-resize' : 'ew-resize', zIndex: 60 }} />
+          <span className="adj-ui" title="Remove" onMouseDown={(e) => { e.stopPropagation(); onRemove() }}
+            style={{ position: 'absolute', top: -18, right: -6, width: 15, height: 15, background: '#fff', border: '1.5px solid #e05661', borderRadius: '50%', color: '#e05661', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 60 }}>×</span>
+        </>
+      )}
+    </div>
+  )
+}
+
 // Luminance-based text color so the swatch label stays readable on any fill.
 function swatchText(hex) {
   const h = (hex || '').replace('#', '')
@@ -190,6 +243,11 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
   const [busy, setBusy] = useState('')
   const [toast, setToast] = useState('')
   const [pickingSV, setPickingSV] = useState(false)
+  const [svLib, setSvLib] = useState([])   // team side-view library ({name, data:{path}}) — shared across quotes
+  useEffect(() => {
+    if (!pickingSV) return
+    listCatalog('side_view').then(setSvLib).catch(() => {})
+  }, [pickingSV])
   const [selId, setSelId] = useState(null)                          // selected adjustable image
   const [layout, setLayout] = useState(savedState?.__layout || {})  // persisted geometry per image
   const SW_W = 96, SW_H = 20   // default swatch size (now horizontally resizable)
@@ -204,12 +262,14 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
     ]
   })
   // Add a chip to the RIGHT of the existing ones, on the same row (auto-aligned).
+  // With no existing chips (custom mode has no seeded colour lines), start inside the
+  // SPECIFICATIONS block instead of floating over the item table.
   const addSwatch = () => {
     const id = 'sw' + Date.now()
     setSwatches((s) => {
       const row = s.find((x) => x.id === 'face') || s[0]
-      const rightX = s.reduce((m, x) => Math.max(m, x.x + x.w), row ? row.x : 300)
-      return [...s, { id, name: '', color: '', x: rightX + 16, y: row ? row.y : 470, w: SW_W, h: SW_H }]
+      const rightX = s.reduce((m, x) => Math.max(m, x.x + x.w), row ? row.x : 96)
+      return [...s, { id, name: '', color: '', x: row ? rightX + 16 : 96, y: row ? row.y : 640, w: SW_W, h: SW_H }]
     })
     setSelId('swatch-' + id)
   }
@@ -355,14 +415,16 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
       pay: 'CLICK HERE TO MAKE PAYMENT',
     }
     const merged = { ...def, ...(savedState || {}) }
-    // DERIVED blocks (money, client info, item description) must FOLLOW the wizard — a price or
-    // company changed on the specs/client step has to reach the customer's proposal. A saved copy
-    // only wins for a block the user hand-edited ON the proposal (tracked in __dirty). specBody
-    // and notes stay saved-first: they're the blocks people curate by hand (↻ Rebuild refreshes them).
-    const dirty = new Set(savedState?.__dirty || [])
-    ;['unitPrice', 'totalPrice', 'subtotal', 'dep1', 'dep2', 'infoLeft', 'infoRight', 'itemDesc'].forEach((k) => {
-      if (!dirty.has(k)) merged[k] = def[k]
-    })
+    // EVERY wizard-derived block (money, client info, item description, spec text, notes) must
+    // FOLLOW the wizard — an edit made on any earlier step has to reach the proposal, always.
+    // A saved copy only wins for a block the user hand-edited ON the proposal itself (tracked
+    // per-block in __dirty). Saves from before dirty-tracking existed have no __dirty array —
+    // for those, keep everything (old behavior) so historic hand-edits aren't lost.
+    const DERIVED = ['unitPrice', 'totalPrice', 'subtotal', 'dep1', 'dep2', 'infoLeft', 'infoRight', 'itemDesc', 'specBody', 'notes']
+    if (!savedState || Array.isArray(savedState.__dirty)) {
+      const dirty = new Set(savedState?.__dirty || [])
+      DERIVED.forEach((k) => { if (!dirty.has(k)) merged[k] = def[k] })
+    }
     // A saved spec belongs to the sign type it was written for — if the type has changed
     // since, the saved text is guaranteed wrong, so rebuild it fresh for the new type.
     if (savedState?.specBody && savedState.__specTpl && tpl?.n && savedState.__specTpl !== tpl.n) {
@@ -559,6 +621,13 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
               <div onClick={sampleArtwork} onMouseMove={onPickMove} onMouseLeave={() => setLoupe(null)} title="Click to grab this color"
                 style={{ position: 'absolute', left: a.x, top: a.y, width: a.w, height: a.h, transform: `rotate(${a.rot || 0}deg)`, cursor: 'crosshair', zIndex: 80, outline: '2px dashed #8b5cf6', outlineOffset: -1 }} />
             ) })()}
+            {/* measurement arrows beside the artwork — movable, resizable, label editable */}
+            {['dim-w', 'dim-h'].filter((k) => layout[k]).map((k) => (
+              <AdjDim key={k} rk={k} lay={layout[k]} scaleRef={scaleRef}
+                onLay={(v) => setLayout((L) => ({ ...L, [k]: v }))}
+                selected={selId === k} onSelect={() => setSelId(k)}
+                onRemove={() => { setLayout((L) => { const n = { ...L }; delete n[k]; return n }); setSelId(null) }} />
+            ))}
           </div>
 
           {/* item table — its own bordered block with a gap above (matches the template) */}
@@ -657,8 +726,21 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                   </label>
                 )
               })}
-              {/* side views the team uploaded themselves (stored paths/URLs, not catalog keys) */}
-              {sideViews.filter((k) => !SIDE_VIEWS.some((s) => s.key === k)).map((k) => (
+              {/* the team's own side-view library — uploaded once, available on every quote */}
+              {svLib.map((it) => {
+                const p = it.data?.path
+                if (!p) return null
+                const on = sideViews.includes(p)
+                return (
+                  <label key={'lib' + it.id} style={{ width: 120, fontSize: 10, textAlign: 'center', cursor: 'pointer', border: on ? '2px solid #f5a623' : '1px solid #ccc', borderRadius: 6, padding: 4 }}>
+                    <input type="checkbox" checked={on} onChange={(e) => onSideViews(e.target.checked ? [...sideViews, p] : sideViews.filter((x) => x !== p))} />
+                    <img src={svSrc(p)} alt={it.name} style={{ width: '100%', height: 70, objectFit: 'contain' }} />
+                    <div>{it.name}</div>
+                  </label>
+                )
+              })}
+              {/* one-off uploads on this quote that aren't in the library */}
+              {sideViews.filter((k) => !SIDE_VIEWS.some((s) => s.key === k) && !svLib.some((it) => it.data?.path === k)).map((k) => (
                 <label key={k} style={{ width: 120, fontSize: 10, textAlign: 'center', cursor: 'pointer', border: '2px solid #f5a623', borderRadius: 6, padding: 4 }}>
                   <input type="checkbox" checked onChange={() => onSideViews(sideViews.filter((x) => x !== k))} />
                   <img src={svSrc(k)} alt="uploaded side view" style={{ width: '100%', height: 70, objectFit: 'contain' }} />
@@ -672,10 +754,19 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                     const f = e.target.files?.[0]
                     if (!f || !info?.quoteId) return
                     e.target.value = ''
+                    // name it (e.g. the sign type) so it's findable on every future quote
+                    const suggested = (tpl?.n || f.name.replace(/\.[^.]+$/, '')).toUpperCase()
+                    const title = (window.prompt('Name this side view so the whole team can reuse it:', suggested) || '').trim()
                     try {
                       const path = await uploadExtraFile(info.quoteId, f)
                       onSideViews([...sideViews, path])
-                      flash('Side view uploaded.')
+                      if (title) {
+                        await saveCatalogItem('side_view', title, { path })
+                        setSvLib((l) => [...l.filter((x) => x.name !== title.toUpperCase()), { id: 'new' + Date.now(), name: title.toUpperCase(), data: { path } }])
+                        flash(`Saved to the library as “${title.toUpperCase()}”.`)
+                      } else {
+                        flash('Side view added to this quote only (no name given).')
+                      }
                     } catch { flash('Upload failed — try again.') }
                   }}
                 />
@@ -690,6 +781,20 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
       {/* color swatches — a control, not part of the printed page */}
       <div style={{ margin: '12px 0' }}>
         <button type="button" className="ghost" onClick={addSwatch}>+ Add color swatch</button>
+        <button
+          type="button" className="ghost" style={{ marginLeft: 8 }}
+          title="Add measurement arrows beside the artwork (drag to place, pull the dot to resize, click the label to type the size)"
+          onClick={() => {
+            const p = parseDims(mode === 'custom' ? customSpec?.dims : answers?.dimensions)
+            const a = layout.artwork || { x: 188, y: 24, w: 360, h: 144 }
+            setLayout((L) => ({
+              ...L,
+              'dim-w': L['dim-w'] || { x: a.x, y: Math.max(2, a.y - 16), len: a.w, vert: false, label: p.w ? p.w + '"' : 'WIDTH' },
+              'dim-h': L['dim-h'] || { x: Math.max(2, a.x - 18), y: a.y, len: a.h, vert: true, label: p.l ? p.l + '"' : 'HEIGHT' },
+            }))
+            flash('Size arrows added — drag them into place.')
+          }}
+        >+ Size arrows</button>
         <button
           type="button" className="ghost" style={{ marginLeft: 8 }}
           title="Replace the SPECIFICATIONS text with a fresh version built from the current answers (use after changing specs on an older quote). Your other edits are kept."

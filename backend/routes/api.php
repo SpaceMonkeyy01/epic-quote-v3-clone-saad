@@ -20,6 +20,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('users/{user}/password', [App\Http\Controllers\Api\UserController::class, 'changePassword']);
     });
 
+    // Team catalog: custom sign types + uploaded side views, shared by both quote modes
+    Route::get('catalog', [App\Http\Controllers\Api\CatalogController::class, 'index']);
+    Route::post('catalog', [App\Http\Controllers\Api\CatalogController::class, 'store']);
+    Route::delete('catalog/{item}', [App\Http\Controllers\Api\CatalogController::class, 'destroy']);
+
     // Quotes
     Route::apiResource('quotes', App\Http\Controllers\Api\QuoteController::class);
     Route::put('quotes/{quote}/status', [App\Http\Controllers\Api\QuoteController::class, 'updateStatus']);
