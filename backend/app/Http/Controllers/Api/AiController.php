@@ -33,37 +33,36 @@ class AiController extends Controller
         $extraInfo = trim((string) $request->input('project_info', ''));
         $sideViewKeys = trim((string) $request->input('side_view_keys', ''));
 
-        // Customer file → PDF text (smalot) or image data URL (vision)
-        $pdfText = '';
-        $imageDataUrl = null;
-        if ($quote->customer_pdf) {
-            $disk = Storage::disk('public');
-            $rel = 'pdfs/'.$quote->customer_pdf;
-            if ($disk->exists($rel)) {
-                $full = $disk->path($rel);
-                if (str_ends_with(strtolower($quote->customer_pdf), '.pdf')) {
-                    $pdfText = $this->extractPdfText($full);
-                } else {
-                    $ext = strtolower(pathinfo($quote->customer_pdf, PATHINFO_EXTENSION));
-                    $mime = $ext === 'png' ? 'image/png' : "image/{$ext}";
-                    $b64 = base64_encode(file_get_contents($full));
-                    $imageDataUrl = "data:{$mime};base64,{$b64}";
-                }
-            }
+        // EVERY customer upload feeds the AI — the primary drawing AND the extra files
+        // (a job often splits client info and the sign image across separate uploads).
+        // Each file yields PDF text (smalot) and/or a vision image; refs may be bare
+        // filenames (legacy local) or full CDN URLs (Cloudinary era).
+        $pdfTexts = [];
+        $imageUrls = [];
+        $refs = array_filter(array_merge(
+            [$quote->customer_pdf],
+            (array) (($quote->generated_data['extra_uploads'] ?? []))
+        ));
+        foreach (array_slice($refs, 0, 5) as $ref) {
+            $in = $this->fileToAiInput((string) $ref);
+            if ($in['text'])  { $pdfTexts[]  = $in['text']; }
+            if ($in['image']) { $imageUrls[] = $in['image']; }
         }
 
-        // A rasterized PDF page (or any image) sent from the client takes precedence for vision —
-        // this is how vector/CAD PDFs that carry no extractable text still get "seen".
+        // A rasterized PDF page sent from the client goes FIRST — it's how vector/CAD PDFs
+        // that carry no extractable text still get "seen".
         $reqImage = $request->input('image_data');
         if ($reqImage) {
-            $imageDataUrl = 'data:' . $request->input('image_type', 'image/png') . ';base64,' . $reqImage;
+            array_unshift($imageUrls, 'data:' . $request->input('image_type', 'image/png') . ';base64,' . $reqImage);
         }
 
+        $pdfText = implode("\n\n", $pdfTexts);
         $infoParts = array_filter([$quote->special_requirements, $extraInfo, $pdfText]);
         $info = $infoParts ? implode("\n\n", $infoParts) : '(no project details provided)';
         $signTypeList = implode("\n", AppConstants::SIGN_TYPE_NAMES);
 
-        $imgNote = $imageDataUrl ? ' and the attached image of their document' : '';
+        $imageDataUrl = $imageUrls;   // downstream: truthy when any image is attached
+        $imgNote = $imageUrls ? ' and the attached image(s) of their documents — read ALL of them' : '';
         $prompt = <<<PROMPT
 You are a sign-industry quoting assistant for Epic Craftings. Read the customer's project information{$imgNote} and produce quote specifications.
 
@@ -171,7 +170,43 @@ PROMPT;
     }
 
     /** Call Groq and robustly parse JSON, retrying once if the model returns junk. */
-    private function callAndParse(string $prompt, ?string $imageDataUrl): array
+    /**
+     * Turn one stored customer-file reference into AI input. Handles every storage era:
+     * bare local filenames, /storage/... paths, and full Cloudinary URLs (PDF/AI docs are
+     * CDN-rasterized to a page-1 PNG). Returns ['text' => ?string, 'image' => ?string].
+     */
+    private function fileToAiInput(string $ref): array
+    {
+        $ref = trim($ref);
+        if ($ref === '') {
+            return ['text' => null, 'image' => null];
+        }
+        if (preg_match('#^https?://#i', $ref)) {
+            if (preg_match('#res\.cloudinary\.com#i', $ref) && preg_match('#\.(pdf|ai)$#i', $ref)) {
+                $png = preg_replace('#/upload/#', '/upload/pg_1,f_png,w_1600/', $ref, 1);
+                return ['text' => null, 'image' => preg_replace('#\.(pdf|ai)$#i', '.png', $png)];
+            }
+            return ['text' => null, 'image' => $ref];   // public image URL — vision reads it directly
+        }
+        $rel = preg_replace('#^/?storage/#', '', ltrim($ref, '/'));
+        if (!str_contains($rel, '/')) {
+            $rel = 'pdfs/'.$rel;   // legacy bare filename
+        }
+        $disk = Storage::disk('public');
+        if (!$disk->exists($rel)) {
+            return ['text' => null, 'image' => null];
+        }
+        $full = $disk->path($rel);
+        if (str_ends_with(strtolower($rel), '.pdf')) {
+            return ['text' => $this->extractPdfText($full), 'image' => null];
+        }
+        $ext = strtolower(pathinfo($rel, PATHINFO_EXTENSION));
+        $mime = $ext === 'png' ? 'image/png' : ($ext === 'svg' ? 'image/svg+xml' : "image/{$ext}");
+        return ['text' => null, 'image' => 'data:'.$mime.';base64,'.base64_encode(file_get_contents($full))];
+    }
+
+    /** @param string|array|null $imageDataUrl one image URL/data-URL or an array of them */
+    private function callAndParse(string $prompt, $imageDataUrl): array
     {
         $lastErr = null;
         for ($attempt = 0; $attempt < 2; $attempt++) {

@@ -13,23 +13,26 @@ class GroqService
 {
     private const URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-    public function chat(string $prompt, ?string $imageDataUrl = null, bool $jsonMode = false): string
+    /** @param string|array|null $images one image URL/data-URL, or an array of them (multi-upload jobs) */
+    public function chat(string $prompt, $images = null, bool $jsonMode = false): string
     {
         $apiKey = config('services.groq.key');
         if (!$apiKey) {
             throw new RuntimeException('GROQ_API_KEY is not configured on the server (.env)');
         }
 
-        if ($imageDataUrl) {
-            $content = [
-                ['type' => 'text', 'text' => $prompt],
-                ['type' => 'image_url', 'image_url' => ['url' => $imageDataUrl]],
-            ];
+        $imageList = array_values(array_filter(is_array($images) ? $images : [$images]));
+        if ($imageList) {
+            $content = [['type' => 'text', 'text' => $prompt]];
+            foreach (array_slice($imageList, 0, 5) as $url) {   // vision models cap the image count
+                $content[] = ['type' => 'image_url', 'image_url' => ['url' => $url]];
+            }
             $model = config('services.groq.vision_model');
         } else {
             $content = $prompt;
             $model = config('services.groq.model');
         }
+        $imageDataUrl = (bool) $imageList;   // keep the json-mode guard below working
 
         $body = [
             'model'       => $model,

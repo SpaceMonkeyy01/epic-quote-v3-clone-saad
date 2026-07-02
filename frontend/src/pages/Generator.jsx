@@ -202,26 +202,31 @@ export default function Generator() {
     setQuote((qd) => ({ ...qd, customer_pdf: path }))
     // if it's an image, flow it straight to the proposal artwork too (#10)
     if (/\.(png|jpe?g|gif|webp|svg)$/i.test(path)) setArtworkPath(path)
+    // a replaced file means the old reading is stale — re-read automatically with the NEW file
+    if (mode === 'generator' && !aiLoading) runAI(path)
   }
-  const runAI = async () => {
+  // pdfOverride: pass the just-uploaded path so a replace re-reads the NEW file (state is async)
+  const runAI = async (pdfOverride = null) => {
+    const drawing = (typeof pdfOverride === 'string' && pdfOverride) || quote?.customer_pdf
     setAiLoading(true)
     setAiStatus('Reading customer details and generating specifications…')
     try {
       await updateQuote(quoteId, { special_requirements: special })
-      // vector/CAD PDFs carry no extractable text — render page 1 to an image so vision can read it
+      // vector/CAD PDFs carry no extractable text — render page 1 to an image so vision can read it.
+      // (Images and Cloudinary files are read server-side now, straight from their URL.)
       let imageData = null
       let artPath = artworkPath
-      if (quote?.customer_pdf && (isCloudDoc(quote.customer_pdf) || /\.pdf$/i.test(quote.customer_pdf))) {
+      if (drawing && (isCloudDoc(drawing) || /\.pdf$/i.test(drawing))) {
         setAiStatus('Rendering the drawing for the AI…')
         let dataUrl = null
-        if (isCloudDoc(quote.customer_pdf)) {
+        if (isCloudDoc(drawing)) {
           // Cloudinary-stored PDF/AI: let the CDN rasterize page 1 to a PNG (no pdf.js needed)
           try {
-            const blob = await (await fetch(cloudRaster(quote.customer_pdf, 1200))).blob()
+            const blob = await (await fetch(cloudRaster(drawing, 1200))).blob()
             dataUrl = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob) })
           } catch { dataUrl = null }
         } else {
-          dataUrl = await rasterizePdf(fileUrl(quote.customer_pdf))
+          dataUrl = await rasterizePdf(fileUrl(drawing))
         }
         if (dataUrl) {
           imageData = dataUrl.split(',')[1]
