@@ -108,6 +108,7 @@ export default function Dashboard() {
               </div>
               <div className="na-act">
                 <span className={'pill pill-' + (COLOR[q.status] || 'gray')}>{chip}</span>
+                {(q.tags || []).map((t) => <span key={t} className="pill pill-purple" style={{ fontSize: 10 }}>also: {ACTION[t] || t}</span>)}
                 <div className="na-val">{money(q.price)}</div>
                 <button className="ghost sm" onClick={() => navigate(`/quotes/${q.quote_id}/generate`)}>Open</button>
               </div>
@@ -158,7 +159,10 @@ export default function Dashboard() {
                 <td>{q.company_name || '—'}</td>
                 <td className="muted">{q.sales_rep || '—'}</td>
                 <td style={{ textAlign: 'right', fontWeight: 600 }}>{q.price ? money(q.price) : '—'}</td>
-                <td style={{ textAlign: 'right' }}><span className={'pill pill-' + (COLOR[q.status] || 'gray')}>{q.status}</span></td>
+                <td style={{ textAlign: 'right' }}>
+                  <span className={'pill pill-' + (COLOR[q.status] || 'gray')}>{q.status}</span>
+                  {(q.tags || []).map((t) => <span key={t} className="pill pill-purple" style={{ fontSize: 10, marginLeft: 4 }}>+{t}</span>)}
+                </td>
               </tr>
             ))}
           </tbody>

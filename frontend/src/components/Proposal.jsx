@@ -432,6 +432,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
       terms: TERMS_HTML,
       pay: 'CLICK HERE TO MAKE PAYMENT',
       pkgLabel1: 'INSTALLATION TAPE',
+      pkgLabel2: 'POWER SUPPLY',
     }
     const merged = { ...def, ...(savedState || {}) }
     // EVERY wizard-derived block (money, client info, item description, spec text, notes) must
@@ -708,29 +709,42 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                   // Horizontally centred as a group: equal margins and gap across the 264px column.
                   // (Key bumped pkg2→pkg3 to reset any saved offsets to the centred defaults;
                   // lockAspect keeps each image in its natural proportions.)
-                  <AdjImg key={p.label} {...adjProps(`pkg3-${p.label}`, { x: Math.round(((264 - arr.length * 122) / (arr.length + 1)) * (i + 1) + 122 * i), y: 8, w: 122, h: 134 })} src={p.img} alt={p.label} lockAspect />
+                  <AdjImg key={p.label} {...adjProps(`pkg4-${p.label}`, { x: Math.round(((264 - arr.length * 122) / (arr.length + 1)) * (i + 1) + 122 * i), y: 8, w: 122, h: 134 })} src={p.img} alt={p.label} lockAspect />
                 ))}
-                {/* caption under the tape roll — glued to the image's REAL position/size (the image
-                    reports its fitted box on load), so it follows drags and never overlaps; editable */}
-                {(() => {
-                  const t = layout['pkg3-INSTALLATION TEMPLATE']
-                  return E('pkgLabel1', {
+                {/* captions glued to each image's REAL position/size (images report their fitted
+                    box on load) — always centered right below, follow drags, editable */}
+                {PACKAGE.map((p, i, arr) => {
+                  const t = layout[`pkg4-${p.label}`]
+                  const defX = Math.round(((264 - arr.length * 122) / (arr.length + 1)) * (i + 1) + 122 * i)
+                  return E(`pkgLabel${i + 1}`, {
                     position: 'absolute',
-                    left: t ? t.x : 7,
+                    left: t ? t.x : defX,
                     top: t ? t.y + t.h + 5 : 88,
                     width: t ? t.w : 122,
                     textAlign: 'center', fontSize: 9, letterSpacing: 2, color: '#555', fontWeight: 600,
                   })
-                })()}
+                })}
               </div>
-              <div style={secHead}>SIDE VIEW</div>
-              <div style={{ position: 'relative', height: 208 }}>
-                {sideViews.length === 0
-                  ? <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 10, textTransform: 'none' }}>[ No side view selected ]</span>
-                  : sideViews.map((k, i) => (
-                      <AdjImg key={k} {...adjProps(`sv-${k}`, { x: 16 + i * 14, y: 10 + i * 14, w: 230, h: 188 })} src={svSrc(k)} alt={String(k)} />
-                    ))}
-              </div>
+              {/* explicit "no side view" removes the whole section, headline included */}
+              {!sideViews.includes('__none__') && (
+                <>
+                  <div style={secHead}>SIDE VIEW</div>
+                  <div style={{ position: 'relative', height: 208 }}>
+                    {sideViews.length === 0
+                      ? <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 10, textTransform: 'none' }}>[ No side view selected ]</span>
+                      : (() => {
+                          // tile instead of stacking: one view fills the box; several share it in a 2-per-row grid
+                          const list = sideViews.filter((k) => k !== '__none__')
+                          const one = list.length === 1
+                          return list.map((k, i) => (
+                            <AdjImg key={k} {...adjProps(`sv-${k}`, one
+                              ? { x: 16, y: 10, w: 230, h: 188 }
+                              : { x: 8 + (i % 2) * 126, y: 6 + Math.floor(i / 2) * 100, w: 118, h: 94 })} src={svSrc(k)} alt={String(k)} />
+                          ))
+                        })()}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -777,11 +791,18 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
           </button>
           {pickingSV && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
+              {/* explicit no-side-view: clears every pick and removes the section + headline */}
+              <label style={{ width: 120, fontSize: 11, textAlign: 'center', cursor: 'pointer', border: sideViews.includes('__none__') ? '2px solid #f5a623' : '1px dashed #999', borderRadius: 6, padding: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 96, color: 'var(--text-dim, #888)' }}>
+                <input type="checkbox" checked={sideViews.includes('__none__')}
+                  onChange={(e) => onSideViews(e.target.checked ? ['__none__'] : [])} />
+                <span style={{ fontSize: 20, lineHeight: 1.4 }}>🚫</span>
+                <span>No side view<br />(hides the section)</span>
+              </label>
               {SIDE_VIEWS.map((s) => {
                 const on = sideViews.includes(s.key)
                 return (
                   <label key={s.key} style={{ width: 120, fontSize: 10, textAlign: 'center', cursor: 'pointer', border: on ? '2px solid #f5a623' : '1px solid #ccc', borderRadius: 6, padding: 4 }}>
-                    <input type="checkbox" checked={on} onChange={(e) => onSideViews(e.target.checked ? [...sideViews, s.key] : sideViews.filter((x) => x !== s.key))} />
+                    <input type="checkbox" checked={on} onChange={(e) => onSideViews(e.target.checked ? [...sideViews.filter((x) => x !== '__none__'), s.key] : sideViews.filter((x) => x !== s.key))} />
                     <img src={`/side_views/${s.key}.png`} alt={s.label} style={{ width: '100%', height: 70, objectFit: 'contain' }} />
                     <div>{s.label}</div>
                   </label>
@@ -794,7 +815,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                 const on = sideViews.includes(p)
                 return (
                   <label key={'lib' + it.id} style={{ width: 120, fontSize: 10, textAlign: 'center', cursor: 'pointer', border: on ? '2px solid #f5a623' : '1px solid #ccc', borderRadius: 6, padding: 4 }}>
-                    <input type="checkbox" checked={on} onChange={(e) => onSideViews(e.target.checked ? [...sideViews, p] : sideViews.filter((x) => x !== p))} />
+                    <input type="checkbox" checked={on} onChange={(e) => onSideViews(e.target.checked ? [...sideViews.filter((x) => x !== '__none__'), p] : sideViews.filter((x) => x !== p))} />
                     <img src={svSrc(p)} alt={it.name} style={{ width: '100%', height: 70, objectFit: 'contain' }} />
                     <div>{it.name}</div>
                   </label>
@@ -820,7 +841,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                     const title = (window.prompt('Name this side view so the whole team can reuse it:', suggested) || '').trim()
                     try {
                       const path = await uploadExtraFile(info.quoteId, f)
-                      onSideViews([...sideViews, path])
+                      onSideViews([...sideViews.filter((x) => x !== '__none__'), path])
                       if (title) {
                         await saveCatalogItem('side_view', title, { path })
                         setSvLib((l) => [...l.filter((x) => x.name !== title.toUpperCase()), { id: 'new' + Date.now(), name: title.toUpperCase(), data: { path } }])

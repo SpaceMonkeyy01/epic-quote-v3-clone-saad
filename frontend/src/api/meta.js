@@ -3,7 +3,7 @@ import client from './client'
 export const getConstants = () => client.get('/constants').then((r) => r.data)
 export const getDashboard = () => client.get('/dashboard').then((r) => r.data)
 export const getSalesReps = () => client.get('/reports/sales-reps').then((r) => r.data)
-export const getActivity = () => client.get('/activity').then((r) => r.data)
+export const getActivity = (params = {}) => client.get('/activity', { params }).then((r) => r.data)
 
 export const getLogo = () => client.get('/settings/logo').then((r) => r.data)
 export const setLogo = (file) => {

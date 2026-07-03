@@ -94,6 +94,7 @@ Respond ONLY with a JSON object, no markdown fences, no preamble, with these key
  "application": "EXTERIOR | INTERIOR | null",
  "price": number or null,
  "notes": "short summary of anything special, else null",
+ "artworkBox": "bounding box of the MAIN SIGN RENDERING/ARTWORK inside the FIRST attached image (the sign graphic itself — exclude title block, dimension lines, side views, notes) as fractions of the image: {\\"x\\":0.1,\\"y\\":0.2,\\"w\\":0.6,\\"h\\":0.3}. null if no image or unsure",
  "fullSpec": "EXHAUSTIVE multi-line transcription of every spec/detail found in the source (each sign, every dimension, material, finish, font, mounting, lighting). Never null if any detail exists."
 }
 PROMPT;

@@ -26,10 +26,13 @@ class Setting extends Model
         static::updateOrCreate(['key' => $key], ['value' => $value]);
     }
 
-    // V1 next_quote_id(): EC{counter}, increments before use
+    // V1 next_quote_id(): EC{counter}, increments before use.
+    // When Airtable is configured (the team's other software also numbers quotes there),
+    // continue past Airtable's highest ID so the two systems never hand out the same number.
     public static function nextQuoteId(): array
     {
-        $counter = (int) static::get('quote_counter', '100000') + 1;
+        $counter = (int) static::get('quote_counter', '100000');
+        $counter = max($counter, \App\Services\AirtableService::maxQuoteNumber()) + 1;
         static::put('quote_counter', (string) $counter);
         return [$counter, "EC{$counter}"];
     }

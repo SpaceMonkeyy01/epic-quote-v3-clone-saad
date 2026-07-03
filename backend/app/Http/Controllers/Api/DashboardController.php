@@ -79,6 +79,7 @@ class DashboardController extends Controller
                 'job_name'     => $q->job_name,
                 'price'        => (float) $q->price,
                 'status'       => $q->status,
+                'tags'         => $q->tags ?: [],
                 'days_waiting' => $q->updated_at ? (int) $q->updated_at->diffInDays($now) : 0,
             ])
             ->sortByDesc('days_waiting')
@@ -160,9 +161,21 @@ class DashboardController extends Controller
             return response()->json(['error' => 'forbidden'], 403);
         }
 
-        $logs = ActivityLog::with('user')
-            ->latest('created_at')
-            ->limit(150)
+        // Filterable feed: by user, by quote id (matches the details text), by action —
+        // so a manager can traverse any user's or any quote's full history with no digging.
+        $query = ActivityLog::with('user')->latest('created_at');
+        if ($u = trim((string) $request->query('user', ''))) {
+            $query->whereHas('user', fn ($q) => $q->where('full_name', 'like', "%{$u}%")->orWhere('username', 'like', "%{$u}%"));
+        }
+        if ($qid = trim((string) $request->query('quote', ''))) {
+            $query->where('details', 'like', "%{$qid}%");
+        }
+        if ($a = trim((string) $request->query('action', ''))) {
+            $query->where('action', $a);
+        }
+        $limit = min(1000, max(1, (int) $request->query('limit', 300)));
+
+        $logs = $query->limit($limit)
             ->get()
             ->map(fn ($l) => [
                 'user'    => $l->user?->full_name ?? 'Unknown',

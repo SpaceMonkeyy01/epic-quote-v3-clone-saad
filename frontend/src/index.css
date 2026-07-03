@@ -218,6 +218,11 @@ td input:focus, td select:focus { background: var(--navy-900); }
 .prog-seg { flex: 1; height: 5px; border-radius: 3px; background: var(--navy-600); transition: background .2s; }
 .prog-seg.done { background: var(--gold); }
 .wizard { max-width: 740px; }
+/* live-preview layout: step card on the left, the real editable proposal on the right */
+.wiz-cols { display: flex; gap: 20px; align-items: flex-start; }
+.wiz-cols .wiz-main { flex: 1 1 0; min-width: 0; max-width: 740px; }
+.wiz-live { flex: 1 1 0; min-width: 0; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: var(--navy-800); }
+@media (max-width: 1150px) { .wiz-live { display: none; } .wiz-cols { display: block; } }
 .step { background: var(--navy-700); border: 1px solid var(--border-soft); border-radius: 14px; padding: 26px; box-shadow: var(--shadow); }
 .step h3 { margin-bottom: 18px; font-size: 18px; }
 .step .foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 26px; }

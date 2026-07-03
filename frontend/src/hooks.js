@@ -14,8 +14,8 @@ export const useQuotes = (params) =>
 export const useSalesReps = () =>
   useQuery({ queryKey: ['sales-reps'], queryFn: M.getSalesReps })
 
-export const useActivity = () =>
-  useQuery({ queryKey: ['activity'], queryFn: M.getActivity })
+export const useActivity = (params = {}) =>
+  useQuery({ queryKey: ['activity', params], queryFn: () => M.getActivity(params) })
 
 // Invalidate everything that a quote mutation can affect
 function useQuoteInvalidation() {

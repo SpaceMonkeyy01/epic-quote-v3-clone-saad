@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuotes, useConstants, useUpdateQuote, useUpdateStatus, useDeleteQuote } from '../hooks'
+import { useQuotes, useConstants, useUpdateQuote, useUpdateStatus, useUpdateTags, useDeleteQuote } from '../hooks'
 import useAuthStore from '../store/authStore'
 import { fileUrl } from '../api/client'
 
@@ -26,6 +26,7 @@ export default function AllQuotes() {
   const { data: constants } = useConstants()
   const update = useUpdateQuote()
   const updateStatus = useUpdateStatus()
+  const updateTags = useUpdateTags()
   const del = useDeleteQuote()
 
   const [search, setSearch] = useState('')
@@ -93,6 +94,21 @@ export default function AllQuotes() {
                     <select value={q.status} style={{ width: 150 }} onChange={(e) => updateStatus.mutate({ id: q.quote_id, status: e.target.value })}>
                       {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
+                    {/* extra "also waiting on…" chips — a quote can wait on several people at once.
+                        The main status drives the numbers; chips add visibility. */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4, maxWidth: 190, alignItems: 'center' }}>
+                      {(q.tags || []).map((t) => (
+                        <span key={t} className="pill pill-purple" style={{ cursor: 'pointer', fontSize: 10 }} title="Click to remove"
+                          onClick={() => updateTags.mutate({ id: q.quote_id, tags: (q.tags || []).filter((x) => x !== t) })}>
+                          {t} ×
+                        </span>
+                      ))}
+                      <select value="" style={{ width: 26, padding: '0 2px', height: 20, fontSize: 11 }} title="Also waiting on…"
+                        onChange={(e) => { const t = e.target.value; if (t) updateTags.mutate({ id: q.quote_id, tags: [...new Set([...(q.tags || []), t])] }) }}>
+                        <option value="">+</option>
+                        {statuses.filter((s) => s !== q.status && s !== 'Done' && !(q.tags || []).includes(s)).map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     {q.customer_pdf && <a href={fileUrl(q.customer_pdf)} target="_blank" rel="noreferrer">PDF</a>}{' '}
@@ -102,6 +118,7 @@ export default function AllQuotes() {
                   <td style={{ whiteSpace: 'nowrap' }}>
                     <button className="ghost sm" onClick={() => setViewing(q)}>View</button>{' '}
                     <button className="ghost sm" onClick={() => navigate(`/quotes/${q.quote_id}/generate`)}>Edit</button>{' '}
+                    {admin && <><button className="ghost sm" title="Everything that ever happened to this quote" onClick={() => navigate(`/activity?quote=${q.quote_id}`)}>History</button>{' '}</>}
                     <button className="danger sm" onClick={() => remove(q)}>Delete</button>
                   </td>
                 </tr>

@@ -29,6 +29,30 @@ const cloudRaster = (p, w = 1600) =>
 // A sign type the catalog doesn't have: free-form template (like monuments) — the spec body
 // comes from the AI's full reading of the drawing when available, and the wizard asks the
 // generic questions (dimensions, illumination, mounting, colors, application, price).
+// Crop a data-URL image to the AI-located artwork box (fractions 0..1). Falls back to the
+// full image when the box is missing or implausible (tiny/inverted), so it can never lose data.
+const cropToBox = (dataUrl, box) => new Promise((resolve) => {
+  const ok = box && [box.x, box.y, box.w, box.h].every((v) => typeof v === 'number' && v >= 0 && v <= 1) && box.w > 0.08 && box.h > 0.05
+  if (!ok) return resolve(dataUrl)
+  const img = new Image()
+  img.onload = () => {
+    try {
+      const c = document.createElement('canvas')
+      c.width = Math.max(1, Math.round(img.width * Math.min(box.w, 1 - box.x)))
+      c.height = Math.max(1, Math.round(img.height * Math.min(box.h, 1 - box.y)))
+      c.getContext('2d').drawImage(img, -Math.round(img.width * box.x), -Math.round(img.height * box.y))
+      resolve(c.toDataURL('image/png'))
+    } catch { resolve(dataUrl) }
+  }
+  img.onerror = () => resolve(dataUrl)
+  img.src = dataUrl
+})
+
+const urlToDataUrl = async (url) => {
+  const blob = await (await fetch(url)).blob()
+  return new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob) })
+}
+
 const makeCustomTpl = (name, storedSpec = null) => {
   const N = name.trim().toUpperCase()
   return { n: N, st: N, mono: true, illum: 'led', mountDef: '', desc: N, customType: true, storedSpec }
@@ -150,6 +174,21 @@ export default function Generator() {
 
   const flow = mode ? FLOWS[mode] : []
   const flowIndex = flow.indexOf(step)
+
+  // ---- live preview beside the wizard (boss demand): the REAL editable proposal, refreshed
+  // whenever wizard data changes. Remounting on a debounced key keeps two guarantees: fresh
+  // wizard data always flows in, and typing INSIDE the preview never gets clobbered (edits
+  // auto-save to proposal_state, which the remount restores dirty-first).
+  const [previewKey, setPreviewKey] = useState(0)
+  const livePreview = !loading && !loadError && step && step !== 'preview'
+  const previewSig = JSON.stringify([answers, client, customSpec, tpl?.n, sideViews, artworkPath, proposalNotes, paymentLink, ai?.fullSpec])
+  const prevSig = useRef(previewSig)
+  useEffect(() => {
+    if (prevSig.current === previewSig) return
+    prevSig.current = previewSig
+    const t = setTimeout(() => setPreviewKey((k) => k + 1), 600)
+    return () => clearTimeout(t)
+  }, [previewSig])
   const aiSuggestedName = ai && ai.signType ? (matchSignType(ai.signType)?.n || null) : null
   const goto = (s) => setStep(s)
   const next = () => goto(flow[flowIndex + 1])
@@ -230,19 +269,26 @@ export default function Generator() {
         }
         if (dataUrl) {
           imageData = dataUrl.split(',')[1]
-          // persist the rendered page as the proposal artwork (survives reload; not a giant data-URL)
-          if (!artworkPath) {
-            try {
-              const blob = await (await fetch(dataUrl)).blob()
-              const path = await uploadArtwork(quoteId, new File([blob], 'drawing.png', { type: 'image/png' }))
-              artPath = path; setArtworkPath(path)
-            } catch { setArtworkPath(dataUrl) }
-          }
         }
         setAiStatus('Reading the drawing and generating specifications…')
       }
       const result = await generateSpecs(quoteId, special, SIDE_VIEWS.map((s) => s.key).join(','), imageData)
       setAi(result)
+      // Artwork picks itself: the AI locates the sign rendering inside the drawing (artworkBox)
+      // and we upload just that crop — full page only as the fallback. Also upgrades the case
+      // where the raw document image was used as artwork.
+      let pageUrl = (typeof imageData === 'string' && imageData) ? 'data:image/png;base64,' + imageData : null
+      if (!pageUrl && drawing && /\.(png|jpe?g|gif|webp)$/i.test(drawing)) {
+        try { pageUrl = await urlToDataUrl(fileUrl(drawing)) } catch { pageUrl = null }
+      }
+      if (pageUrl && (!artworkPath || artworkPath === drawing)) {
+        try {
+          const cropped = await cropToBox(pageUrl, result?.artworkBox)
+          const blob = await (await fetch(cropped)).blob()
+          const path = await uploadArtwork(quoteId, new File([blob], 'drawing.png', { type: 'image/png' }))
+          artPath = path; setArtworkPath(path)
+        } catch { if (!artworkPath) setArtworkPath(pageUrl) }
+      }
       // snap AI signType to the closest catalog entry (robust match)
       const found = matchSignType(result.signType)
       if (found) setTpl(found)
@@ -427,7 +473,8 @@ export default function Generator() {
         {flow.map((s, i) => <div key={s} className={'prog-seg' + (i <= flowIndex ? ' done' : '')} />)}
       </div>
 
-      <div className="wizard" style={step === 'preview' ? { maxWidth: 'min(1180px, 96%)' } : undefined}>
+      <div className={'wizard' + (livePreview ? ' wiz-cols' : '')} style={step === 'preview' ? { maxWidth: 'min(1180px, 96%)' } : livePreview ? { maxWidth: 'min(1500px, 97%)' } : undefined}>
+       <div className="wiz-main">
         {step === 'client' && (
           <div className="step">
             <h3>Client Information</h3>
@@ -738,6 +785,32 @@ export default function Generator() {
             </div>
           </div>
         )}
+       </div>
+
+       {/* LIVE PREVIEW — the real proposal rendered beside every step, fully editable, updating
+           as the wizard changes (remounted via a debounced key so typing here is never clobbered) */}
+       {livePreview && (
+         <aside className="wiz-live">
+           <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Live preview — updates as you fill the steps; you can edit it directly.</div>
+           <Proposal
+             key={'live' + previewKey}
+             mode={mode}
+             tpl={tpl}
+             answers={answers}
+             customSpec={customSpec}
+             info={{ company: client.company_name, client: client.client_name, contact: client.contact, address: client.address, job: client.job_name, quoteId }}
+             artworkPath={artworkPath}
+             logo={logo}
+             aiResult={ai}
+             paymentLink={paymentLink}
+             proposalNotes={proposalNotes}
+             savedState={gd?.proposal_state}
+             sideViews={sideViews}
+             onSideViews={setSideViews}
+             onSave={(proposalState) => saveProgress({ proposal_state: proposalState, side_views: sideViews })}
+           />
+         </aside>
+       )}
       </div>
 
       {showDrawing && quote?.customer_pdf && (

@@ -155,6 +155,8 @@ class QuoteController extends Controller
         });
 
         ActivityLog::record($user->id, 'quote_created', "{$quote->quote_id} for {$companyName}");
+        // keep the team's Airtable in step (no-op until AIRTABLE_* env vars are set)
+        \App\Services\AirtableService::pushQuote($quote->quote_id, []);
 
         return response()->json($quote->toApi(), 201);
     }
