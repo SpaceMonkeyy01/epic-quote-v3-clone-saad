@@ -99,7 +99,7 @@ function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, sel
       style={{ position: 'absolute', left: box.x, top: box.y, width: box.w, height: box.h, transform: `rotate(${box.rot}deg)`, cursor: 'move' }}>
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
         <img src={src} alt={alt} draggable={false} crossOrigin={cors ? 'anonymous' : undefined}
-          onLoad={(lockAspect && !lay) ? (e) => { const r = e.target.naturalWidth / e.target.naturalHeight; if (r > 0) setBox((b) => { const h = Math.max(20, Math.round(b.w / r)); return { ...b, h, ix: 0, iy: 0, iw: b.w, ih: h } }) } : undefined}
+          onLoad={(lockAspect && !lay) ? (e) => { const r = e.target.naturalWidth / e.target.naturalHeight; if (r > 0) setBox((b) => { const h = Math.max(20, Math.round(b.w / r)); const fitted = { ...b, h, ix: 0, iy: 0, iw: b.w, ih: h }; onLay(fitted); return fitted }) } : undefined}
           style={{ position: 'absolute', left: box.ix, top: box.iy, width: box.iw, height: box.ih, objectFit: 'contain', display: 'block', pointerEvents: 'none' }} />
       </div>
       {selected && (
@@ -710,8 +710,18 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
                   // lockAspect keeps each image in its natural proportions.)
                   <AdjImg key={p.label} {...adjProps(`pkg3-${p.label}`, { x: Math.round(((264 - arr.length * 122) / (arr.length + 1)) * (i + 1) + 122 * i), y: 8, w: 122, h: 134 })} src={p.img} alt={p.label} lockAspect />
                 ))}
-                {/* caption under the tape roll — matches the baked-in POWER SUPPLY label; editable */}
-                {E('pkgLabel1', { position: 'absolute', left: 7, top: 88, width: 122, textAlign: 'center', fontSize: 9, letterSpacing: 2, color: '#555', fontWeight: 600 })}
+                {/* caption under the tape roll — glued to the image's REAL position/size (the image
+                    reports its fitted box on load), so it follows drags and never overlaps; editable */}
+                {(() => {
+                  const t = layout['pkg3-INSTALLATION TEMPLATE']
+                  return E('pkgLabel1', {
+                    position: 'absolute',
+                    left: t ? t.x : 7,
+                    top: t ? t.y + t.h + 5 : 88,
+                    width: t ? t.w : 122,
+                    textAlign: 'center', fontSize: 9, letterSpacing: 2, color: '#555', fontWeight: 600,
+                  })
+                })()}
               </div>
               <div style={secHead}>SIDE VIEW</div>
               <div style={{ position: 'relative', height: 208 }}>
