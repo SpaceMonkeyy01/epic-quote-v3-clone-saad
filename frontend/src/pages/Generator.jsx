@@ -29,19 +29,42 @@ const cloudRaster = (p, w = 1600) =>
 // A sign type the catalog doesn't have: free-form template (like monuments) — the spec body
 // comes from the AI's full reading of the drawing when available, and the wizard asks the
 // generic questions (dimensions, illumination, mounting, colors, application, price).
-// Crop a data-URL image to the AI-located artwork box (fractions 0..1). Falls back to the
-// full image when the box is missing or implausible (tiny/inverted), so it can never lose data.
-const cropToBox = (dataUrl, box) => new Promise((resolve) => {
-  const ok = box && [box.x, box.y, box.w, box.h].every((v) => typeof v === 'number' && v >= 0 && v <= 1) && box.w > 0.08 && box.h > 0.05
-  if (!ok) return resolve(dataUrl)
+// Crop a data-URL image to the AI-located artwork box. Tolerates every shape the model
+// actually returns: an object, a JSON string, fractions 0..1, or raw pixel coordinates
+// (normalized against the real image size). Falls back to the full image when the box is
+// missing or implausible (tiny/inverted), so it can never lose data.
+const cropToBox = (dataUrl, boxIn) => new Promise((resolve) => {
+  let box = boxIn
+  if (typeof box === 'string') { try { box = JSON.parse(box.replace(/'/g, '"')) } catch { box = null } }
+  if (!box || typeof box !== 'object') return resolve(dataUrl)
+  // accept corner form {x1,y1,x2,y2} or box form {x,y,w,h}
+  let nums = 'x1' in box
+    ? [box.x1, box.y1, Number(box.x2) - Number(box.x1), Number(box.y2) - Number(box.y1)].map(Number)
+    : [box.x, box.y, box.w, box.h].map(Number)
+  if (nums.some((v) => !Number.isFinite(v) || v < 0)) return resolve(dataUrl)
   const img = new Image()
   img.onload = () => {
     try {
+      let [x, y, w, h] = nums
+      if (x > 1.5 || y > 1.5 || w > 1.5 || h > 1.5) {   // pixel coords → fractions
+        x /= img.width; w /= img.width; y /= img.height; h /= img.height
+      }
+      // pad generously so an imprecise box never clips letters off the sign
+      const PAD = 0.06
+      x -= PAD; y -= PAD; w += PAD * 2; h += PAD * 2
+      x = Math.min(Math.max(x, 0), 0.95); y = Math.min(Math.max(y, 0), 0.95)
+      w = Math.min(w, 1 - x); h = Math.min(h, 1 - y)
+      if (w < 0.12 || h < 0.08 || (w > 0.96 && h > 0.96)) return resolve(dataUrl)   // too small/whole page → keep page
+      // JPEG + capped resolution: a PNG crop of a photo can blow past the 25MB upload limit
+      const cw = Math.max(1, Math.round(img.width * w)), ch = Math.max(1, Math.round(img.height * h))
+      const scale = Math.min(1, 1600 / Math.max(cw, ch))
       const c = document.createElement('canvas')
-      c.width = Math.max(1, Math.round(img.width * Math.min(box.w, 1 - box.x)))
-      c.height = Math.max(1, Math.round(img.height * Math.min(box.h, 1 - box.y)))
-      c.getContext('2d').drawImage(img, -Math.round(img.width * box.x), -Math.round(img.height * box.y))
-      resolve(c.toDataURL('image/png'))
+      c.width = Math.max(1, Math.round(cw * scale))
+      c.height = Math.max(1, Math.round(ch * scale))
+      const ctx = c.getContext('2d')
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height)
+      ctx.drawImage(img, img.width * x, img.height * y, cw, ch, 0, 0, c.width, c.height)
+      resolve(c.toDataURL('image/jpeg', 0.92))
     } catch { resolve(dataUrl) }
   }
   img.onerror = () => resolve(dataUrl)
@@ -230,7 +253,8 @@ export default function Generator() {
     try {
       const path = await uploadArtwork(quoteId, f)
       setArtworkPath(path)                          // swap to the saved server copy
-      await saveProgress({ artwork_path: path })    // persist now so it survives reopen
+      // artwork_auto:false — the rep chose this file; no re-read may ever replace it
+      await saveProgress({ artwork_path: path, artwork_auto: false })
     } catch (err) {
       setArtErr('Shown locally, but the server upload failed: ' + (err.response?.data?.message || err.message || 'unknown error'))
     }
@@ -281,12 +305,17 @@ export default function Generator() {
       if (!pageUrl && drawing && /\.(png|jpe?g|gif|webp)$/i.test(drawing)) {
         try { pageUrl = await urlToDataUrl(fileUrl(drawing)) } catch { pageUrl = null }
       }
-      if (pageUrl && (!artworkPath || artworkPath === drawing)) {
+      // Re-crop is allowed when there's no artwork yet, when the artwork is just the raw
+      // document, or when WE auto-set it on a previous read (artwork_auto) — a re-read must
+      // re-pick. Only a rep's own manual upload is never touched.
+      let croppedApplied = false
+      if (pageUrl && (!artworkPath || artworkPath === drawing || gd?.artwork_auto)) {
         try {
           const cropped = await cropToBox(pageUrl, result?.artworkBox)
           const blob = await (await fetch(cropped)).blob()
-          const path = await uploadArtwork(quoteId, new File([blob], 'drawing.png', { type: 'image/png' }))
-          artPath = path; setArtworkPath(path)
+          const isJpeg = cropped.startsWith('data:image/jpeg')
+          const path = await uploadArtwork(quoteId, new File([blob], isJpeg ? 'drawing.jpg' : 'drawing.png', { type: blob.type }))
+          artPath = path; setArtworkPath(path); croppedApplied = true
         } catch { if (!artworkPath) setArtworkPath(pageUrl) }
       }
       // snap AI signType to the closest catalog entry (robust match)
@@ -316,6 +345,7 @@ export default function Generator() {
         side_views: svSel,
         job_name: prefill.job_name || client.job_name || '',
         artwork_path: (artPath && !artPath.startsWith('blob:') && !artPath.startsWith('data:')) ? artPath : null,
+        artwork_auto: croppedApplied ? true : (gd?.artwork_auto || false),
       })
       setAiStatus('')
     } catch (err) {

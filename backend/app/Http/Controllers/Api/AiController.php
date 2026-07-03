@@ -94,7 +94,7 @@ Respond ONLY with a JSON object, no markdown fences, no preamble, with these key
  "application": "EXTERIOR | INTERIOR | null",
  "price": number or null,
  "notes": "short summary of anything special, else null",
- "artworkBox": "bounding box of the MAIN SIGN RENDERING/ARTWORK inside the FIRST attached image (the sign graphic itself — exclude title block, dimension lines, side views, notes) as fractions of the image: {\\"x\\":0.1,\\"y\\":0.2,\\"w\\":0.6,\\"h\\":0.3}. null if no image or unsure",
+ "artworkBox": "REQUIRED whenever an image is attached: where is the MAIN SIGN GRAPHIC (the rendering of the sign itself) inside the FIRST attached image? Return an object with keys x1,y1,x2,y2 — the top-left and bottom-right corners of that region, each a fraction of the image width/height between 0 and 1, measured from YOUR OWN looking at the image (do not copy numbers from anywhere). Cover the whole sign graphic generously. Exclude the title block, dimension arrows, side views, spec text and plain building photos. null ONLY when no image is attached",
  "fullSpec": "EXHAUSTIVE multi-line transcription of every spec/detail found in the source (each sign, every dimension, material, finish, font, mounting, lighting). Never null if any detail exists."
 }
 PROMPT;

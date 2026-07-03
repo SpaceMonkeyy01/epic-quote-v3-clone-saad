@@ -99,7 +99,7 @@ function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, sel
       style={{ position: 'absolute', left: box.x, top: box.y, width: box.w, height: box.h, transform: `rotate(${box.rot}deg)`, cursor: 'move' }}>
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
         <img src={src} alt={alt} draggable={false} crossOrigin={cors ? 'anonymous' : undefined}
-          onLoad={(lockAspect && !lay) ? (e) => { const r = e.target.naturalWidth / e.target.naturalHeight; if (r > 0) setBox((b) => { const h = Math.max(20, Math.round(b.w / r)); const fitted = { ...b, h, ix: 0, iy: 0, iw: b.w, ih: h }; onLay(fitted); return fitted }) } : undefined}
+          onLoad={(lockAspect && !lay) ? (e) => { const r = e.target.naturalWidth / e.target.naturalHeight; if (r > 0) setBox((b) => { const h = Math.max(20, Math.round(b.w / r)); const fitted = { ...b, h, ix: 0, iy: 0, iw: b.w, ih: h }; setTimeout(() => onLay(fitted), 0); return fitted }) } : undefined}
           style={{ position: 'absolute', left: box.ix, top: box.iy, width: box.iw, height: box.ih, objectFit: 'contain', display: 'block', pointerEvents: 'none' }} />
       </div>
       {selected && (
