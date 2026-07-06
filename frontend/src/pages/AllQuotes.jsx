@@ -310,7 +310,7 @@ export default function AllQuotes() {
                     {!readOnly && <><button className="ghost sm" onClick={() => navigate(`/quotes/${q.quote_id}/generate`)}>Edit</button>{' '}</>}
                     {admin && <><button className="ghost sm" title="Everything that ever happened to this quote" onClick={() => navigate(`/activity?quote=${q.quote_id}`)}>History</button>{' '}</>}
                     {admin && <><button className="ghost sm" title={q.is_test ? 'Unmark test — counts again in all numbers' : 'Mark as TEST — excluded from every KPI, pipeline and report'} onClick={() => patch(q.quote_id, 'is_test', !q.is_test)}>{q.is_test ? 'Untest' : 'Test'}</button>{' '}</>}
-                    {!readOnly && <button className="danger sm" onClick={() => remove(q)}>Delete</button>}
+                    {admin && <button className="danger sm" onClick={() => remove(q)}>Delete</button>}
                   </td>
                 </tr>
               ))}

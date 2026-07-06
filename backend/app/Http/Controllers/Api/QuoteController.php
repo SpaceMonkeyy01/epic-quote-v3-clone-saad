@@ -436,10 +436,13 @@ class QuoteController extends Controller
         return response()->json($quote->toApi());
     }
 
-    // DELETE /api/quotes/{quote} (#51)
+    // DELETE /api/quotes/{quote} (#51) — admins only (#7): deleting a quote is destructive
+    // and permanent, so it is never available to reps/makers/viewers.
     public function destroy(Request $request, Quote $quote): JsonResponse
     {
-        $this->assertAccess($request, $quote);
+        if (!$request->user()->isAdmin()) {
+            return response()->json(['error' => 'Only admins can delete quotes.'], 403);
+        }
         $qid = $quote->quote_id;
         // FK cascade handles status_history / orders / payments / quote_items
         $quote->delete();
