@@ -27,7 +27,7 @@
 | I7 | Follow-ups: fields + dashboard needs-follow-up queue + mark done (T10) | ✅ | browser: Follow-ups panel lists awaiting quotes oldest-first, inline notes persist reload, ✓ Sent drops row off queue instantly; restored after |
 | I8 | Quote source at intake + filter (T11); the 3 note fields (T12); order-placed marker + date (T13) | ✅ | browser: intake source dropdown in Custom form, Referral filter → 1 row, 📦 tick stamps date + persists, 3 note lanes save on blur + survive reload; fixed update() rejecting source-clear; restored |
 | I9 | Grid v1: reusable table — sortable columns, sticky header, row numbers (T1) on All Quotes | ✅ | browser: row numbers 1..n, Price ▲ asc/▼ desc/3rd click resets, empties sink last, thead position:sticky verified |
-| I10 | Grid v2: column show/hide + inline cell editing + keyboard nav (T1) | ⬜ | |
+| I10 | Grid v2: column show/hide + inline cell editing + keyboard nav (T1) | ✅ | browser: ☰ Columns hides Breakevens+Contact (18→15 th), choice survives reload (localStorage), ArrowDown/Up hop rows in-column, Enter commits+moves down; inline edit already live |
 | I11 | Grid v3: multi-row select + bulk status/assign/delete (T1) | ⬜ | |
 | I12 | Grid v4: copy/paste + CSV export of filtered rows (T1, T2) | ⬜ | |
 | I13 | Roles: quote_maker / account_manager / viewer + route guards + role-shaped home views (T14) | ⬜ | |
