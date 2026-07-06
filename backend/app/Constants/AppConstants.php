@@ -20,6 +20,9 @@ class AppConstants
         'Awaiting Customer Response',
         'Awaiting Rod Response',
         'Awaiting Sir Sami Response',
+        'On Hold',
+        'Rejected by Client',
+        'Out of Scope',
         'Done',
     ];
 

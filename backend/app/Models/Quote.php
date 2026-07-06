@@ -17,7 +17,7 @@ class Quote extends Model
         'quote_type', 'generated_data', 'crunched_artwork',
         'payment_link', 'order_confirmed',
         'airtable_id', 'assigned_to', 'rush', 'breakeven_production', 'breakeven_shipping',
-        'price_approved', 'approved_by', 'approval_locked', 'followup_sent', 'followup_notes',
+        'price_approved', 'approved_by', 'approval_locked', 'followup_sent', 'followup_notes', 'is_test',
         'created_by', 'final_created_by',
     ];
 
@@ -28,6 +28,7 @@ class Quote extends Model
             'generated_data'  => 'array',
             'price'           => 'float',
             'order_confirmed' => 'boolean',
+            'is_test'         => 'boolean',
         ];
     }
 
@@ -93,6 +94,7 @@ class Quote extends Model
             'approval_locked'      => (bool) $this->approval_locked,
             'followup_sent'        => (bool) $this->followup_sent,
             'followup_notes'       => $this->followup_notes,
+            'is_test'              => (bool) $this->is_test,
             'order_confirmed'      => $this->order_confirmed,
             'created_at'           => $this->created_at?->toIso8601String(),
             'updated_at'           => $this->updated_at?->toIso8601String(),

@@ -9,6 +9,7 @@ const COLOR = {
   'To Do': 'gray', 'In Progress': 'blue', 'Artwork Needed': 'amber', 'Quote Approval Needed': 'pink',
   'Need Payment Link Sent': 'coral', 'Need To Share With Customer': 'teal',
   'Awaiting Customer Response': 'purple', 'Awaiting Rod Response': 'purple', 'Awaiting Sir Sami Response': 'purple',
+  'On Hold': 'gray', 'Rejected by Client': 'coral', 'Out of Scope': 'gray',
   'Done': 'green',
 }
 // status → the next action the rep must take (the "needs attention" chip)

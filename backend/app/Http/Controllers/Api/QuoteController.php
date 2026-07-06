@@ -248,6 +248,11 @@ class QuoteController extends Controller
             $quote->tags = $data['tags'];
         }
 
+        if (array_key_exists('is_test', $data)) {
+            $quote->is_test = (bool) $data['is_test'];
+            $changes[] = $quote->is_test ? 'Marked as TEST quote' : 'Unmarked TEST quote';
+        }
+
         $quote->save();
 
         if ($changes) {

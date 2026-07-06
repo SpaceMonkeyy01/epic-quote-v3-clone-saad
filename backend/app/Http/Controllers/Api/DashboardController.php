@@ -23,7 +23,7 @@ class DashboardController extends Controller
         $monthStart = $now->copy()->subDays(30);
         $nextMonth  = $now->copy();
 
-        $base = fn () => Quote::query()->visibleTo($user);
+        $base = fn () => Quote::query()->visibleTo($user)->where('is_test', false);   // test quotes never count
 
         $monthQuotes = $base()
             ->whereBetween('created_at', [$monthStart, $nextMonth])
@@ -123,6 +123,7 @@ class DashboardController extends Controller
 
         $repStats = function (string $rep, Carbon $start, Carbon $end): array {
             $quotes = Quote::where('sales_rep', $rep)
+                ->where('is_test', false)
                 ->whereBetween('created_at', [$start, $end])
                 ->get();
             $received  = $quotes->count();

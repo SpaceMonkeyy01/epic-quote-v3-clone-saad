@@ -76,12 +76,12 @@ export default function AllQuotes() {
             <tbody>
               {quotes.map((q) => (
                 <tr key={q.id}>
-                  <td><b>{q.quote_id}</b></td>
+                  <td><b>{q.quote_id}</b>{q.is_test && <span className="pill pill-amber" style={{ marginLeft: 6, fontSize: 10 }}>TEST</span>}</td>
                   <td><EditCell value={q.company_name} onCommit={(v) => patch(q.quote_id, 'company_name', v)} width={140} /></td>
                   <td><EditCell value={q.client_name} onCommit={(v) => patch(q.quote_id, 'client_name', v)} /></td>
                   <td><EditCell value={q.contact} onCommit={(v) => patch(q.quote_id, 'contact', v)} /></td>
                   <td><EditCell value={q.job_name} onCommit={(v) => patch(q.quote_id, 'job_name', v)} /></td>
-                  <td><EditCell value={q.price || 1200} type="number" width={80} onCommit={(v) => patch(q.quote_id, 'price', v)} /></td>
+                  <td><EditCell value={q.price ?? ''} type="number" width={80} onCommit={(v) => patch(q.quote_id, 'price', v)} /></td>
                   <td>
                     {admin ? (
                       <select value={q.sales_rep || ''} style={{ width: 110 }} onChange={(e) => patch(q.quote_id, 'sales_rep', e.target.value)}>
@@ -119,6 +119,7 @@ export default function AllQuotes() {
                     <button className="ghost sm" onClick={() => setViewing(q)}>View</button>{' '}
                     <button className="ghost sm" onClick={() => navigate(`/quotes/${q.quote_id}/generate`)}>Edit</button>{' '}
                     {admin && <><button className="ghost sm" title="Everything that ever happened to this quote" onClick={() => navigate(`/activity?quote=${q.quote_id}`)}>History</button>{' '}</>}
+                    {admin && <><button className="ghost sm" title={q.is_test ? 'Unmark test — counts again in all numbers' : 'Mark as TEST — excluded from every KPI, pipeline and report'} onClick={() => patch(q.quote_id, 'is_test', !q.is_test)}>{q.is_test ? 'Untest' : 'Test'}</button>{' '}</>}
                     <button className="danger sm" onClick={() => remove(q)}>Delete</button>
                   </td>
                 </tr>
@@ -137,7 +138,7 @@ export default function AllQuotes() {
               ['Company', viewing.company_name], ['Client', viewing.client_name],
               ['Contact', viewing.contact], ['Address', viewing.address],
               ['Job', viewing.job_name],
-              ['Price', `$${Number(viewing.price || 1200).toLocaleString()}`], ['Sales Rep', viewing.sales_rep],
+              ['Price', viewing.price ? `$${Number(viewing.price).toLocaleString()}` : '—'], ['Sales Rep', viewing.sales_rep],
               ['Status', viewing.status],
               ['Special Requirements', viewing.special_requirements],
               ['Created By', viewing.added_by], ['Finalized By', viewing.created_by_name],
