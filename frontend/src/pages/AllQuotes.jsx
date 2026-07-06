@@ -141,7 +141,7 @@ export default function AllQuotes() {
   }
 
   return (
-    <>
+    <div className="fill-page">
       <div className="page-head">
         <h1>All Quotes</h1>
         {assignedF && (
@@ -194,7 +194,7 @@ export default function AllQuotes() {
       {isLoading ? (
         <div className="center">Loading…</div>
       ) : (
-        <div className="grid-wrap" style={{ overflow: 'auto', maxHeight: '72vh' }}>
+        <div className="grid-wrap" style={{ overflow: 'auto' }}>
           <table>
             <thead>
               <tr>
@@ -347,6 +347,6 @@ export default function AllQuotes() {
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }
