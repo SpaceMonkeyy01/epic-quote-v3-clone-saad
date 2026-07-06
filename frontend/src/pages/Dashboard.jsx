@@ -134,17 +134,17 @@ export default function Dashboard() {
               <div className="na-info">
                 <div className="na-id">{q.quote_id} · {q.company_name || '—'}</div>
                 <div className="na-sub">{q.status}{q.days_waiting > 0 ? ` · waiting ${q.days_waiting}d` : ''}</div>
-                <input
+                {user?.role !== 'viewer' && <input
                   defaultValue={q.followup_notes}
                   placeholder="Follow-up notes… (saved when you click away)"
                   style={{ marginTop: 4, fontSize: 12, width: '100%', maxWidth: 420 }}
                   onBlur={(e) => { if (e.target.value !== q.followup_notes) update.mutate({ id: q.quote_id, patch: { followup_notes: e.target.value } }) }}
-                />
+                />}
               </div>
               <div className="na-act">
                 <div className="na-val">{money(q.price)}</div>
                 <button className="ghost sm" onClick={() => navigate(`/quotes/${q.quote_id}/generate`)}>Open</button>
-                <button className="sm" title="Mark the follow-up as sent — drops off this list" onClick={() => update.mutate({ id: q.quote_id, patch: { followup_sent: true } })}>✓ Sent</button>
+                {user?.role !== 'viewer' && <button className="sm" title="Mark the follow-up as sent — drops off this list" onClick={() => update.mutate({ id: q.quote_id, patch: { followup_sent: true } })}>✓ Sent</button>}
               </div>
             </div>
           ))}

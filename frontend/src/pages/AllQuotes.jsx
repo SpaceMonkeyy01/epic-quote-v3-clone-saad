@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuotes, useConstants, useUpdateQuote, useUpdateStatus, useUpdateTags, useDeleteQuote } from '../hooks'
 import useAuthStore from '../store/authStore'
@@ -8,7 +8,10 @@ import { useSortable, SortTh, useColumns, ColumnPicker, gridKeyNav, downloadCsv,
 // Commits on blur only when the value actually changed
 function EditCell({ value, onCommit, type = 'text', width = 120, col, row, onPasteDown, readOnly }) {
   const [v, setV] = useState(value ?? '')
-  const commit = () => { if (String(v) !== String(value ?? '')) onCommit(v) }
+  const [focused, setFocused] = useState(false)
+  // follow server updates (bulk paste, another user's edit) — but never clobber active typing
+  useEffect(() => { if (!focused) setV(value ?? '') }, [value, focused])
+  const commit = () => { setFocused(false); if (String(v) !== String(value ?? '')) onCommit(v) }
   if (readOnly) return <span>{value === null || value === undefined || value === '' ? '—' : String(value)}</span>
   return (
     <input
@@ -18,6 +21,7 @@ function EditCell({ value, onCommit, type = 'text', width = 120, col, row, onPas
       data-col={col}
       data-row={row}
       onChange={(e) => setV(e.target.value)}
+      onFocus={() => setFocused(true)}
       onBlur={commit}
       onKeyDown={(e) => (col != null ? gridKeyNav(e, col, row) : e.key === 'Enter' && e.currentTarget.blur())}
       onPaste={(e) => {

@@ -35,7 +35,7 @@ export default function QuoteCard({ quote }) {
           <div className="qid">{quote.quote_id}</div>
           <div className="line"><b>{quote.company_name}</b></div>
         </div>
-        <div className="price">${Number(quote.price || 1200).toLocaleString()}</div>
+        <div className="price">{quote.price ? `$${Number(quote.price).toLocaleString()}` : '—'}</div>
       </div>
 
       {quote.job_name && <div className="line">Job: <b>{quote.job_name}</b></div>}
