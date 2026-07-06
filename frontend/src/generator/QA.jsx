@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { buildQuestions, parseDims, composeDims } from './questions'
+import MoneyInput from '../components/MoneyInput'
 
 /* Single, consistent Specifications form. Every sign type shows ONE page of fields
    (the set adapts to the type, but it's always one page — never a variable-length chat).
@@ -78,13 +79,20 @@ export default function QA({ tpl, ai, initialAnswers = {}, onComplete }) {
               ))}
             </div>
           ) : (
-            <input
-              type={q.type === 'number' ? 'number' : 'text'}
-              min={q.type === 'number' ? 0 : undefined}
-              placeholder={q.placeholder || ''}
-              value={answers[q.key] ?? ''}
-              onChange={(e) => setA(q.key, e.target.value)}
-            />
+            q.type === 'number' ? (
+              <MoneyInput
+                placeholder={q.placeholder || ''}
+                value={answers[q.key] ?? ''}
+                onChange={(v) => setA(q.key, v)}
+              />
+            ) : (
+              <input
+                type="text"
+                placeholder={q.placeholder || ''}
+                value={answers[q.key] ?? ''}
+                onChange={(e) => setA(q.key, e.target.value)}
+              />
+            )
           )}
         </div>
       ))}

@@ -14,6 +14,7 @@ import { rasterizePdf } from '../generator/pdfRaster'
 import { fileUrl } from '../api/client'
 import QA from '../generator/QA'
 import Proposal from '../components/Proposal'
+import MoneyInput from '../components/MoneyInput'
 
 const FLOWS = {
   generator: ['client', 'project', 'signtype', 'specs', 'artwork', 'preview'],
@@ -759,7 +760,7 @@ export default function Generator() {
                   <span className="dims-unit">in</span>
                 </div>
               </div>
-              <div className="field"><label>Price (USD)</label><input type="number" min={0} value={customSpec?.price || ''} onChange={(e) => setCustomSpec({ ...customSpec, price: e.target.value })} /></div>
+              <div className="field"><label>Price (USD)</label><MoneyInput value={customSpec?.price || ''} onChange={(v) => setCustomSpec({ ...customSpec, price: v })} placeholder="e.g. 2500" /></div>
             </div>
             <div className="field">
               <label>Application</label>
