@@ -99,10 +99,12 @@ label { color: var(--text-dim); font-size: 12px; font-weight: 600; display: bloc
 .sidebar .user .name { color: var(--text); font-weight: 700; font-size: 13px; }
 .sidebar .user .role { color: var(--gold); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
 
-.main { flex: 1; padding: 26px 34px; overflow: auto; max-width: 1500px; min-height: 0; display: flex; flex-direction: column; }
+.main { flex: 1; padding: 26px 34px; overflow: auto; max-width: 1500px; min-height: 0; }
 /* A page can opt into "fill the content area, only my grid scrolls" by using .fill-page
-   as its root — the grid-wrap inside then flexes to the leftover height. */
-.fill-page { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+   as its root — it fills .main's height and the grid-wrap inside flexes to the leftover.
+   (.main stays a normal block scroller so ordinary pages aren't turned into flex items
+   that shrink — that squashed the reports chart.) */
+.fill-page { height: 100%; display: flex; flex-direction: column; min-height: 0; }
 .fill-page .grid-wrap { flex: 1; min-height: 0; }
 .page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
 .page-head h1 { font-size: 25px; }
