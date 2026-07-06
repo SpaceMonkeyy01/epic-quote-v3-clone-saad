@@ -38,6 +38,7 @@ export default function AllQuotes() {
   const [rushOnly, setRushOnly] = useState(false)
   const [sourceF, setSourceF] = useState('')
   const [viewing, setViewing] = useState(null)
+  const [selected, setSelected] = useState(() => new Set())   // quote_ids ticked for bulk actions
 
   const params = {}
   if (search) params.search = search
@@ -67,6 +68,24 @@ export default function AllQuotes() {
     if (window.confirm(`Delete quote ${q.quote_id}? This cannot be undone.`)) del.mutate(q.quote_id)
   }
 
+  // ---- Grid v3: multi-select + bulk actions ----
+  const toggleSel = (id) => setSelected((prev) => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+  const allVisibleSelected = quotes.length > 0 && quotes.every((q) => selected.has(q.quote_id))
+  const toggleAll = () => setSelected(allVisibleSelected ? new Set() : new Set(quotes.map((q) => q.quote_id)))
+  const selIds = quotes.filter((q) => selected.has(q.quote_id)).map((q) => q.quote_id)
+  const bulkStatus = (st) => { if (st) selIds.forEach((id) => updateStatus.mutate({ id, status: st })) }
+  const bulkAssign = (name) => selIds.forEach((id) => update.mutate({ id, patch: { assigned_to: name } }))
+  const bulkDelete = () => {
+    if (window.confirm(`Delete ${selIds.length} quote${selIds.length > 1 ? 's' : ''} (${selIds.join(', ')})? This cannot be undone.`)) {
+      selIds.forEach((id) => del.mutate(id))
+      setSelected(new Set())
+    }
+  }
+
   return (
     <>
       <div className="page-head"><h1>All Quotes</h1></div>
@@ -93,6 +112,23 @@ export default function AllQuotes() {
         <ColumnPicker columns={columns} />
       </div>
 
+      {selIds.length > 0 && (
+        <div className="toolbar" style={{ background: 'rgba(249,166,0,0.08)', border: '1px solid rgba(249,166,0,0.35)', borderRadius: 8, padding: '6px 10px', alignItems: 'center' }}>
+          <b style={{ whiteSpace: 'nowrap' }}>{selIds.length} selected</b>
+          <select defaultValue="" style={{ width: 'auto' }} title="Set this status on every selected quote" onChange={(e) => { bulkStatus(e.target.value); e.target.value = '' }}>
+            <option value="">Set status…</option>
+            {statuses.map((st) => <option key={st} value={st}>{st}</option>)}
+          </select>
+          <select defaultValue="__none__" style={{ width: 'auto' }} title="Assign every selected quote to this person" onChange={(e) => { if (e.target.value !== '__none__') bulkAssign(e.target.value); e.target.value = '__none__' }}>
+            <option value="__none__">Assign to…</option>
+            <option value="">— unassign —</option>
+            {team.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          {admin && <button className="danger sm" onClick={bulkDelete}>Delete selected</button>}
+          <button className="ghost sm" onClick={() => setSelected(new Set())}>Clear</button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="center">Loading…</div>
       ) : (
@@ -100,6 +136,7 @@ export default function AllQuotes() {
           <table>
             <thead>
               <tr>
+                <th><input type="checkbox" checked={allVisibleSelected} title="Select every quote in the current view" style={{ width: 'auto' }} onChange={toggleAll} /></th>
                 <th title="Row number">#</th>
                 <SortTh k="quote_id" sort={sort}>Quote ID</SortTh>
                 {columns.has('company') && <SortTh k="company_name" sort={sort}>Company</SortTh>}
@@ -120,7 +157,8 @@ export default function AllQuotes() {
             </thead>
             <tbody>
               {sort.sorted.map((q, i) => (
-                <tr key={q.id}>
+                <tr key={q.id} style={selected.has(q.quote_id) ? { background: 'rgba(249,166,0,0.07)' } : undefined}>
+                  <td><input type="checkbox" checked={selected.has(q.quote_id)} style={{ width: 'auto' }} onChange={() => toggleSel(q.quote_id)} /></td>
                   <td className="muted" style={{ fontSize: 11 }}>{i + 1}</td>
                   <td><b>{q.quote_id}</b>{q.is_test && <span className="pill pill-amber" style={{ marginLeft: 6, fontSize: 10 }}>TEST</span>}{q.rush === 'Super Rush' && <span className="pill pill-coral" style={{ marginLeft: 6, fontSize: 10 }}>SUPER RUSH</span>}{q.rush === 'Rush' && <span className="pill pill-amber" style={{ marginLeft: 6, fontSize: 10 }}>RUSH</span>}</td>
                   {columns.has('company') && <td><EditCell col="company" row={i} value={q.company_name} onCommit={(v) => patch(q.quote_id, 'company_name', v)} width={140} /></td>}
@@ -201,7 +239,7 @@ export default function AllQuotes() {
                   </td>
                 </tr>
               ))}
-              {quotes.length === 0 && <tr><td colSpan={18} className="center">No quotes found.</td></tr>}
+              {quotes.length === 0 && <tr><td colSpan={19} className="center">No quotes found.</td></tr>}
             </tbody>
           </table>
         </div>
