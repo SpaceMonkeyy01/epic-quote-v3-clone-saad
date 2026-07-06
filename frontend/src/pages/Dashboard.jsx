@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useDashboard, useQuotes, useConstants } from '../hooks'
+import { useDashboard, useQuotes, useConstants, useUpdateQuote } from '../hooks'
 import AddQuoteModal from '../components/AddQuoteModal'
 import useAuthStore from '../store/authStore'
 
@@ -26,6 +26,7 @@ export default function Dashboard() {
   const { data: dash } = useDashboard()
   const { data: constants } = useConstants()
   const user = useAuthStore((s) => s.user)
+  const update = useUpdateQuote()
   const [showAdd, setShowAdd] = useState(false)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
@@ -119,6 +120,34 @@ export default function Dashboard() {
           )
         })}
       </div>
+
+      {(dash?.followups || []).length > 0 && (
+        <div className="panel">
+          <div className="panel-head">
+            <b>✉ Follow-ups needed</b>
+            <span className="muted" style={{ fontSize: 12 }}>Waiting on the customer — nobody has chased yet</span>
+          </div>
+          {dash.followups.map((q) => (
+            <div key={q.quote_id} className="na-row">
+              <div className="na-info">
+                <div className="na-id">{q.quote_id} · {q.company_name || '—'}</div>
+                <div className="na-sub">{q.status}{q.days_waiting > 0 ? ` · waiting ${q.days_waiting}d` : ''}</div>
+                <input
+                  defaultValue={q.followup_notes}
+                  placeholder="Follow-up notes… (saved when you click away)"
+                  style={{ marginTop: 4, fontSize: 12, width: '100%', maxWidth: 420 }}
+                  onBlur={(e) => { if (e.target.value !== q.followup_notes) update.mutate({ id: q.quote_id, patch: { followup_notes: e.target.value } }) }}
+                />
+              </div>
+              <div className="na-act">
+                <div className="na-val">{money(q.price)}</div>
+                <button className="ghost sm" onClick={() => navigate(`/quotes/${q.quote_id}/generate`)}>Open</button>
+                <button className="sm" title="Mark the follow-up as sent — drops off this list" onClick={() => update.mutate({ id: q.quote_id, patch: { followup_sent: true } })}>✓ Sent</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="panel" style={{ padding: '14px 16px' }}>
         <div className="panel-row">

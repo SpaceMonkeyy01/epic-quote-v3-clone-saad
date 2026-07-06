@@ -274,6 +274,25 @@ class QuoteController extends Controller
             }
         }
 
+        // Follow-ups: sent flag + free notes. Marking sent is logged with who did it.
+        if (array_key_exists('followup_sent', $data)) {
+            $sent = (bool) $data['followup_sent'];
+            if ($sent !== (bool) $quote->followup_sent) {
+                $quote->followup_sent = $sent;
+                $changes[] = $sent ? 'Follow-up marked SENT' : 'Follow-up re-opened';
+            }
+        }
+        if (array_key_exists('followup_notes', $data)) {
+            $notes = (string) ($data['followup_notes'] ?? '');
+            if (mb_strlen($notes) > 2000) {
+                return response()->json(['error' => 'Follow-up notes must be 2000 characters or fewer'], 400);
+            }
+            if ($notes !== (string) ($quote->followup_notes ?? '')) {
+                $changes[] = 'Follow-up notes updated';
+            }
+            $quote->followup_notes = $notes;
+        }
+
         // Price approval: who approved and when are stamped server-side, never client-supplied.
         if (array_key_exists('price_approved', $data)) {
             $approved = (bool) $data['price_approved'];

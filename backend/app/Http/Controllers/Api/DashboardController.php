@@ -92,8 +92,25 @@ class DashboardController extends Controller
             ->take(8)
             ->values();
 
+        // Follow-up queue: quotes sitting with the customer that nobody has chased yet.
+        $followups = $allQuotes
+            ->whereIn('status', ['Awaiting Customer Response', 'Need To Share With Customer'])
+            ->filter(fn ($q) => !$q->followup_sent)
+            ->map(fn ($q) => [
+                'quote_id'       => $q->quote_id,
+                'company_name'   => $q->company_name,
+                'status'         => $q->status,
+                'price'          => (float) $q->price,
+                'followup_notes' => $q->followup_notes ?? '',
+                'days_waiting'   => $q->updated_at ? (int) $q->updated_at->diffInDays($now) : 0,
+            ])
+            ->sortByDesc('days_waiting')
+            ->take(10)
+            ->values();
+
         return response()->json([
             'month_label'     => 'last 30 days',
+            'followups'       => $followups,
             'cards'           => $statusCounts,
             'pipeline_value'  => $pipelineValue,
             'avg_quote_value' => $avgQuoteValue,
