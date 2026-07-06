@@ -62,3 +62,19 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+    # Security headers (prod only — does not affect Vite dev). CSP is defence-in-depth
+    # behind the block sanitizer: script-src without 'unsafe-inline' means an injected
+    # inline handler (e.g. <img onerror=…>) cannot execute even if a sink is missed.
+    headers:
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin

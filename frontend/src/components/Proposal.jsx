@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas'
 import { buildSpecLines, money, esc } from '../generator/proposal'
 import { parseDims } from '../generator/questions'
 import { SIDE_VIEWS } from '../generator/sideviews'
+import { sanitizeHtml } from '../utils/sanitizeHtml'
 import { fileUrl } from '../api/client'
 import { uploadExtraFile } from '../api/quotes'
 import { listCatalog, saveCatalogItem } from '../api/catalog'
@@ -177,7 +178,8 @@ function EBlock({ k, html, style }) {
   const ref = useRef(null)
   const first = useRef(true)
   useEffect(() => {
-    if (first.current && ref.current) { ref.current.innerHTML = html; first.current = false }
+    // sanitize before it touches the DOM — block content is untrusted (hand-edited + server round-trip)
+    if (first.current && ref.current) { ref.current.innerHTML = sanitizeHtml(html); first.current = false }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div ref={ref} data-key={k} contentEditable suppressContentEditableWarning
@@ -919,7 +921,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
           title="Replace the SPECIFICATIONS text with a fresh version built from the current answers (use after changing specs on an older quote). Your other edits are kept."
           onClick={() => {
             const el = document.querySelector('#proposal-print-root [data-key="specBody"]')
-            if (el) { el.innerHTML = specHTML; queueSave(); flash('Spec text rebuilt from the current answers.') }
+            if (el) { el.innerHTML = sanitizeHtml(specHTML); queueSave(); flash('Spec text rebuilt from the current answers.') }
           }}
         >↻ Rebuild spec text</button>
         <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>Click a swatch to pick its color &amp; name; drag to place. The picker never appears in the PDF.</span>

@@ -467,6 +467,17 @@ class QuoteController extends Controller
         $this->assertAccess($request, $quote);
         $data = $request->all();
 
+        // Hard size cap: generated_data holds the whole editor state, but it must never
+        // become an unbounded dumping ground (storage abuse / slow reads).
+        if (strlen(json_encode($data)) > 2_000_000) {
+            return response()->json(['error' => 'Saved design is too large.'], 413);
+        }
+
+        // Defence in depth against stored XSS: the proposal writes these values into the DOM
+        // with innerHTML on the client. The client sanitizes on render, but we also strip the
+        // dangerous bits here so a poisoned value never even reaches the database.
+        $data = $this->stripActiveHtml($data);
+
         // Merge into the existing bundle (top-level keys) so a partial save never wipes the rest.
         $data = array_merge($quote->generated_data ?? [], $data);
         $quote->generated_data = $data;
@@ -497,6 +508,29 @@ class QuoteController extends Controller
         $quote->save();
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Recursively strip active/executable HTML from every string in a nested array
+     * (proposal_state blocks, notes, etc.). Removes <script>/<style> blocks, event-handler
+     * attributes (onerror, onclick, …), javascript: URIs and <iframe>/<object>/<embed>/<svg>.
+     * Formatting stays intact — this is a safety net behind the client's allow-list sanitizer.
+     */
+    private function stripActiveHtml(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            return array_map(fn ($v) => $this->stripActiveHtml($v), $value);
+        }
+        if (!is_string($value) || $value === '' || !str_contains($value, '<') && !str_contains($value, 'javascript:')) {
+            return $value;
+        }
+        $patterns = [
+            '#<\s*(script|style|iframe|object|embed|svg|link|meta)\b[^>]*>.*?<\s*/\s*\1\s*>#is',  // paired dangerous tags + body
+            '#<\s*(script|iframe|object|embed|svg|link|meta)\b[^>]*/?>#is',                        // self-closing / unclosed
+            '#\son\w+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)#i',                                        // on* event handlers
+            '#(href|src)\s*=\s*("\s*javascript:[^"]*"|\'\s*javascript:[^\']*\'|javascript:[^\s>]+)#i', // javascript: URIs
+        ];
+        return preg_replace($patterns, '', $value);
     }
 
     // POST /api/quotes/{quote}/pdf — customer PDF/image (#37 replace)
