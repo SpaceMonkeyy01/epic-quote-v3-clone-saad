@@ -54,8 +54,15 @@ export function buildQuestions(t, ai = {}) {
       if (/FACE/.test(c.l) && ai.faceColor) aiCol = ai.faceColor
       else if (/RETURN|TRIM/.test(c.l) && ai.returnColor) aiCol = ai.returnColor
       qs.push({ key: 'color_' + i, q: 'Color Specs — ' + c.l + '?', type: 'chips', options: ['BLACK', 'WHITE'], def: (aiCol === 'BLACK' || aiCol === 'WHITE') ? aiCol : null, aiSet: !!aiCol })
+    } else if (c.fixed === 'TBD') {
+      // raceway/backer colors used to be locked to "TBD" — the customer usually DOES
+      // tell us; make it answerable (blank keeps the old leave-it-empty behavior)
+      qs.push({ key: 'color_' + i, q: 'Color Specs — ' + c.l + '? (optional)', type: 'text', def: null, placeholder: 'e.g. BLACK — leave empty if undecided' })
     }
   })
+
+  // Font: the drawing often names one; the old wizard never asked (Airtable did)
+  qs.push({ key: 'font', q: 'Font (optional — if the customer specified one)?', type: 'text', def: ai.font || null, placeholder: 'e.g. HELVETICA BOLD', aiSet: !!ai.font })
 
   qs.push({ key: 'application', q: 'Application?', type: 'chips', options: ['EXTERIOR', 'INTERIOR'], def: (ai.application === 'EXTERIOR' || ai.application === 'INTERIOR') ? ai.application : (t.app || 'EXTERIOR'), aiSet: !!ai.application })
   qs.push({ key: 'price', q: 'Enter the price (USD)', type: 'number', def: ai.price != null ? String(ai.price) : null, placeholder: 'e.g. 1200', aiSet: ai.price != null })

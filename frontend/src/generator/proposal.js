@@ -66,11 +66,13 @@ export function buildSpecLines(t, a = {}, ai = null) {
   if (t.colors && t.colors.length) {
     L.push('COLOR SPECS:')
     t.colors.forEach((c, i) => {
-      let v = c.fixed !== undefined ? c.fixed : (a['color_' + i] || '')
+      // a typed answer always beats the template's fixed value (raceway/backer colors are now askable)
+      let v = a['color_' + i] || (c.fixed !== undefined ? c.fixed : '')
       if (v === 'TBD') v = ''   // leave blank rather than print TBD when the color isn't decided
       L.push('  • ' + c.l + ':' + (v ? ' ' + v : ''))
     })
   }
+  if (a.font) L.push('FONT: ' + a.font)
   L.push('APPLICATION: ' + (a.application || t.app || 'EXTERIOR'))
   return L
 }

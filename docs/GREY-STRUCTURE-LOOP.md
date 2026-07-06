@@ -36,7 +36,7 @@
 | I15 | Real time-to-Done from StatusHistory, per quote + per person (T16) | ✅ | browser: EC100005 modal "Time to Done: 0.1 days (finished 30/06/2026)" from first Done in status history; Team card "Avg time to Done: 0.1d"; history eager-loaded (no N+1) |
 | I16 | Monthly reports: counts/amounts/conversion per real month + charts (T17) | ✅ | browser: /reports "Month by month" — 12 months × 2 bars (created grey / won gold) + exact table; Jun 26 = 9 created $10,011,800, 1 won $1,200, 11.1% (matches DB); won = first-Done month, test quotes excluded |
 | I17 | Side-view picker: category groups + search (T18) | ✅ | browser: picker now grouped (Channel/Raceway/Backer/Dimensional/Cabinets/Other w/ counts), search "raceway" → only that group (7 cards), junk search → friendly empty state; built-ins + team library unified |
-| I18 | Sign-detail leftovers audit: trim/raceway/backer/wood color, font, return depth vs our Q&A (T19) | ⬜ | |
+| I18 | Sign-detail leftovers audit: trim/raceway/backer/wood color, font, return depth vs our Q&A (T19) | ✅ | audit: trim+return depth already asked; wood color flows via monument colorspecs; GAPS FIXED: raceway/backer "TBD" colors now optional questions (answer overrides fixed), new Font question; browser: RACEWAY COLOR: MATTE BLACK + FONT: HELVETICA BOLD render in live preview |
 | I19 | Final sweep: rebuttal pass over everything built in I1–I18, fix findings | ⬜ | |
 
 ## Learnings / notes
