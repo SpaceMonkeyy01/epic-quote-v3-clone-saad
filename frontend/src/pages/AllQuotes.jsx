@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuotes, useConstants, useUpdateQuote, useUpdateStatus, useUpdateTags, useDeleteQuote } from '../hooks'
 import useAuthStore from '../store/authStore'
 import { fileUrl } from '../api/client'
+import { useSortable, SortTh } from '../components/grid'
 
 // Commits on blur only when the value actually changed
 function EditCell({ value, onCommit, type = 'text', width = 120 }) {
@@ -43,6 +44,7 @@ export default function AllQuotes() {
   if (rushOnly) params.rush = '1'
   if (sourceF) params.source = sourceF
   const { data: quotes = [], isLoading } = useQuotes(params)
+  const sort = useSortable(quotes)
 
   const statuses = constants?.statuses || []
   const reps = constants?.sales_reps || []
@@ -83,24 +85,32 @@ export default function AllQuotes() {
       {isLoading ? (
         <div className="center">Loading…</div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
+        <div className="grid-wrap" style={{ overflow: 'auto', maxHeight: '72vh' }}>
           <table>
             <thead>
               <tr>
-                <th>Quote ID</th><th>Company</th><th>Client</th><th>Contact</th>
-                <th>Job</th><th>Price</th>
+                <th title="Row number">#</th>
+                <SortTh k="quote_id" sort={sort}>Quote ID</SortTh>
+                <SortTh k="company_name" sort={sort}>Company</SortTh>
+                <SortTh k="client_name" sort={sort}>Client</SortTh>
+                <th>Contact</th>
+                <SortTh k="job_name" sort={sort}>Job</SortTh>
+                <SortTh k="price" sort={sort}>Price</SortTh>
                 <th title="Breakeven production cost — internal only">BE Prod</th>
                 <th title="Breakeven shipping cost — internal only">BE Ship</th>
-                <th title="Auto: price minus breakevens — internal only">Profit</th>
-                <th>Sales Rep</th><th>Assigned</th><th>Rush</th>
+                <SortTh k="profit" sort={sort} title="Auto: price minus breakevens — internal only. Click to sort.">Profit</SortTh>
+                <SortTh k="sales_rep" sort={sort}>Sales Rep</SortTh>
+                <SortTh k="assigned_to" sort={sort}>Assigned</SortTh>
+                <SortTh k="rush" sort={sort}>Rush</SortTh>
                 <th title="Price approval: ✓ = approved (who/when logged); 🔒 = locked — cannot send PDF/PNG/payment link until approved">Approval</th>
                 <th title="Customer placed the order — date is stamped automatically">Order</th>
-                <th>Status</th><th>Files</th><th></th>
+                <SortTh k="status" sort={sort}>Status</SortTh><th>Files</th><th></th>
               </tr>
             </thead>
             <tbody>
-              {quotes.map((q) => (
+              {sort.sorted.map((q, i) => (
                 <tr key={q.id}>
+                  <td className="muted" style={{ fontSize: 11 }}>{i + 1}</td>
                   <td><b>{q.quote_id}</b>{q.is_test && <span className="pill pill-amber" style={{ marginLeft: 6, fontSize: 10 }}>TEST</span>}{q.rush === 'Super Rush' && <span className="pill pill-coral" style={{ marginLeft: 6, fontSize: 10 }}>SUPER RUSH</span>}{q.rush === 'Rush' && <span className="pill pill-amber" style={{ marginLeft: 6, fontSize: 10 }}>RUSH</span>}</td>
                   <td><EditCell value={q.company_name} onCommit={(v) => patch(q.quote_id, 'company_name', v)} width={140} /></td>
                   <td><EditCell value={q.client_name} onCommit={(v) => patch(q.quote_id, 'client_name', v)} /></td>
@@ -180,7 +190,7 @@ export default function AllQuotes() {
                   </td>
                 </tr>
               ))}
-              {quotes.length === 0 && <tr><td colSpan={17} className="center">No quotes found.</td></tr>}
+              {quotes.length === 0 && <tr><td colSpan={18} className="center">No quotes found.</td></tr>}
             </tbody>
           </table>
         </div>

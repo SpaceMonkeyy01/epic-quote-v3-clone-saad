@@ -320,3 +320,12 @@ button.chip.ai { background: #8b6fe6; border-color: #8b6fe6; color: #fff; }
 .dash-search { height: 30px; background: var(--navy-800); border: 1px solid var(--border); border-radius: 7px; padding: 0 10px; color: var(--text); font-size: 12px; width: 150px; outline: none; }
 .dash-search:focus { border-color: var(--gold); }
 @media (max-width: 760px) { .kpis { grid-template-columns: repeat(2, 1fr); } .dash-head { flex-direction: column; } }
+
+
+/* Grid v1: sticky header while the rows scroll under it */
+.grid-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--panel, #171a21);
+}
