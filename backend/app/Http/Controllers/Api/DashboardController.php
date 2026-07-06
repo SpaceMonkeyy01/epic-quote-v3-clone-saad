@@ -187,7 +187,7 @@ class DashboardController extends Controller
 
         $now = Carbon::now();
         $monthStart = $now->copy()->subDays(30);
-        $quotes = Quote::where('is_test', false)->get();
+        $quotes = Quote::where('is_test', false)->with('statusHistory')->get();
         $lastActions = ActivityLog::selectRaw('user_id, MAX(created_at) as last_at')
             ->groupBy('user_id')->pluck('last_at', 'user_id');
 
@@ -206,6 +206,12 @@ class DashboardController extends Controller
                 'rep_open'       => $repQuotes->where('status', '!=', 'Done')->count(),
                 'created_30d'    => $quotes->filter(fn ($q) => $q->created_by === $u->id && $q->created_at && $q->created_at >= $monthStart)->count(),
                 'statuses'       => $assignedOpen->countBy('status'),
+                // real avg time-to-Done over this person's quotes (assigned to them, or theirs as rep)
+                'avg_days_to_done' => (function () use ($assigned, $repQuotes) {
+                    $days = $assigned->concat($repQuotes)->unique('id')
+                        ->map(fn ($q) => $q->daysToDone())->filter(fn ($d) => $d !== null);
+                    return $days->count() ? round($days->avg(), 1) : null;
+                })(),
                 'last_active'    => $lastActions[$u->id] ?? null,
             ];
         })->values();

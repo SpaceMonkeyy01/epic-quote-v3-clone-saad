@@ -58,7 +58,7 @@ class QuoteController extends Controller
             });
         }
 
-        $quotes = $q->latest('created_at')->get()->map->toApi();
+        $quotes = $q->with('statusHistory')->latest('created_at')->get()->map->toApi();
 
         return response()->json($quotes);
     }

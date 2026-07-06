@@ -33,7 +33,7 @@
  escapes that briefly broke the page |
 | I13 | Roles: quote_maker / account_manager / viewer + route guards + role-shaped home views (T14) | ✅ | live viewer account: API write → 403 view-only (middleware on every write route), sees all 9 quotes read-only, grid = plain text + disabled controls, no Edit/Delete/bulk, dashboard shows 👁 View-only pill; users.role CHECK widened; test user removed |
 | I14 | Team transparency page: per-member cards, workload, drill-down (T15) | ✅ | browser: /team shows 10 member cards (open assigned, desk value, rush, done/created 30d, status pills, last active); click card → /quotes?assigned=Name shows exactly their rows w/ clearable chip |
-| I15 | Real time-to-Done from StatusHistory, per quote + per person (T16) | ⬜ | |
+| I15 | Real time-to-Done from StatusHistory, per quote + per person (T16) | ✅ | browser: EC100005 modal "Time to Done: 0.1 days (finished 30/06/2026)" from first Done in status history; Team card "Avg time to Done: 0.1d"; history eager-loaded (no N+1) |
 | I16 | Monthly reports: counts/amounts/conversion per real month + charts (T17) | ⬜ | |
 | I17 | Side-view picker: category groups + search (T18) | ⬜ | |
 | I18 | Sign-detail leftovers audit: trim/raceway/backer/wood color, font, return depth vs our Q&A (T19) | ⬜ | |

@@ -43,6 +43,7 @@ export default function Team() {
               </div>
               <div className="muted" style={{ fontSize: 12, marginTop: 10 }}>
                 Done (30d): <b>{m.assigned_done_30d}</b> · Created (30d): <b>{m.created_30d}</b> · Own-rep open: <b>{m.rep_open}</b>
+                {m.avg_days_to_done != null && <> · Avg time to Done: <b>{m.avg_days_to_done}d</b></>}
               </div>
               {Object.keys(m.statuses || {}).length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>

@@ -106,6 +106,8 @@ class Quote extends Model
             'revision_notes'       => $this->revision_notes ?? '',
             'important_notes'      => $this->important_notes ?? '',
             'internal_notes'       => $this->internal_notes ?? '',
+            'done_at'              => $this->firstDoneAt()?->toIso8601String(),
+            'days_to_done'         => $this->daysToDone(),
             'created_at'           => $this->created_at?->toIso8601String(),
             'updated_at'           => $this->updated_at?->toIso8601String(),
         ];
@@ -129,6 +131,26 @@ class Quote extends Model
             return null;
         }
         return round((float) $this->price - (float) ($this->breakeven_production ?? 0) - (float) ($this->breakeven_shipping ?? 0), 2);
+    }
+
+    /**
+     * Real time-to-Done (T16): from creation to the FIRST time the quote hit "Done"
+     * in status history. Null while it has never been Done.
+     */
+    public function firstDoneAt(): ?\Illuminate\Support\Carbon
+    {
+        $rows = $this->relationLoaded('statusHistory') ? $this->statusHistory : $this->statusHistory()->get();
+        $done = $rows->where('status', 'Done')->sortBy('changed_at')->first();
+        return $done?->changed_at ? \Illuminate\Support\Carbon::parse($done->changed_at) : null;
+    }
+
+    public function daysToDone(): ?float
+    {
+        $done = $this->firstDoneAt();
+        if (!$done || !$this->created_at) {
+            return null;
+        }
+        return round($this->created_at->diffInMinutes($done) / 1440, 1);
     }
 
     public function profitPct(): ?float
