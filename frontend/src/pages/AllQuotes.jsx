@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuotes, useConstants, useUpdateQuote, useUpdateStatus, useUpdateTags, useDeleteQuote } from '../hooks'
 import useAuthStore from '../store/authStore'
 import { fileUrl } from '../api/client'
@@ -51,11 +51,14 @@ export default function AllQuotes() {
   const [sourceF, setSourceF] = useState('')
   const [viewing, setViewing] = useState(null)
   const [selected, setSelected] = useState(() => new Set())   // quote_ids ticked for bulk actions
+  const [searchParams, setSearchParams] = useSearchParams()
+  const assignedF = searchParams.get('assigned') || ''       // drill-down from the Team page
 
   const params = {}
   if (search) params.search = search
   if (status) params.status = status
   if (mine) params.assigned = 'me'
+  else if (assignedF) params.assigned = assignedF
   if (rushOnly) params.rush = '1'
   if (sourceF) params.source = sourceF
   const { data: quotes = [], isLoading } = useQuotes(params)
@@ -135,7 +138,13 @@ export default function AllQuotes() {
 
   return (
     <>
-      <div className="page-head"><h1>All Quotes</h1></div>
+      <div className="page-head">
+        <h1>All Quotes</h1>
+        {assignedF && (
+          <span className="pill pill-purple" style={{ cursor: 'pointer' }} title="Click to clear this filter"
+            onClick={() => setSearchParams({})}>assigned to {assignedF} ✕</span>
+        )}
+      </div>
 
       <div className="toolbar">
         <input className="grow" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />

@@ -178,6 +178,41 @@ class DashboardController extends Controller
         return response()->json($out);
     }
 
+    // GET /api/team — the transparency page: who is carrying what, right now (T15)
+    public function team(Request $request): JsonResponse
+    {
+        if (!in_array($request->user()->role, ['admin', 'manager'], true)) {
+            return response()->json(['error' => 'forbidden'], 403);
+        }
+
+        $now = Carbon::now();
+        $monthStart = $now->copy()->subDays(30);
+        $quotes = Quote::where('is_test', false)->get();
+        $lastActions = ActivityLog::selectRaw('user_id, MAX(created_at) as last_at')
+            ->groupBy('user_id')->pluck('last_at', 'user_id');
+
+        $out = \App\Models\User::orderBy('full_name')->get()->map(function ($u) use ($quotes, $monthStart, $lastActions) {
+            $assigned = $quotes->where('assigned_to', $u->full_name);
+            $assignedOpen = $assigned->where('status', '!=', 'Done');
+            $repQuotes = $quotes->where('sales_rep', $u->full_name);
+            return [
+                'name'           => $u->full_name,
+                'username'       => $u->username,
+                'role'           => $u->role,
+                'assigned_open'  => $assignedOpen->count(),
+                'assigned_value' => (float) $assignedOpen->sum('price'),
+                'assigned_rush'  => $assignedOpen->whereIn('rush', ['Rush', 'Super Rush'])->count(),
+                'assigned_done_30d' => $assigned->filter(fn ($q) => $q->status === 'Done' && $q->updated_at && $q->updated_at >= $monthStart)->count(),
+                'rep_open'       => $repQuotes->where('status', '!=', 'Done')->count(),
+                'created_30d'    => $quotes->filter(fn ($q) => $q->created_by === $u->id && $q->created_at && $q->created_at >= $monthStart)->count(),
+                'statuses'       => $assignedOpen->countBy('status'),
+                'last_active'    => $lastActions[$u->id] ?? null,
+            ];
+        })->values();
+
+        return response()->json($out);
+    }
+
     // GET /api/activity — admin only, last 150 (#108)
     public function activity(Request $request): JsonResponse
     {

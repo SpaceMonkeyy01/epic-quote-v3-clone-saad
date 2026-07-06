@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import AllQuotes from './pages/AllQuotes'
 import Generator from './pages/Generator'
 import Users from './pages/Users'
+import Team from './pages/Team'
 import Reports from './pages/Reports'
 import Activity from './pages/Activity'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/quotes/:quoteId/generate" element={<Generator />} />
         <Route path="/companies/:companyId" element={<Coming phase="Company detail (P8)" />} />
 
+        <Route path="/team" element={<ProtectedRoute requireAdmin><Team /></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute requireAdmin><Users /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute requireAdmin><Reports /></ProtectedRoute>} />
         <Route path="/activity" element={<ProtectedRoute requireAdmin><Activity /></ProtectedRoute>} />

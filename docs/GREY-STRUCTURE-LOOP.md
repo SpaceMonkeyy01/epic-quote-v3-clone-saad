@@ -32,7 +32,7 @@
 | I12 | Grid v4: copy/paste + CSV export of filtered rows (T1, T2) | ✅ | browser: CSV blob = 23-col header + 9 rows (RFC-4180 quoted, BOM), ⧉ Copy TSV w/ fallback, multi-line paste into a cell filled the column down (PASTE-A/B verified + restored); fixed heredoc-mangled 
  escapes that briefly broke the page |
 | I13 | Roles: quote_maker / account_manager / viewer + route guards + role-shaped home views (T14) | ✅ | live viewer account: API write → 403 view-only (middleware on every write route), sees all 9 quotes read-only, grid = plain text + disabled controls, no Edit/Delete/bulk, dashboard shows 👁 View-only pill; users.role CHECK widened; test user removed |
-| I14 | Team transparency page: per-member cards, workload, drill-down (T15) | ⬜ | |
+| I14 | Team transparency page: per-member cards, workload, drill-down (T15) | ✅ | browser: /team shows 10 member cards (open assigned, desk value, rush, done/created 30d, status pills, last active); click card → /quotes?assigned=Name shows exactly their rows w/ clearable chip |
 | I15 | Real time-to-Done from StatusHistory, per quote + per person (T16) | ⬜ | |
 | I16 | Monthly reports: counts/amounts/conversion per real month + charts (T17) | ⬜ | |
 | I17 | Side-view picker: category groups + search (T18) | ⬜ | |
