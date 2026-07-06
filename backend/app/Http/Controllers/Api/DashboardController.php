@@ -178,6 +178,41 @@ class DashboardController extends Controller
         return response()->json($out);
     }
 
+    // GET /api/reports/monthly — real calendar months: counts, amounts, conversion (T17)
+    public function monthly(Request $request): JsonResponse
+    {
+        if (!$request->user()->isAdmin()) {
+            return response()->json(['error' => 'forbidden'], 403);
+        }
+
+        $now = Carbon::now();
+        $quotes = Quote::where('is_test', false)->with('statusHistory')->get();
+
+        $out = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $mStart = $now->copy()->startOfMonth()->subMonths($i);
+            $mEnd = $mStart->copy()->addMonth();
+            $created = $quotes->filter(fn ($q) => $q->created_at && $q->created_at >= $mStart && $q->created_at < $mEnd);
+            // "won that month" = first hit Done inside the month (real conversion timing,
+            // not whatever month the quote happened to be created in)
+            $won = $quotes->filter(function ($q) use ($mStart, $mEnd) {
+                $d = $q->firstDoneAt();
+                return $d && $d >= $mStart && $d < $mEnd;
+            });
+            $out[] = [
+                'month'       => $mStart->format('Y-m'),
+                'label'       => $mStart->format('M y'),
+                'created'     => $created->count(),
+                'quoted_value' => (float) $created->sum('price'),
+                'done'        => $won->count(),
+                'done_value'  => (float) $won->sum('price'),
+                'conversion'  => $created->count() ? round($won->count() / $created->count() * 100, 1) : null,
+            ];
+        }
+
+        return response()->json($out);
+    }
+
     // GET /api/team — the transparency page: who is carrying what, right now (T15)
     public function team(Request $request): JsonResponse
     {
