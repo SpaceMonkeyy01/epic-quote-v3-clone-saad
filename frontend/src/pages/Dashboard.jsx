@@ -105,7 +105,7 @@ export default function Dashboard() {
             <div key={q.quote_id} className="na-row">
               <div className="na-info">
                 <div className="na-id">{q.quote_id} · {q.company_name || '—'}</div>
-                <div className="na-sub">{q.job_name || ''}</div>
+                <div className="na-sub">{q.job_name || ''}{q.assigned_to ? `${q.job_name ? ' · ' : ''}with ${q.assigned_to}` : ''}</div>
               </div>
               <div className="na-act">
                 <span className={'pill pill-' + (COLOR[q.status] || 'gray')}>{chip}</span>
@@ -149,16 +149,17 @@ export default function Dashboard() {
         </div>
         <table className="dash-table">
           <thead>
-            <tr><th>Quote</th><th>Company</th><th>Rep</th><th style={{ textAlign: 'right' }}>Value</th><th style={{ textAlign: 'right' }}>Status</th></tr>
+            <tr><th>Quote</th><th>Company</th><th>Rep</th><th>Assigned</th><th style={{ textAlign: 'right' }}>Value</th><th style={{ textAlign: 'right' }}>Status</th></tr>
           </thead>
           <tbody>
             {recent.length === 0 ? (
-              <tr><td colSpan={5} className="center" style={{ padding: 20 }}>No quotes found.</td></tr>
+              <tr><td colSpan={6} className="center" style={{ padding: 20 }}>No quotes found.</td></tr>
             ) : recent.map((q) => (
               <tr key={q.id} onClick={() => navigate(`/quotes/${q.quote_id}/generate`)}>
                 <td><b>{q.quote_id}</b></td>
                 <td>{q.company_name || '—'}</td>
                 <td className="muted">{q.sales_rep || '—'}</td>
+                <td className="muted">{q.assigned_to || '—'}</td>
                 <td style={{ textAlign: 'right', fontWeight: 600 }}>{q.price ? money(q.price) : '—'}</td>
                 <td style={{ textAlign: 'right' }}>
                   <span className={'pill pill-' + (COLOR[q.status] || 'gray')}>{q.status}</span>

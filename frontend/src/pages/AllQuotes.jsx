@@ -31,15 +31,18 @@ export default function AllQuotes() {
 
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
+  const [mine, setMine] = useState(false)
   const [viewing, setViewing] = useState(null)
 
   const params = {}
   if (search) params.search = search
   if (status) params.status = status
+  if (mine) params.assigned = 'me'
   const { data: quotes = [], isLoading } = useQuotes(params)
 
   const statuses = constants?.statuses || []
   const reps = constants?.sales_reps || []
+  const team = constants?.team || []
   const admin = isAdmin()
 
   const patch = (id, field, value) => update.mutate({ id, patch: { [field]: value } })
@@ -59,6 +62,10 @@ export default function AllQuotes() {
           <option value="__pending__">Pending (not Done)</option>
           {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', cursor: 'pointer' }} title="Only quotes assigned to me">
+          <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} style={{ width: 'auto' }} />
+          My quotes
+        </label>
       </div>
 
       {isLoading ? (
@@ -70,7 +77,7 @@ export default function AllQuotes() {
               <tr>
                 <th>Quote ID</th><th>Company</th><th>Client</th><th>Contact</th>
                 <th>Job</th><th>Price</th>
-                <th>Sales Rep</th><th>Status</th><th>Files</th><th></th>
+                <th>Sales Rep</th><th>Assigned</th><th>Status</th><th>Files</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -89,6 +96,12 @@ export default function AllQuotes() {
                         {reps.map((r) => <option key={r} value={r}>{r}</option>)}
                       </select>
                     ) : (q.sales_rep || '—')}
+                  </td>
+                  <td>
+                    <select value={q.assigned_to || ''} style={{ width: 110 }} title="Who is working this quote" onChange={(e) => patch(q.quote_id, 'assigned_to', e.target.value)}>
+                      <option value="">—</option>
+                      {team.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
                   </td>
                   <td>
                     <select value={q.status} style={{ width: 150 }} onChange={(e) => updateStatus.mutate({ id: q.quote_id, status: e.target.value })}>
@@ -124,7 +137,7 @@ export default function AllQuotes() {
                   </td>
                 </tr>
               ))}
-              {quotes.length === 0 && <tr><td colSpan={10} className="center">No quotes found.</td></tr>}
+              {quotes.length === 0 && <tr><td colSpan={11} className="center">No quotes found.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -139,7 +152,7 @@ export default function AllQuotes() {
               ['Contact', viewing.contact], ['Address', viewing.address],
               ['Job', viewing.job_name],
               ['Price', viewing.price ? `$${Number(viewing.price).toLocaleString()}` : '—'], ['Sales Rep', viewing.sales_rep],
-              ['Status', viewing.status],
+              ['Status', viewing.status], ['Assigned To', viewing.assigned_to],
               ['Special Requirements', viewing.special_requirements],
               ['Created By', viewing.added_by], ['Finalized By', viewing.created_by_name],
             ].map(([k, v]) => (

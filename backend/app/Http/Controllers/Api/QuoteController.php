@@ -30,6 +30,12 @@ class QuoteController extends Controller
             $q->where('status', $status);
         }
 
+        // "Assigned to" filter: ?assigned=me → quotes assigned to the current user,
+        // ?assigned=<name> → that person's quotes (Airtable's "Assign to" view)
+        if ($assigned = trim((string) $request->query('assigned', ''))) {
+            $q->where('assigned_to', $assigned === 'me' ? $request->user()->full_name : $assigned);
+        }
+
         if ($search = $request->query('search')) {
             $like = '%'.$search.'%';
             $q->where(function ($w) use ($like) {
@@ -246,6 +252,19 @@ class QuoteController extends Controller
 
         if (array_key_exists('tags', $data) && is_array($data['tags'])) {
             $quote->tags = $data['tags'];
+        }
+
+        // Anyone who can see the quote can (re)assign it — the team hands work to each
+        // other constantly; every change is still logged below.
+        if (array_key_exists('assigned_to', $data)) {
+            $newAssignee = trim((string) ($data['assigned_to'] ?? ''));
+            if (mb_strlen($newAssignee) > 80) {
+                return response()->json(['error' => 'Assignee name must be 80 characters or fewer'], 400);
+            }
+            if ($newAssignee !== (string) ($quote->assigned_to ?? '')) {
+                $changes[] = 'Assigned to: '.($quote->assigned_to ?: '—').' -> '.($newAssignee ?: '—');
+                $quote->assigned_to = $newAssignee;
+            }
         }
 
         if (array_key_exists('is_test', $data)) {

@@ -79,6 +79,7 @@ class DashboardController extends Controller
                 'job_name'     => $q->job_name,
                 'price'        => (float) $q->price,
                 'status'       => $q->status,
+                'assigned_to'  => $q->assigned_to ?? '',
                 'tags'         => $q->tags ?: [],
                 'days_waiting' => $q->updated_at ? (int) $q->updated_at->diffInDays($now) : 0,
             ])

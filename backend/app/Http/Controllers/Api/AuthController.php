@@ -64,6 +64,9 @@ class AuthController extends Controller
             'quote_sources' => AppConstants::QUOTE_SOURCES,
             'roles'         => AppConstants::ROLES,
             'sign_types'    => AppConstants::SIGN_TYPE_NAMES,
+            // everyone on the team — feeds the "Assigned to" dropdown (quotes can be
+            // assigned to any user, not just the preset sales reps)
+            'team'          => \App\Models\User::orderBy('full_name')->pluck('full_name'),
         ]);
     }
 }
