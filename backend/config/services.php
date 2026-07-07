@@ -11,6 +11,7 @@ return [
         'token'   => env('SHOPIFY_API_TOKEN'),       // Admin API access token (Render secret, never committed)
         'version' => env('SHOPIFY_API_VERSION', '2025-01'),
         'location_id' => env('SHOPIFY_LOCATION_ID'), // US warehouse (optional)
+        'webhook_secret' => env('SHOPIFY_WEBHOOK_SECRET'), // verifies orders/paid webhooks
     ],
 
 ];

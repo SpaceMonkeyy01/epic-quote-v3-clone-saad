@@ -10,6 +10,9 @@ Route::post('/login', [App\Http\Controllers\Api\AuthController::class, 'login'])
 Route::post('/logout', [App\Http\Controllers\Api\AuthController::class, 'logout'])->middleware('auth:sanctum');
 Route::get('/me', [App\Http\Controllers\Api\AuthController::class, 'me'])->middleware('auth:sanctum');
 
+// Shopify webhook — public (Shopify has no bearer token) but HMAC-verified inside the controller
+Route::post('/shopify/webhook/orders-paid', [App\Http\Controllers\Api\ShopifyWebhookController::class, 'ordersPaid']);
+
 // Protected routes
 Route::middleware(['auth:sanctum', 'readonly.guard'])->group(function () {
     Route::get('/constants', [App\Http\Controllers\Api\AuthController::class, 'constants']);
