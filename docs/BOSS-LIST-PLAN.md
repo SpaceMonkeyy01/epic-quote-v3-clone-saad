@@ -92,5 +92,17 @@ Decisions: product-page link; always 50/50 (deposit before ship, balance after) 
 | S6 | Paid detection: orders/paid webhook (or manual) → flip ledger + quote status | ✅ | end-to-end (local test secret): valid HMAC → 200 marked_paid:1, link→paid + quote order_confirmed+date; wrong sig → 401. Public route, RAW-body HMAC verified; dormant until SHOPIFY_WEBHOOK_SECRET set. Manual mark-paid/void (S1) is the fallback |
 | S7 | Privacy + end-to-end verify + Shopify setup doc | ✅(doc) | docs/SHOPIFY-SETUP.md written (create app → scopes → webhook → Render env → who-can-create). Privacy: secret link, permission-gated create, ledger scoped to visibleTo. LIVE end-to-end (real product + real webhook) pending the store token — everything else verified |
 
+## Feedback round 2 (proposal + Shopify polish) — 2026-07-07
+| # | Fix | Status | Evidence |
+|---|---|---|---|
+| F1 | extra canvas gap on preview | ✅ | live-preview aside hidden on the preview step (was rendering the proposal twice); single-column, full width |
+| F2 | no payment-link input at start | ✅ | removed from Client Information step (Phone+Email remain); links created on the proposal instead |
+| F3 | ≤$500 → preview shows full only | ✅ | browser: $400 quote preview = "SUBTOTAL $400.00" only (no 50% lines); >$500 still shows them |
+| F4 | buttons on the RIGHT of preview | ✅ | proposal-layout flex row: page (flex 1) + proposal-controls column (210px) with swatch/dimensions/rebuild + PNG/PDF + Shopify; ResizeObserver refits scale; verified controls right of page, same row |
+| F5 | created Shopify link → preview + PDF | ✅ | onPaymentLinkCreated sets paymentLink + persists → CLICK HERE TO MAKE PAYMENT button links to it (in preview + print). "nothing happened" was the 503 not-connected; success path now feeds the link back |
+| F6 | rename: +Size arrows→+Dimensions; revert my bad SIDE VIEW→DIMENSIONS rename | ✅ | browser: "+ Dimensions" button, "SIDE VIEW" heading + "Choose side views" restored |
+| F7 | don't auto-add dimension arrows (artwork may already have them) | ✅ | removed the auto-seed effect; arrows added only via the "+ Dimensions" button |
+| F8 | one-page PDF + drop Additional Notes when specs long | ✅ | print @page fixed Letter + zoom-to-fit (--pz): 1100px→0.945×→1039px fits one page; ADDITIONAL NOTES hidden when spec text >520 chars (#17) |
+
 ## Learnings / notes
 - (append as discovered)

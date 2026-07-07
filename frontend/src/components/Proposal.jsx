@@ -252,7 +252,7 @@ function AdjSwatch({ rk, sw, onChange, onRemove, onPick, canPick, scaleRef, sele
 const LOUPE = 185, SRC = 38   // eyedropper magnifier: loupe diameter (px) and source pixels across it
                               // (~5.5px per pixel — pixels stay visible but you keep enough context to aim)
 
-function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, proposalNotes, sideViews = [], onSideViews, approval, quoteId, canCreatePaymentLinks }, fwdRef) {
+function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, proposalNotes, sideViews = [], onSideViews, approval, quoteId, canCreatePaymentLinks, onPaymentLinkCreated }, fwdRef) {
   // approval lock: while the quote is locked and the price unapproved, nothing goes out
   const exportBlocked = !!(approval?.locked && !approval?.approved)
   const pageRef = useRef(null)
@@ -404,7 +404,10 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     fit()
     const t = setTimeout(fit, 250) // refit after images/content settle
     window.addEventListener('resize', fit)
-    return () => { clearTimeout(t); window.removeEventListener('resize', fit) }
+    // refit when the wrapper's own width changes (e.g. the controls column takes space beside it)
+    const ro = wrapRef.current ? new ResizeObserver(fit) : null
+    if (ro && wrapRef.current) ro.observe(wrapRef.current)
+    return () => { clearTimeout(t); window.removeEventListener('resize', fit); ro?.disconnect() }
   }, [])
 
   const price = Number((mode === 'custom' ? customSpec?.price : answers?.price) || 0)
@@ -477,6 +480,8 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
 
   // editable block — content written once at mount (see EBlock) so React can NEVER clobber edits
   const E = (key, style) => <EBlock key={key} k={key} html={initial[key]} style={style} />
+  // when the SPECIFICATIONS run long, drop ADDITIONAL NOTES so the proposal stays on one page (#17)
+  const specLong = (initial.specBody || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().length > 520
 
   // common props for a Canva-style adjustable image
   const adjProps = (rk, def) => ({
@@ -565,23 +570,8 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     })
   }, [specHTML, scale]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Once dimensions are taken and artwork exists, the size arrows appear over the artwork by
-  // themselves (still movable/removable). __dimsSeeded stops them re-appearing after a delete.
-  useEffect(() => {
-    if (!artworkPath) return
-    const p = parseDims(mode === 'custom' ? customSpec?.dims : answers?.dimensions)
-    if (!p.l && !p.w) return
-    setLayout((L) => {
-      if (L.__dimsSeeded || L['dim-w'] || L['dim-h']) return L
-      const a = L.artwork || { x: 188, y: 24, w: 360, h: 144 }
-      return {
-        ...L,
-        __dimsSeeded: true,
-        'dim-w': { x: a.x, y: Math.max(2, a.y - 16), len: a.w, vert: false, label: p.w ? p.w + '"' : 'WIDTH' },
-        'dim-h': { x: Math.max(2, a.x - 18), y: a.y, len: a.h, vert: true, label: p.l ? p.l + '"' : 'HEIGHT' },
-      }
-    })
-  }, [artworkPath, answers?.dimensions, customSpec?.dims]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Dimension arrows are NOT auto-added — the customer's artwork often already shows them,
+  // and adding a second set is wrong (#7). Use the "+ Dimensions" button to add them by hand.
 
   const render = async (opts = {}) => {
     // capture at the page's true 816px size (drop the fit-to-fit scale during render)
@@ -654,7 +644,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
         contact: info.contact || '', email: info.email || '',
       })
       setPlResult({ url: data.url, kind })
-      flash('Payment link created ✓')
+      // put the link on the proposal's pay button (preview + PDF) and persist it (#5)
+      if (onPaymentLinkCreated && data.url) onPaymentLinkCreated(data.url)
+      flash('Payment link created ✓ — added to the proposal')
     } catch (e) {
       flash(e?.response?.data?.error || 'Could not create the payment link.')
     } finally { setPlBusy('') }
@@ -662,8 +654,13 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
 
   const downloadPDF = () => {
     if (exportBlocked) { flash('🔒 Blocked — the price needs approval before this quote can go out'); return }
-    // Real vector PDF via the browser's print pipeline: sharp, selectable text and a clickable
-    // payment link. (An image-based PDF pixelates the text and the link isn't clickable.)
+    // Real vector PDF via the browser's print pipeline. Zoom the page so the whole proposal
+    // fits ONE Letter page (#8) — never spilling to a second.
+    const el = pageRef.current
+    if (el) {
+      const PAGE_H = 1040   // ~one Letter page minus print margins, in px
+      el.style.setProperty('--pz', String(Math.min(1, PAGE_H / Math.max(el.scrollHeight, 1))))
+    }
     flash("Opening your browser's Save-as-PDF…")
     setTimeout(() => window.print(), 150)
   }
@@ -688,7 +685,8 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
         </div>
       )}
 
-      <div ref={wrapRef} className="proposal-wrap" style={{ overflow: 'hidden', background: '#5a6270', padding: 20, borderRadius: 10 }}>
+      <div className="proposal-layout" style={{ display: 'flex', gap: 16, alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'wrap' }}>
+      <div ref={wrapRef} className="proposal-wrap" style={{ overflow: 'hidden', background: '#5a6270', padding: 20, borderRadius: 10, flex: '1 1 520px', minWidth: 0 }}>
         <div className="proposal-fit" style={{ width: 816 * scale, height: scaledH, margin: '0 auto' }}>
         <div
           ref={pageRef}
@@ -753,9 +751,11 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
           <div style={{ margin: '7px 40px 0', display: 'grid', gridTemplateColumns: '1fr 264px', border: '1px solid #777' }}>
             <div style={{ borderRight: '1px solid #777' }}>
               <div style={secHead}>SPECIFICATIONS</div>
-              {E('specBody', { fontSize: 10.5, lineHeight: 1.9, padding: '10px 12px', minHeight: 215, whiteSpace: 'pre-wrap', outline: 'none', borderBottom: '1px solid #777' })}
-              <div style={secHead}>ADDITIONAL NOTES</div>
-              {E('notes', { fontSize: 10.5, padding: '8px 12px', minHeight: 40, outline: 'none' })}
+              {E('specBody', { fontSize: 10.5, lineHeight: 1.9, padding: '10px 12px', minHeight: specLong ? 255 : 215, whiteSpace: 'pre-wrap', outline: 'none', borderBottom: '1px solid #777' })}
+              {!specLong && <>
+                <div style={secHead}>ADDITIONAL NOTES</div>
+                {E('notes', { fontSize: 10.5, padding: '8px 12px', minHeight: 40, outline: 'none' })}
+              </>}
             </div>
             <div>
               <div style={secHead}>PACKAGE INCLUDES</div>
@@ -783,10 +783,10 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
               {/* explicit "no side view" removes the whole section, headline included */}
               {!sideViews.includes('__none__') && (
                 <>
-                  <div style={secHead}>DIMENSIONS</div>
+                  <div style={secHead}>SIDE VIEW</div>
                   <div style={{ position: 'relative', height: 208 }}>
                     {sideViews.length === 0
-                      ? <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 10, textTransform: 'none' }}>[ No dimensions selected ]</span>
+                      ? <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 10, textTransform: 'none' }}>[ No side view selected ]</span>
                       : (() => {
                           // tile instead of stacking: one view fills the box; several share it in a 2-per-row grid
                           const list = sideViews.filter((k) => k !== '__none__')
@@ -813,12 +813,14 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 800, marginBottom: 6 }}>
                   <span>SUBTOTAL</span>{E('subtotal')}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 6 }}>
-                  <span>50% DEPOSIT DUE NOW</span>{E('dep1')}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
-                  <span>50% DUE ON SHIPMENT</span>{E('dep2')}
-                </div>
+                {price > 500 && <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 6 }}>
+                    <span>50% DEPOSIT DUE NOW</span>{E('dep1')}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
+                    <span>50% DUE ON SHIPMENT</span>{E('dep2')}
+                  </div>
+                </>}
               </div>
               {(paymentLink && /^https?:\/\//i.test(paymentLink))   // only real web links render as a button (never javascript:/data:)
                 ? <a href={paymentLink} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 14, background: '#f5a623', padding: 14, textAlign: 'center', fontSize: 15, fontWeight: 800, letterSpacing: 0.5, color: '#111', textDecoration: 'none' }}>CLICK HERE TO MAKE PAYMENT</a>
@@ -840,16 +842,76 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
         </div>
       </div>
 
+      <div className="proposal-controls" style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: '0 0 210px', maxWidth: 210 }}>
+      {/* color swatches — a control, not part of the printed page */}
+      <div style={{ margin: '12px 0' }}>
+        <button type="button" className="ghost" onClick={addSwatch}>+ Add color swatch</button>
+        <button
+          type="button" className="ghost" style={{ marginLeft: 8 }}
+          title="Add measurement arrows beside the artwork (drag to place, pull the dot to resize, click the label to type the size)"
+          onClick={() => {
+            const p = parseDims(mode === 'custom' ? customSpec?.dims : answers?.dimensions)
+            const a = layout.artwork || { x: 188, y: 24, w: 360, h: 144 }
+            setLayout((L) => ({
+              ...L,
+              __dimsSeeded: true,
+              'dim-w': L['dim-w'] || { x: a.x, y: Math.max(2, a.y - 16), len: a.w, vert: false, label: p.w ? p.w + '"' : 'WIDTH' },
+              'dim-h': L['dim-h'] || { x: Math.max(2, a.x - 18), y: a.y, len: a.h, vert: true, label: p.l ? p.l + '"' : 'HEIGHT' },
+            }))
+            flash('Dimension arrows added — drag them into place.')
+          }}
+        >+ Dimensions</button>
+        <button
+          type="button" className="ghost" style={{ marginLeft: 8 }}
+          title="Replace the SPECIFICATIONS text with a fresh version built from the current answers (use after changing specs on an older quote). Your other edits are kept."
+          onClick={() => {
+            const el = document.querySelector('#proposal-print-root [data-key="specBody"]')
+            if (el) { el.innerHTML = sanitizeHtml(specHTML); queueSave(); flash('Spec text rebuilt from the current answers.') }
+          }}
+        >↻ Rebuild spec text</button>
+        <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>Click a swatch to pick its color &amp; name; drag to place. The picker never appears in the PDF.</span>
+      </div>
+
+      {/* actions */}
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 14 }}>
+        {exportBlocked && <span style={{ alignSelf: 'center', color: '#e5484d', fontWeight: 600, fontSize: 13 }}>🔒 Locked — price approval needed before this quote can be sent out</span>}
+        <button className="ghost" disabled={busy || exportBlocked} title={exportBlocked ? 'Price approval required' : undefined} onClick={downloadPNG}>{busy === 'png' ? 'Rendering…' : '⬇ PNG image'}</button>
+        <button disabled={busy || exportBlocked} title={exportBlocked ? 'Price approval required' : undefined} onClick={downloadPDF}>🖨️ Save as PDF</button>
+        {toast && <span style={{ alignSelf: 'center', color: '#2e7d32', fontWeight: 600 }}>{toast}</span>}
+      </div>
+
+      {/* Shopify payment link (S5) — only for users allowed to create links */}
+      {canCreatePaymentLinks && quoteId && (
+        <div style={{ marginTop: 18, padding: 14, border: '1px solid var(--border)', borderRadius: 10, background: 'var(--navy-900)' }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>💳 Shopify payment link</div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button disabled={!!plBusy || exportBlocked} onClick={() => createPaymentLink('full')}>{plBusy === 'full' ? 'Creating…' : 'Full payment'}</button>
+            {price > 500 && <button className="ghost" disabled={!!plBusy || exportBlocked} onClick={() => createPaymentLink('deposit')}>{plBusy === 'deposit' ? 'Creating…' : '50% deposit'}</button>}
+            {price > 500 && <button className="ghost" disabled={!!plBusy || exportBlocked} onClick={() => createPaymentLink('balance')}>{plBusy === 'balance' ? 'Creating…' : 'Balance (50%)'}</button>}
+            {price > 0 && price <= 500 && <span className="muted" style={{ fontSize: 12 }}>≤ $500 → full payment only</span>}
+          </div>
+          {plResult && (
+            <div style={{ marginTop: 10, fontSize: 13 }}>
+              Link ({plResult.kind}): <a href={plResult.url} target="_blank" rel="noreferrer">{plResult.url}</a>{' '}
+              <button className="ghost sm" onClick={() => { navigator.clipboard?.writeText(plResult.url); flash('Link copied') }}>Copy</button>
+            </div>
+          )}
+          <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>Creates the product in Shopify with a clean image (no price block) and records it under Payment Links.</div>
+        </div>
+      )}
+      </div>
+      </div>{/* /proposal-layout */}
+
       {/* side-view picker — a control, not part of the printed page */}
       {onSideViews && (
         <div style={{ margin: '12px 0' }}>
           <button type="button" className="ghost" onClick={() => setPickingSV((v) => !v)}>
-            {pickingSV ? 'Done choosing dimensions' : '+ Choose dimensions'}
+            {pickingSV ? 'Done choosing side views' : '+ Choose side views'}
           </button>
           {pickingSV && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
               <input
-                placeholder="Search dimensions… (e.g. raceway, monument)"
+                placeholder="Search side views… (e.g. raceway, monument)"
                 value={svSearch}
                 onChange={(e) => setSvSearch(e.target.value)}
                 style={{ width: '100%', maxWidth: 340 }}
@@ -859,7 +921,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                 <input type="checkbox" checked={sideViews.includes('__none__')}
                   onChange={(e) => onSideViews(e.target.checked ? ['__none__'] : [])} />
                 <span style={{ fontSize: 20, lineHeight: 1.4 }}>🚫</span>
-                <span>No dimensions<br />(hides the section)</span>
+                <span>No side view<br />(hides the section)</span>
               </label>
               {/* every card (built-ins + team library) searched and grouped by category */}
               {(() => {
@@ -932,62 +994,6 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
         </div>
       )}
 
-      {/* color swatches — a control, not part of the printed page */}
-      <div style={{ margin: '12px 0' }}>
-        <button type="button" className="ghost" onClick={addSwatch}>+ Add color swatch</button>
-        <button
-          type="button" className="ghost" style={{ marginLeft: 8 }}
-          title="Add measurement arrows beside the artwork (drag to place, pull the dot to resize, click the label to type the size)"
-          onClick={() => {
-            const p = parseDims(mode === 'custom' ? customSpec?.dims : answers?.dimensions)
-            const a = layout.artwork || { x: 188, y: 24, w: 360, h: 144 }
-            setLayout((L) => ({
-              ...L,
-              __dimsSeeded: true,
-              'dim-w': L['dim-w'] || { x: a.x, y: Math.max(2, a.y - 16), len: a.w, vert: false, label: p.w ? p.w + '"' : 'WIDTH' },
-              'dim-h': L['dim-h'] || { x: Math.max(2, a.x - 18), y: a.y, len: a.h, vert: true, label: p.l ? p.l + '"' : 'HEIGHT' },
-            }))
-            flash('Size arrows added — drag them into place.')
-          }}
-        >+ Size arrows</button>
-        <button
-          type="button" className="ghost" style={{ marginLeft: 8 }}
-          title="Replace the SPECIFICATIONS text with a fresh version built from the current answers (use after changing specs on an older quote). Your other edits are kept."
-          onClick={() => {
-            const el = document.querySelector('#proposal-print-root [data-key="specBody"]')
-            if (el) { el.innerHTML = sanitizeHtml(specHTML); queueSave(); flash('Spec text rebuilt from the current answers.') }
-          }}
-        >↻ Rebuild spec text</button>
-        <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>Click a swatch to pick its color &amp; name; drag to place. The picker never appears in the PDF.</span>
-      </div>
-
-      {/* actions */}
-      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 14 }}>
-        {exportBlocked && <span style={{ alignSelf: 'center', color: '#e5484d', fontWeight: 600, fontSize: 13 }}>🔒 Locked — price approval needed before this quote can be sent out</span>}
-        <button className="ghost" disabled={busy || exportBlocked} title={exportBlocked ? 'Price approval required' : undefined} onClick={downloadPNG}>{busy === 'png' ? 'Rendering…' : '⬇ PNG image'}</button>
-        <button disabled={busy || exportBlocked} title={exportBlocked ? 'Price approval required' : undefined} onClick={downloadPDF}>🖨️ Save as PDF</button>
-        {toast && <span style={{ alignSelf: 'center', color: '#2e7d32', fontWeight: 600 }}>{toast}</span>}
-      </div>
-
-      {/* Shopify payment link (S5) — only for users allowed to create links */}
-      {canCreatePaymentLinks && quoteId && (
-        <div style={{ marginTop: 18, padding: 14, border: '1px solid var(--border)', borderRadius: 10, background: 'var(--navy-900)' }}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>💳 Shopify payment link</div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <button disabled={!!plBusy || exportBlocked} onClick={() => createPaymentLink('full')}>{plBusy === 'full' ? 'Creating…' : 'Full payment'}</button>
-            {price > 500 && <button className="ghost" disabled={!!plBusy || exportBlocked} onClick={() => createPaymentLink('deposit')}>{plBusy === 'deposit' ? 'Creating…' : '50% deposit'}</button>}
-            {price > 500 && <button className="ghost" disabled={!!plBusy || exportBlocked} onClick={() => createPaymentLink('balance')}>{plBusy === 'balance' ? 'Creating…' : 'Balance (50%)'}</button>}
-            {price > 0 && price <= 500 && <span className="muted" style={{ fontSize: 12 }}>≤ $500 → full payment only</span>}
-          </div>
-          {plResult && (
-            <div style={{ marginTop: 10, fontSize: 13 }}>
-              Link ({plResult.kind}): <a href={plResult.url} target="_blank" rel="noreferrer">{plResult.url}</a>{' '}
-              <button className="ghost sm" onClick={() => { navigator.clipboard?.writeText(plResult.url); flash('Link copied') }}>Copy</button>
-            </div>
-          )}
-          <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>Creates the product in Shopify with a clean image (no price block) and records it under Payment Links.</div>
-        </div>
-      )}
     </div>
   )
 }

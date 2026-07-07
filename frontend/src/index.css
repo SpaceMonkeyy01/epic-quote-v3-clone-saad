@@ -254,7 +254,9 @@ td input:focus, td select:focus { background: var(--navy-900); }
    the gray frame, the fit-scale and the selection handles. Text stays selectable; the
    payment <a> stays a clickable link. */
 @media print {
-  @page { size: 816px auto; margin: 6mm; }
+  /* one fixed Letter page — the root is zoomed to fit (--pz set before printing) so the
+     whole proposal always lands on a single page (#8), never spilling onto a second. */
+  @page { size: 816px 1056px; margin: 6mm; }
   html, body { background: #fff !important; }
   body * { visibility: hidden !important; }
   .proposal-wrap, .proposal-wrap * { visibility: visible !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -263,7 +265,7 @@ td input:focus, td select:focus { background: var(--navy-900); }
     background: #fff !important; padding: 0 !important; border-radius: 0 !important; overflow: visible !important;
   }
   .proposal-fit { width: 816px !important; height: auto !important; margin: 0 !important; }
-  #proposal-print-root { transform: none !important; box-shadow: none !important; }
+  #proposal-print-root { transform: none !important; box-shadow: none !important; zoom: var(--pz, 1) !important; }
   .adj-ui { display: none !important; }
 }
 .tmpl-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }

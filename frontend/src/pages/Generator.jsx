@@ -508,7 +508,7 @@ export default function Generator() {
         {flow.map((s, i) => <div key={s} className={'prog-seg' + (i <= flowIndex ? ' done' : '')} />)}
       </div>
 
-      <div className={'wizard' + (livePreview ? ' wiz-cols' : '')} style={step === 'preview' ? { maxWidth: 'min(1180px, 96%)' } : livePreview ? { maxWidth: 'min(1500px, 97%)' } : undefined}>
+      <div className={'wizard' + (livePreview && step !== 'preview' ? ' wiz-cols' : '')} style={step === 'preview' ? { maxWidth: 'min(1180px, 96%)' } : livePreview ? { maxWidth: 'min(1500px, 97%)' } : undefined}>
        <div className="wiz-main">
         {step === 'client' && (
           <div className="step">
@@ -550,23 +550,10 @@ export default function Generator() {
                 )
               })() : (<input value={client.sales_rep || '—'} disabled />)}
             </div>
-            <div className="field">
-              <label>💳 Payment link (optional)</label>
-              <input type="url" placeholder="https://…" value={paymentLink} disabled={quote?.approval_locked && !quote?.price_approved} onChange={(e) => setPaymentLink(e.target.value)} />
-              {quote?.approval_locked && !quote?.price_approved && (
-                <p style={{ color: '#ff6b6b', fontSize: 13, marginTop: 6 }}>
-                  🔒 This quote is locked — the price must be approved (All Quotes → Approval) before a payment link can be added.
-                </p>
-              )}
-              {paymentLink.trim() !== '' && !/^https?:\/\/\S+\.\S+/i.test(paymentLink.trim()) && (
-                <p style={{ color: '#ff6b6b', fontSize: 13, marginTop: 6 }}>
-                  That's not a working link — it must start with https:// (this goes on the customer's proposal).
-                </p>
-              )}
-            </div>
+            {/* payment link is created later on the proposal via Shopify (#2) — not asked up front */}
             <div className="foot">
               <button className="ghost" onClick={back}>Back</button>
-              <button disabled={paymentLink.trim() !== '' && !/^https?:\/\/\S+\.\S+/i.test(paymentLink.trim())} onClick={saveClient}>Next →</button>
+              <button onClick={saveClient}>Next →</button>
             </div>
           </div>
         )}
@@ -829,6 +816,7 @@ export default function Generator() {
               info={{ company: client.company_name, client: client.client_name, contact: client.contact, email: client.email, address: client.address, job: client.job_name, quoteId }}
               quoteId={quoteId}
               canCreatePaymentLinks={canCreatePaymentLinks}
+              onPaymentLinkCreated={(url) => { setPaymentLink(url); saveProgress({ payment_link: url }) }}
               artworkPath={artworkPath}
               logo={logo}
               aiResult={ai}
@@ -848,9 +836,10 @@ export default function Generator() {
         )}
        </div>
 
-       {/* LIVE PREVIEW — the real proposal rendered beside every step, fully editable, updating
-           as the wizard changes (remounted via a debounced key so typing here is never clobbered) */}
-       {livePreview && (
+       {/* LIVE PREVIEW — the real proposal rendered beside every WIZARD step (not the final
+           preview step, which already shows the full proposal — a second one there was the
+           "extra canvas" gap #1). Editable; remounted via a debounced key so typing survives. */}
+       {livePreview && step !== 'preview' && (
          <aside className="wiz-live">
            <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Live preview — updates as you fill the steps; you can edit it directly.</div>
            <Proposal
