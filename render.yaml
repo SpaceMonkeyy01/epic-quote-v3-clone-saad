@@ -53,7 +53,7 @@ services:
       - key: SHOPIFY_API_TOKEN      # Admin API token, shpat_…   (the "key")
         sync: false
       - key: SHOPIFY_API_VERSION    # leave as-is — not a secret, has a default
-        value: "2025-01"
+        value: "2025-07"
       # OPTIONAL, only for auto-marking a link "Paid" when the customer pays (skip for now):
       - key: SHOPIFY_WEBHOOK_SECRET
         sync: false

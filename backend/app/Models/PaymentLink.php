@@ -48,6 +48,7 @@ class PaymentLink extends Model
             'quote_total'   => $this->quote_total,
             'kind'          => $this->kind,
             'url'           => $this->url,
+            'shopify_product_id' => $this->shopify_product_id,
             'status'        => $this->status,
             'paid_at'       => $this->paid_at?->toIso8601String(),
             'created_by'    => $this->creator?->full_name ?? '',

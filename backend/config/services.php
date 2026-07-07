@@ -11,7 +11,7 @@ return [
         'domain'  => env('SHOPIFY_STORE_DOMAIN'),
         // accept either name — SHOPIFY_API_TOKEN (preferred) or SHOPIFY_API_KEY (common mistake)
         'token'   => env('SHOPIFY_API_TOKEN', env('SHOPIFY_API_KEY')),
-        'version' => env('SHOPIFY_API_VERSION', '2025-01'),
+        'version' => env('SHOPIFY_API_VERSION', '2025-07'),
         'location_id' => env('SHOPIFY_LOCATION_ID'), // US warehouse (optional)
         'webhook_secret' => env('SHOPIFY_WEBHOOK_SECRET'), // verifies orders/paid webhooks
     ],

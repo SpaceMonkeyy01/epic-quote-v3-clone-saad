@@ -33,7 +33,7 @@ Render → the **API** service → **Environment** → add:
 |---|---|
 | `SHOPIFY_STORE_DOMAIN` | `your-store.myshopify.com` |
 | `SHOPIFY_API_TOKEN` | the `shpat_…` token from step 1 |
-| `SHOPIFY_API_VERSION` | `2025-01` (leave as-is unless Shopify tells you otherwise) |
+| `SHOPIFY_API_VERSION` | `2025-07` (leave as-is unless Shopify tells you otherwise) |
 | `SHOPIFY_WEBHOOK_SECRET` | the signing secret from step 2 |
 | `SHOPIFY_LOCATION_ID` | *(optional)* your US warehouse location id |
 
