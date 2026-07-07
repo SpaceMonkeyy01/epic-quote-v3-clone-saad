@@ -47,6 +47,18 @@ services:
         value: /var/data/public
       - key: CLOUDINARY_URL       # cloudinary://<key>:<secret>@<cloud> — uploads go here (shared, permanent, CDN)
         sync: false
+      # Shopify payment links — set these in the Render dashboard to turn the feature on.
+      # (sync:false means "fill the value here in the dashboard"; blank = feature stays off.)
+      - key: SHOPIFY_STORE_DOMAIN   # your-store.myshopify.com
+        sync: false
+      - key: SHOPIFY_API_TOKEN      # Admin API access token (shpat_…)
+        sync: false
+      - key: SHOPIFY_WEBHOOK_SECRET # signing secret from the orders/paid webhook
+        sync: false
+      - key: SHOPIFY_API_VERSION
+        value: "2025-01"
+      - key: SHOPIFY_LOCATION_ID    # optional: US warehouse location id
+        sync: false
 
   # ---------------- Frontend SPA (React/Vite, static) ----------------
   - type: web
