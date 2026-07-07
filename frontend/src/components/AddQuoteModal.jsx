@@ -38,11 +38,12 @@ export default function AddQuoteModal({ onClose }) {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  // Company autofill (#12): known companies suggest as you type; matching one prefills its
-  // address / client / phone / email. Switching to a DIFFERENT known company refreshes those
-  // — but only fields the user hasn't hand-edited (we remember what we last auto-filled).
+  // Company autofill (#12): known companies suggest as you type. We ONLY autofill the ADDRESS,
+  // because that is the one truly company-level value — client name, phone and email vary per
+  // quote/contact, and auto-filling them from another quote cross-contaminated the data. The
+  // address refreshes when you switch to a different known company, unless you've hand-edited it.
   const [companyHits, setCompanyHits] = useState([])
-  const autoFilledRef = useRef({ address: '', client_name: '', contact: '', email: '' })
+  const autoFilledAddr = useRef('')
   const onCompanyChange = async (e) => {
     const name = e.target.value
     setForm((f) => ({ ...f, company_name: name }))
@@ -52,18 +53,13 @@ export default function AddQuoteModal({ onClose }) {
       setCompanyHits(data || [])
       const hit = (data || []).find((c) => c.name.toLowerCase() === name.trim().toLowerCase())
       if (hit) {
-        const prev = autoFilledRef.current
-        // a field takes the new company's value if it's empty OR still holds what we last
-        // auto-filled (i.e. the user hasn't manually changed it)
-        const take = (field, cur) => (!cur || cur === (prev[field] || '')) ? (hit[field] || '') : cur
-        setForm((f) => ({
-          ...f,
-          address: take('address', f.address),
-          client_name: take('client_name', f.client_name),
-          contact: take('contact', f.contact),
-          email: take('email', f.email),
-        }))
-        autoFilledRef.current = { address: hit.address || '', client_name: hit.client_name || '', contact: hit.contact || '', email: hit.email || '' }
+        setForm((f) => {
+          // keep the user's manual edit; otherwise set the new company's address (clearing the
+          // previously auto-filled one when the new company has none on file)
+          const userEdited = f.address && f.address !== autoFilledAddr.current
+          return userEdited ? f : { ...f, address: hit.address || '' }
+        })
+        autoFilledAddr.current = hit.address || ''
       }
     } catch { /* suggestions are best-effort */ }
   }

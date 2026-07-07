@@ -72,22 +72,26 @@ class QuoteController extends Controller
         if ($q === '') {
             return response()->json([]);
         }
+        // Return ONLY name + address. Client/phone/email are per-quote, not per-company —
+        // autofilling them from an unrelated quote is what cross-contaminated the data.
+        // Address = the most recent NON-EMPTY address for the company (a blank latest quote
+        // shouldn't wipe a company's known address).
         $rows = Quote::query()
-            ->visibleTo($request->user())                 // don't leak another rep's clients
+            ->visibleTo($request->user())
             ->where('company_name', 'like', '%'.$q.'%')
             ->where('company_name', '!=', '')
             ->orderByDesc('created_at')
-            ->limit(200)
-            ->get(['company_name', 'address', 'client_name', 'contact', 'email'])
-            ->unique(fn ($r) => mb_strtolower($r->company_name))   // most-recent per company
+            ->limit(300)
+            ->get(['company_name', 'address'])
+            ->groupBy(fn ($r) => mb_strtolower($r->company_name))
             ->take(8)
-            ->map(fn ($r) => [
-                'name'        => $r->company_name,
-                'address'     => $r->address ?? '',
-                'client_name' => $r->client_name ?? '',
-                'contact'     => $r->contact ?? '',
-                'email'       => $r->email ?? '',
-            ])
+            ->map(function ($group) {
+                $withAddr = $group->first(fn ($r) => trim((string) $r->address) !== '');
+                return [
+                    'name'    => $group->first()->company_name,
+                    'address' => $withAddr->address ?? '',
+                ];
+            })
             ->values();
 
         return response()->json($rows);
