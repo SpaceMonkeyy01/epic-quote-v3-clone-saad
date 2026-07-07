@@ -252,7 +252,7 @@ function AdjSwatch({ rk, sw, onChange, onRemove, onPick, canPick, scaleRef, sele
 const LOUPE = 185, SRC = 38   // eyedropper magnifier: loupe diameter (px) and source pixels across it
                               // (~5.5px per pixel — pixels stay visible but you keep enough context to aim)
 
-function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, proposalNotes, sideViews = [], onSideViews, approval, quoteId, canCreatePaymentLinks, onPaymentLinkCreated }, fwdRef) {
+function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, proposalNotes, sideViews = [], onSideViews, approval, quoteId, canCreatePaymentLinks, onPaymentLinkCreated, mainView }, fwdRef) {
   // approval lock: while the quote is locked and the price unapproved, nothing goes out
   const exportBlocked = !!(approval?.locked && !approval?.approved)
   const pageRef = useRef(null)
@@ -842,7 +842,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
         </div>
       </div>
 
+      {mainView && (
       <div className="proposal-controls" style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: '0 0 210px', maxWidth: 210 }}>
+      {onSideViews && <button type="button" className="ghost" onClick={() => setPickingSV((v) => !v)}>{pickingSV ? 'Done choosing side views' : '+ Choose side views'}</button>}
       {/* color swatches — a control, not part of the printed page */}
       <div style={{ margin: '12px 0' }}>
         <button type="button" className="ghost" onClick={addSwatch}>+ Add color swatch</button>
@@ -900,15 +902,12 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
         </div>
       )}
       </div>
+      )}
       </div>{/* /proposal-layout */}
 
-      {/* side-view picker — a control, not part of the printed page */}
-      {onSideViews && (
+      {/* side-view picker GRID — opens full-width below the preview when toggled from the right column */}
+      {onSideViews && mainView && pickingSV && (
         <div style={{ margin: '12px 0' }}>
-          <button type="button" className="ghost" onClick={() => setPickingSV((v) => !v)}>
-            {pickingSV ? 'Done choosing side views' : '+ Choose side views'}
-          </button>
-          {pickingSV && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
               <input
                 placeholder="Search side views… (e.g. raceway, monument)"
@@ -990,7 +989,6 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                 <span>Upload your own</span>
               </label>
             </div>
-          )}
         </div>
       )}
 

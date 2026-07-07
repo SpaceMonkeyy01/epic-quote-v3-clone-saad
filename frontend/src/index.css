@@ -99,7 +99,9 @@ label { color: var(--text-dim); font-size: 12px; font-weight: 600; display: bloc
 .sidebar .user .name { color: var(--text); font-weight: 700; font-size: 13px; }
 .sidebar .user .role { color: var(--gold); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
 
-.main { flex: 1; padding: 26px 34px; overflow: auto; max-width: 1500px; min-height: 0; }
+/* fill the width so the vertical scrollbar always sits at the viewport's right edge
+   (a max-width here left the scrollbar floating with empty space beyond it on wide screens) */
+.main { flex: 1; padding: 26px 34px; overflow: auto; min-height: 0; }
 /* A page can opt into "fill the content area, only my grid scrolls" by using .fill-page
    as its root — it fills .main's height and the grid-wrap inside flexes to the leftover.
    (.main stays a normal block scroller so ordinary pages aren't turned into flex items

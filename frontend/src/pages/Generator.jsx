@@ -815,6 +815,7 @@ export default function Generator() {
               customSpec={customSpec}
               info={{ company: client.company_name, client: client.client_name, contact: client.contact, email: client.email, address: client.address, job: client.job_name, quoteId }}
               quoteId={quoteId}
+              mainView
               canCreatePaymentLinks={canCreatePaymentLinks}
               onPaymentLinkCreated={(url) => { setPaymentLink(url); saveProgress({ payment_link: url }) }}
               artworkPath={artworkPath}

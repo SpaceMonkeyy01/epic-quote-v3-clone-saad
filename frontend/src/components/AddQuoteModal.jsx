@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useConstants, useCreateQuote } from '../hooks'
 import { extractParty, putGenerated, uploadExtraFile } from '../api/quotes'
@@ -38,9 +38,11 @@ export default function AddQuoteModal({ onClose }) {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  // Company autofill (#12): known companies suggest as you type; picking one that already
-  // exists prefills the blank fields (address / client / phone / email) from its last quote.
+  // Company autofill (#12): known companies suggest as you type; matching one prefills its
+  // address / client / phone / email. Switching to a DIFFERENT known company refreshes those
+  // — but only fields the user hasn't hand-edited (we remember what we last auto-filled).
   const [companyHits, setCompanyHits] = useState([])
+  const autoFilledRef = useRef({ address: '', client_name: '', contact: '', email: '' })
   const onCompanyChange = async (e) => {
     const name = e.target.value
     setForm((f) => ({ ...f, company_name: name }))
@@ -48,16 +50,20 @@ export default function AddQuoteModal({ onClose }) {
     try {
       const { data } = await client.get('/companies/suggest', { params: { q: name } })
       setCompanyHits(data || [])
-      // exact (case-insensitive) match → prefill only the fields the user hasn't filled yet
       const hit = (data || []).find((c) => c.name.toLowerCase() === name.trim().toLowerCase())
       if (hit) {
+        const prev = autoFilledRef.current
+        // a field takes the new company's value if it's empty OR still holds what we last
+        // auto-filled (i.e. the user hasn't manually changed it)
+        const take = (field, cur) => (!cur || cur === (prev[field] || '')) ? (hit[field] || '') : cur
         setForm((f) => ({
           ...f,
-          address: f.address || hit.address || '',
-          client_name: f.client_name || hit.client_name || '',
-          contact: f.contact || hit.contact || '',
-          email: f.email || hit.email || '',
+          address: take('address', f.address),
+          client_name: take('client_name', f.client_name),
+          contact: take('contact', f.contact),
+          email: take('email', f.email),
         }))
+        autoFilledRef.current = { address: hit.address || '', client_name: hit.client_name || '', contact: hit.contact || '', email: hit.email || '' }
       }
     } catch { /* suggestions are best-effort */ }
   }

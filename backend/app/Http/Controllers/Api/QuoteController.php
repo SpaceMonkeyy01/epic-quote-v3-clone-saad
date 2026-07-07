@@ -523,9 +523,18 @@ class QuoteController extends Controller
         if (in_array($data['quote_type'] ?? null, ['generator', 'custom'], true)) {
             $quote->quote_type = $data['quote_type'];
         }
+        // Keep quote.price in sync with whichever mode holds the price: AI wizard = answers.price,
+        // custom mode = custom_spec.price. (Custom mode used to leave quote.price at 0, which broke
+        // payment-link creation.)
         $answers = $data['answers'] ?? [];
+        $priceIn = null;
         if (isset($answers['price']) && $answers['price'] !== '' && is_numeric($answers['price'])) {
-            $quote->price = min(10000000, max(0, (float) $answers['price']));   // clamp to a sane range
+            $priceIn = $answers['price'];
+        } elseif (isset($data['custom_spec']['price']) && $data['custom_spec']['price'] !== '' && is_numeric($data['custom_spec']['price'])) {
+            $priceIn = $data['custom_spec']['price'];
+        }
+        if ($priceIn !== null) {
+            $quote->price = min(10000000, max(0, (float) $priceIn));   // clamp to a sane range
         }
         // a junk payment link would ship a dead button on the customer's proposal
         if (!empty($data['payment_link']) && !preg_match('#^https?://\S+\.\S+#i', $data['payment_link'])) {

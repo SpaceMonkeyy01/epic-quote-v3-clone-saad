@@ -30,7 +30,16 @@ class PaymentLinkController extends Controller
             return response()->json(['error' => 'This quote is locked — the price must be approved before a payment link can be created.'], 422);
         }
 
+        // Effective price: the quote column, or (for older quotes not yet re-saved) the price
+        // held in generated_data (custom_spec.price / answers.price).
+        $gdAll = $quote->generated_data ?: [];
         $total = (float) $quote->price;
+        if ($total <= 0) {
+            $fallback = $gdAll['custom_spec']['price'] ?? ($gdAll['answers']['price'] ?? null);
+            if (is_numeric($fallback)) {
+                $total = (float) $fallback;
+            }
+        }
         if ($total <= 0) {
             return response()->json(['error' => 'Set a price on the quote before creating a payment link.'], 422);
         }
