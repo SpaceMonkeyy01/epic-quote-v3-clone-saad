@@ -136,7 +136,7 @@ class PaymentLinkController extends Controller
             'domain_set'  => !empty(config('services.shopify.domain')),
             'token_set'   => !empty(config('services.shopify.token')),
             'webhook_set' => !empty(config('services.shopify.webhook_secret')),
-            'domain'      => config('services.shopify.domain') ?: null,   // domain isn't secret
+            'domain'      => ShopifyService::domain(),   // normalized host (not secret)
         ]);
     }
 

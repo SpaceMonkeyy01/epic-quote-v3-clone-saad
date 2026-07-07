@@ -25,7 +25,19 @@ class ShopifyService
 {
     public static function configured(): bool
     {
-        return !empty(config('services.shopify.domain')) && !empty(config('services.shopify.token'));
+        return !empty(self::domain()) && !empty(config('services.shopify.token'));
+    }
+
+    /** Normalized store host, e.g. "my-store.myshopify.com" — tolerates a pasted URL/slash. */
+    public static function domain(): ?string
+    {
+        $d = trim((string) config('services.shopify.domain'));
+        if ($d === '') {
+            return null;
+        }
+        $d = preg_replace('#^https?://#i', '', $d);   // drop protocol
+        $d = explode('/', $d)[0];                      // drop any path
+        return $d ?: null;
     }
 
     /** Full amount at or below this → full payment only (no 50% deposit option). */
@@ -97,7 +109,7 @@ class ShopifyService
         if (!self::configured()) {
             return null;
         }
-        $domain  = config('services.shopify.domain');
+        $domain  = self::domain();
         $version = config('services.shopify.version', '2025-01');
 
         $resp = Http::withHeaders([
