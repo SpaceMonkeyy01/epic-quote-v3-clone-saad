@@ -63,6 +63,9 @@ class ShopifyService
             'status'         => 'active',                 // purchasable
             'published_scope' => 'web',                   // Online Store
             'tags'           => 'estimator,'.$quote->quote_id,
+            // random handle suffix → the URL is unguessable (privacy): someone can't just
+            // increment the quote number to find another customer's link.
+            'handle'         => \Illuminate\Support\Str::slug($quote->quote_id.' '.$itemDesc).'-'.\Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(8)),
             'variants'       => $variants,
         ];
 
@@ -81,8 +84,10 @@ class ShopifyService
     {
         $price = fn ($n) => number_format(round($n, 2), 2, '.', '');
         $base = [
-            'inventory_management' => 'shopify',   // track stock (US location, qty 1)
-            'inventory_policy'     => 'deny',
+            // A payment link must ALWAYS be payable — so allow selling even at 0 stock
+            // ('continue'), otherwise the product reads "sold out" and the customer can't pay,
+            // and a paid deposit would block the balance. (Untracked stock, effectively.)
+            'inventory_policy'     => 'continue',
             'requires_shipping'    => true,
             'taxable'              => true,
         ];

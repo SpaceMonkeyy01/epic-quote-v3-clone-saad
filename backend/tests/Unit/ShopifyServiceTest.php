@@ -25,9 +25,9 @@ it('makes a single Balance variant for the balance link', function () {
     expect($v[0]['price'])->toBe('1750.00');
 });
 
-it('tracks inventory on every variant', function () {
+it('keeps every variant always purchasable (never blocked by stock)', function () {
     foreach (ShopifyService::variantsFor(1000.0) as $variant) {
-        expect($variant['inventory_management'])->toBe('shopify');
+        expect($variant['inventory_policy'])->toBe('continue');
     }
 });
 
