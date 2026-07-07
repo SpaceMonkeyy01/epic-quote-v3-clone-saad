@@ -86,7 +86,7 @@ Decisions: product-page link; always 50/50 (deposit before ship, balance after) 
 |---|---|---|---|
 | S1 | Private ledger: payment_links table + searchable page (title/image/specs/company/dimensions/price/email-phone/kind/status/who) + mark paid/void | ✅ | browser: /payment-links lists rows, image thumb+lightbox, kind pills, ✓ Paid stamps date, Void; scoped to visibleTo; nav link added |
 | S2 | "Can create payment links" per-user permission | ✅ | API: new user default False; grant→True; admin always True. Users page has a 💳 Links checkbox per user (disabled+checked for admins); User::canCreatePaymentLinks() gates create |
-| S3 | Clean preview PNG (no subtotal/deposit block) for the product image | ⬜ | |
+| S3 | Clean preview PNG (no subtotal/deposit block) for the product image | ✅ | [data-price-block] wraps exactly SUBTOTAL/50% DEPOSIT/50% SHIPMENT + pay button (no spec leak); render({clean}) hides it during html2canvas + restores; captureCleanImage() exposed via forwardRef/useImperativeHandle for S5; proposal still renders normally |
 | S4 | Shopify product service (dormant till token): product + variants (Full/Deposit), image, unlisted, online store, ≤$500 rule → product-page link | ⬜ | |
 | S5 | "Create payment link" button on the quote → pick Full/Deposit/Balance → creates + stores in ledger | ⬜ | |
 | S6 | Paid detection: orders/paid webhook (or manual) → flip ledger + quote status | ⬜ | |

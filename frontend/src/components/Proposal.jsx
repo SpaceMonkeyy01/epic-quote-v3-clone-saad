@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import html2canvas from 'html2canvas'
 import { buildSpecLines, money, esc } from '../generator/proposal'
 import { parseDims } from '../generator/questions'
@@ -252,7 +252,7 @@ function AdjSwatch({ rk, sw, onChange, onRemove, onPick, canPick, scaleRef, sele
 const LOUPE = 185, SRC = 38   // eyedropper magnifier: loupe diameter (px) and source pixels across it
                               // (~5.5px per pixel — pixels stay visible but you keep enough context to aim)
 
-export default function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, proposalNotes, sideViews = [], onSideViews, approval }) {
+function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, proposalNotes, sideViews = [], onSideViews, approval }, fwdRef) {
   // approval lock: while the quote is locked and the price unapproved, nothing goes out
   const exportBlocked = !!(approval?.locked && !approval?.approved)
   const pageRef = useRef(null)
@@ -583,13 +583,16 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
     })
   }, [artworkPath, answers?.dimensions, customSpec?.dims]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const render = async () => {
+  const render = async (opts = {}) => {
     // capture at the page's true 816px size (drop the fit-to-fit scale during render)
     const el = pageRef.current
     const prev = el.style.transform
     el.style.transform = 'none'
     const handles = [...el.querySelectorAll('.adj-ui')]
     handles.forEach((h) => { h.style.visibility = 'hidden' })   // don't print selection chrome
+    // clean mode (Shopify product image): hide the price/deposit block
+    const priceBlocks = opts.clean ? [...el.querySelectorAll('[data-price-block]')] : []
+    priceBlocks.forEach((b) => { b.dataset._vis = b.style.visibility; b.style.visibility = 'hidden' })
     // html2canvas ignores object-fit:contain and STRETCHES images to their box (squashed
     // package/side-view images in the PNG). Emulate the letterboxing with explicit geometry
     // for the capture, then restore.
@@ -613,8 +616,17 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
       el.style.transform = prev
       handles.forEach((h) => { h.style.visibility = '' })
       savedCss.forEach(({ im, css }) => { im.style.cssText = css })
+      priceBlocks.forEach((b) => { b.style.visibility = b.dataset._vis || ''; delete b.dataset._vis })
     }
   }
+
+  // Clean product image (no price block) as a PNG data URL — used when creating a Shopify
+  // payment link (S4/S5). Exposed to the parent via the ref below.
+  const captureCleanImage = async () => {
+    const c = await render({ clean: true })
+    return c.toDataURL('image/png')
+  }
+  useImperativeHandle(fwdRef, () => ({ captureCleanImage }))
 
   const downloadPNG = async () => {
     if (exportBlocked) { flash('🔒 Blocked — the price needs approval before this quote can go out'); return }
@@ -774,7 +786,9 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
           {/* totals + terms */}
           <div style={{ margin: '12px 40px 0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
             {E('terms', { fontSize: 8, lineHeight: 1.3, textTransform: 'none' })}
-            <div>
+            {/* price block — hidden when capturing the "clean" image for a Shopify product,
+                since the payment options live on the Shopify page, not baked into the picture */}
+            <div data-price-block>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 800, marginBottom: 6 }}>
                   <span>SUBTOTAL</span>{E('subtotal')}
@@ -937,3 +951,5 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
     </div>
   )
 }
+
+export default forwardRef(Proposal)
