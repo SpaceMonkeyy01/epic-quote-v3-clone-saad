@@ -4,7 +4,7 @@ import { buildSpecLines, money, esc } from '../generator/proposal'
 import { parseDims } from '../generator/questions'
 import { SIDE_VIEWS } from '../generator/sideviews'
 import { sanitizeHtml } from '../utils/sanitizeHtml'
-import { fileUrl } from '../api/client'
+import client, { fileUrl } from '../api/client'
 import { uploadExtraFile } from '../api/quotes'
 import { listCatalog, saveCatalogItem } from '../api/catalog'
 
@@ -252,7 +252,7 @@ function AdjSwatch({ rk, sw, onChange, onRemove, onPick, canPick, scaleRef, sele
 const LOUPE = 185, SRC = 38   // eyedropper magnifier: loupe diameter (px) and source pixels across it
                               // (~5.5px per pixel — pixels stay visible but you keep enough context to aim)
 
-function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, proposalNotes, sideViews = [], onSideViews, approval }, fwdRef) {
+function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, proposalNotes, sideViews = [], onSideViews, approval, quoteId, canCreatePaymentLinks }, fwdRef) {
   // approval lock: while the quote is locked and the price unapproved, nothing goes out
   const exportBlocked = !!(approval?.locked && !approval?.approved)
   const pageRef = useRef(null)
@@ -640,6 +640,26 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     } catch (e) { flash('PNG failed: ' + e.message) } finally { setBusy('') }
   }
 
+  // ---- Shopify payment link (S5) ----
+  const [plBusy, setPlBusy] = useState('')
+  const [plResult, setPlResult] = useState(null)   // { url, kind } on success
+  const createPaymentLink = async (kind) => {
+    if (exportBlocked) { flash('🔒 Blocked — the price needs approval first'); return }
+    if (!price || price <= 0) { flash('Set a price before creating a payment link.'); return }
+    setPlBusy(kind); setPlResult(null)
+    try {
+      const canvas = await captureCleanImage()   // clean product image (no price block)
+      const { data } = await client.post(`/quotes/${quoteId}/payment-link`, {
+        kind, image: canvas,
+        contact: info.contact || '', email: info.email || '',
+      })
+      setPlResult({ url: data.url, kind })
+      flash('Payment link created ✓')
+    } catch (e) {
+      flash(e?.response?.data?.error || 'Could not create the payment link.')
+    } finally { setPlBusy('') }
+  }
+
   const downloadPDF = () => {
     if (exportBlocked) { flash('🔒 Blocked — the price needs approval before this quote can go out'); return }
     // Real vector PDF via the browser's print pipeline: sharp, selectable text and a clickable
@@ -948,6 +968,26 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
         <button disabled={busy || exportBlocked} title={exportBlocked ? 'Price approval required' : undefined} onClick={downloadPDF}>🖨️ Save as PDF</button>
         {toast && <span style={{ alignSelf: 'center', color: '#2e7d32', fontWeight: 600 }}>{toast}</span>}
       </div>
+
+      {/* Shopify payment link (S5) — only for users allowed to create links */}
+      {canCreatePaymentLinks && quoteId && (
+        <div style={{ marginTop: 18, padding: 14, border: '1px solid var(--border)', borderRadius: 10, background: 'var(--navy-900)' }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>💳 Shopify payment link</div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button disabled={!!plBusy || exportBlocked} onClick={() => createPaymentLink('full')}>{plBusy === 'full' ? 'Creating…' : 'Full payment'}</button>
+            {price > 500 && <button className="ghost" disabled={!!plBusy || exportBlocked} onClick={() => createPaymentLink('deposit')}>{plBusy === 'deposit' ? 'Creating…' : '50% deposit'}</button>}
+            {price > 500 && <button className="ghost" disabled={!!plBusy || exportBlocked} onClick={() => createPaymentLink('balance')}>{plBusy === 'balance' ? 'Creating…' : 'Balance (50%)'}</button>}
+            {price > 0 && price <= 500 && <span className="muted" style={{ fontSize: 12 }}>≤ $500 → full payment only</span>}
+          </div>
+          {plResult && (
+            <div style={{ marginTop: 10, fontSize: 13 }}>
+              Link ({plResult.kind}): <a href={plResult.url} target="_blank" rel="noreferrer">{plResult.url}</a>{' '}
+              <button className="ghost sm" onClick={() => { navigator.clipboard?.writeText(plResult.url); flash('Link copied') }}>Copy</button>
+            </div>
+          )}
+          <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>Creates the product in Shopify with a clean image (no price block) and records it under Payment Links.</div>
+        </div>
+      )}
     </div>
   )
 }

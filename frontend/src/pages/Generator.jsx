@@ -113,6 +113,7 @@ export default function Generator() {
   const [autoAi, setAutoAi] = useState(false)
   const { data: constants } = useConstants()
   const admin = useAuthStore((s) => s.isAdmin)()
+  const canCreatePaymentLinks = useAuthStore((s) => s.user?.can_create_payment_links) || admin
   const reps = constants?.sales_reps || []
 
   const [quote, setQuote] = useState(null)
@@ -826,6 +827,8 @@ export default function Generator() {
               answers={answers}
               customSpec={customSpec}
               info={{ company: client.company_name, client: client.client_name, contact: client.contact, email: client.email, address: client.address, job: client.job_name, quoteId }}
+              quoteId={quoteId}
+              canCreatePaymentLinks={canCreatePaymentLinks}
               artworkPath={artworkPath}
               logo={logo}
               aiResult={ai}

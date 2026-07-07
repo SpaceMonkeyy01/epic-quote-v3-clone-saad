@@ -6,11 +6,115 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\PaymentLink;
 use App\Models\Quote;
+use App\Services\CloudinaryService;
+use App\Services\ShopifyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class PaymentLinkController extends Controller
 {
+    // POST /api/quotes/{quote}/payment-link — create a Shopify product + link and log it.
+    // Body: kind (full|deposit|balance), image (clean preview PNG data URL), email, contact.
+    public function store(Request $request, Quote $quote): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user->canCreatePaymentLinks()) {
+            return response()->json(['error' => 'You do not have permission to create payment links.'], 403);
+        }
+        if (!$quote->isVisibleTo($user)) {
+            return response()->json(['error' => 'forbidden'], 403);
+        }
+        // reuse the approval lock (a locked, unapproved quote must not go out the door)
+        if ($quote->approval_locked && !$quote->price_approved) {
+            return response()->json(['error' => 'This quote is locked — the price must be approved before a payment link can be created.'], 422);
+        }
+
+        $total = (float) $quote->price;
+        if ($total <= 0) {
+            return response()->json(['error' => 'Set a price on the quote before creating a payment link.'], 422);
+        }
+
+        $kind = $request->input('kind', 'full');
+        if (!in_array($kind, ['full', 'deposit', 'balance'], true)) {
+            return response()->json(['error' => 'invalid kind'], 400);
+        }
+        // ≤ $500 → full payment only (Sami's rule)
+        if ($total <= ShopifyService::FULL_ONLY_MAX && $kind !== 'full') {
+            return response()->json(['error' => 'Quotes of $500 or less are full-payment only.'], 422);
+        }
+
+        // the clean product image (base64 data URL) → permanent storage
+        $imageBase64 = $request->input('image');   // "data:image/png;base64,…"
+        $imageRef = $imageBase64 ? $this->storeImage($imageBase64, $quote->quote_id.'-'.$kind) : null;
+
+        // build + create the Shopify product (dormant until configured)
+        $group = $kind === 'balance' ? 'balance' : 'quote';
+        $payload = ShopifyService::buildProductPayload($quote, $total, $imageBase64, $group);
+        $result = ShopifyService::createProduct($payload);
+
+        if ($result === null) {
+            return response()->json([
+                'error' => ShopifyService::configured()
+                    ? 'Shopify rejected the request — please try again or check the store settings.'
+                    : 'Shopify isn’t connected yet. An admin needs to add the store token before links can be generated.',
+                'not_configured' => !ShopifyService::configured(),
+            ], ShopifyService::configured() ? 502 : 503);
+        }
+
+        // pick the variant that matches this kind
+        $wanted = $kind === 'deposit' ? '50% Deposit' : ($kind === 'balance' ? 'Balance (50%)' : 'Full Payment');
+        $variant = collect($result['variants'])->firstWhere('title', $wanted) ?? ($result['variants'][0] ?? null);
+        $amount = $kind === 'full' ? $total : round($total / 2, 2);
+
+        $gd = $quote->generated_data ?: [];
+        $link = PaymentLink::create([
+            'quote_id'           => $quote->id,
+            'title'              => $payload['product']['title'],
+            'image'              => $imageRef,
+            'specs'              => $gd['custom_spec']['specText'] ?? ($gd['ai']['fullSpec'] ?? ''),
+            'company_name'       => $quote->company_name,
+            'side_view'          => implode(',', (array) ($gd['side_views'] ?? [])),
+            'contact'            => $request->input('contact', $quote->contact),
+            'email'              => $request->input('email', $quote->email),
+            'amount'             => $amount,
+            'quote_total'        => $total,
+            'kind'               => $kind,
+            'shopify_product_id' => $result['product_id'],
+            'shopify_variant_id' => $variant['id'] ?? null,
+            'url'                => $result['url'],
+            'status'             => 'unpaid',
+            'created_by'         => $user->id,
+        ]);
+
+        ActivityLog::record($user->id, 'payment_link_created', "{$quote->quote_id}: {$kind} link ({$amount})");
+
+        return response()->json($link->toApi(), 201);
+    }
+
+    // Decode a base64 data URL → permanent storage (Cloudinary if configured, else public disk).
+    private function storeImage(string $dataUrl, string $name): ?string
+    {
+        if (!preg_match('#^data:image/(\w+);base64,(.+)$#s', $dataUrl, $m)) {
+            return null;
+        }
+        $bytes = base64_decode($m[2], true);
+        if ($bytes === false) {
+            return null;
+        }
+        $filename = preg_replace('/[^A-Za-z0-9._-]/', '_', $name).'.'.($m[1] === 'jpeg' ? 'jpg' : $m[1]);
+
+        if (CloudinaryService::configured()) {
+            $tmp = tempnam(sys_get_temp_dir(), 'pl_').'.png';
+            file_put_contents($tmp, $bytes);
+            $url = CloudinaryService::upload($tmp, 'epic-quote/payment-links', 'image');
+            @unlink($tmp);
+            return $url ?: null;
+        }
+        Storage::disk('public')->put("payment-links/{$filename}", $bytes);
+        return $filename;
+    }
+
     // GET /api/payment-links — the private ledger, searchable, scoped to what the user can see.
     public function index(Request $request): JsonResponse
     {

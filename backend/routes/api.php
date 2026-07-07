@@ -52,7 +52,8 @@ Route::middleware(['auth:sanctum', 'readonly.guard'])->group(function () {
     Route::post('/ai/generate-specs', [App\Http\Controllers\Api\AiController::class, 'generateSpecs']);
     Route::post('/ai/extract-party', [App\Http\Controllers\Api\AiController::class, 'extractParty']);
 
-    // Payment links (Shopify) — private ledger
+    // Payment links (Shopify) — private ledger + create
+    Route::post('quotes/{quote}/payment-link', [App\Http\Controllers\Api\PaymentLinkController::class, 'store']);
     Route::get('payment-links', [App\Http\Controllers\Api\PaymentLinkController::class, 'index']);
     Route::put('payment-links/{paymentLink}/status', [App\Http\Controllers\Api\PaymentLinkController::class, 'updateStatus']);
 
