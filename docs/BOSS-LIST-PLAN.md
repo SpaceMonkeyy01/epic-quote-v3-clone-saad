@@ -80,5 +80,17 @@ Never leave main red. Report problems-solved + problems-remaining each iteration
 | P7.1 | #8 CSV: add Crunch dims/Dimensions/Text/Proposal/All-Quotes cols + resizable widths | ⬜ | |
 | P7.2 | #26 Team page redesign (useful, not dull) | ⬜ | |
 
+## Phase S — Shopify payment links (PRIME PRIORITY)
+Decisions: product-page link; always 50/50 (deposit before ship, balance after) + full option; ≤$500 → full only; inventory tracked US qty 1 (as manual); image = clean preview (no price block); token via SHOPIFY_API_TOKEN env; product fields: title "{QuoteID} - {ItemDesc}", type=sign type, vendor "EpicCraftings", category best-effort, status unlisted, published online store.
+| # | Step | Status | Evidence |
+|---|---|---|---|
+| S1 | Private ledger: payment_links table + searchable page (title/image/specs/company/dimensions/price/email-phone/kind/status/who) + mark paid/void | ✅ | browser: /payment-links lists rows, image thumb+lightbox, kind pills, ✓ Paid stamps date, Void; scoped to visibleTo; nav link added |
+| S2 | "Can create payment links" per-user permission | ⬜ | |
+| S3 | Clean preview PNG (no subtotal/deposit block) for the product image | ⬜ | |
+| S4 | Shopify product service (dormant till token): product + variants (Full/Deposit), image, unlisted, online store, ≤$500 rule → product-page link | ⬜ | |
+| S5 | "Create payment link" button on the quote → pick Full/Deposit/Balance → creates + stores in ledger | ⬜ | |
+| S6 | Paid detection: orders/paid webhook (or manual) → flip ledger + quote status | ⬜ | |
+| S7 | Privacy + end-to-end verify + Shopify setup doc | ⬜ | |
+
 ## Learnings / notes
 - (append as discovered)
