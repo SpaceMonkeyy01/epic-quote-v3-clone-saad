@@ -4,6 +4,7 @@ import { useConstants, useCreateQuote } from '../hooks'
 import { extractParty, putGenerated, uploadExtraFile } from '../api/quotes'
 import { rasterizePdf } from '../generator/pdfRaster'
 import useAuthStore from '../store/authStore'
+import client from '../api/client'
 
 const EMPTY = {
   company_name: '', client_name: '', contact: '', email: '', address: '',
@@ -36,6 +37,30 @@ export default function AddQuoteModal({ onClose }) {
   const [repOther, setRepOther] = useState(false)  // typing a custom sales rep
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+
+  // Company autofill (#12): known companies suggest as you type; picking one that already
+  // exists prefills the blank fields (address / client / phone / email) from its last quote.
+  const [companyHits, setCompanyHits] = useState([])
+  const onCompanyChange = async (e) => {
+    const name = e.target.value
+    setForm((f) => ({ ...f, company_name: name }))
+    if (name.trim().length < 2) { setCompanyHits([]); return }
+    try {
+      const { data } = await client.get('/companies/suggest', { params: { q: name } })
+      setCompanyHits(data || [])
+      // exact (case-insensitive) match → prefill only the fields the user hasn't filled yet
+      const hit = (data || []).find((c) => c.name.toLowerCase() === name.trim().toLowerCase())
+      if (hit) {
+        setForm((f) => ({
+          ...f,
+          address: f.address || hit.address || '',
+          client_name: f.client_name || hit.client_name || '',
+          contact: f.contact || hit.contact || '',
+          email: f.email || hit.email || '',
+        }))
+      }
+    } catch { /* suggestions are best-effort */ }
+  }
 
   // Merge only into blank fields, so reading a second file (or a re-read) never wipes what's there.
   const mergeParty = (d) => setForm((f) => ({
@@ -121,7 +146,13 @@ export default function AddQuoteModal({ onClose }) {
     <>
       <div className="field">
         <label>Company Name {choice === 'ai' && <span className="muted" style={{ fontWeight: 400 }}>(the sign company on the drawing)</span>}</label>
-        <input value={form.company_name} onChange={set('company_name')} />
+        <input list="company-suggestions" placeholder="Start typing — repeat customers autofill" value={form.company_name} onChange={onCompanyChange} />
+        <datalist id="company-suggestions">
+          {companyHits.map((c) => <option key={c.name} value={c.name} />)}
+        </datalist>
+        {companyHits.some((c) => c.name.toLowerCase() === form.company_name.trim().toLowerCase()) && (
+          <div className="muted" style={{ fontSize: 11, color: 'var(--gold)', marginTop: 4 }}>✓ Known company — details autofilled (edit anything that changed)</div>
+        )}
       </div>
       <div className="grid2">
         <div className="field"><label>Client Name</label><input value={form.client_name} onChange={set('client_name')} /></div>

@@ -63,6 +63,36 @@ class QuoteController extends Controller
         return response()->json($quotes);
     }
 
+    // GET /api/companies/suggest?q= — known companies for intake autofill (#12).
+    // Returns the most recent quote's details per matching company so typing a repeat
+    // customer ("Signarama", "Mountain Dog") prefills address + last client/phone/email.
+    public function companySuggest(Request $request): JsonResponse
+    {
+        $q = trim((string) $request->query('q', ''));
+        if ($q === '') {
+            return response()->json([]);
+        }
+        $rows = Quote::query()
+            ->visibleTo($request->user())                 // don't leak another rep's clients
+            ->where('company_name', 'like', '%'.$q.'%')
+            ->where('company_name', '!=', '')
+            ->orderByDesc('created_at')
+            ->limit(200)
+            ->get(['company_name', 'address', 'client_name', 'contact', 'email'])
+            ->unique(fn ($r) => mb_strtolower($r->company_name))   // most-recent per company
+            ->take(8)
+            ->map(fn ($r) => [
+                'name'        => $r->company_name,
+                'address'     => $r->address ?? '',
+                'client_name' => $r->client_name ?? '',
+                'contact'     => $r->contact ?? '',
+                'email'       => $r->email ?? '',
+            ])
+            ->values();
+
+        return response()->json($rows);
+    }
+
     // POST /api/quotes — Add Quote (#33-37)
     public function store(Request $request): JsonResponse
     {

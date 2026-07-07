@@ -39,7 +39,7 @@ Never leave main red. Report problems-solved + problems-remaining each iteration
 | # | Item | Status | Evidence |
 |---|---|---|---|
 | P1.1 | #22 Contact → Phone (no letters) + Email; migrate + ripple (intake/edit/proposal/CSV) | ✅ | API: contact "call 972-361-0700 ext"→"972-361-0700" (letters stripped, server+client), email column persists. Intake Phone+Email fields; grid Phone header + Email in CSV/modal; Generator client Phone+Email; proposal shows PHONE + conditional EMAIL |
-| P1.2 | #12 Company autofill: type a known company name → prefill its saved values | ⬜ | |
+| P1.2 | #12 Company autofill: type a known company name → prefill its saved values | ✅ | browser: typing "Signarama" in intake autofilled Address "14430 Midway Rd…" + Phone "972-361-0700" from its last quote; datalist suggests known companies; only fills blank fields; GET /companies/suggest scoped to visibleTo |
 
 ## Phase 2 — Sign-type hierarchy (#14)
 | # | Item | Status | Evidence |

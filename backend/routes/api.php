@@ -27,6 +27,7 @@ Route::middleware(['auth:sanctum', 'readonly.guard'])->group(function () {
     Route::delete('catalog/{item}', [App\Http\Controllers\Api\CatalogController::class, 'destroy']);
 
     // Quotes
+    Route::get('companies/suggest', [App\Http\Controllers\Api\QuoteController::class, 'companySuggest']);
     Route::apiResource('quotes', App\Http\Controllers\Api\QuoteController::class);
     Route::put('quotes/{quote}/status', [App\Http\Controllers\Api\QuoteController::class, 'updateStatus']);
     Route::put('quotes/{quote}/tags', [App\Http\Controllers\Api\QuoteController::class, 'updateTags']);
