@@ -440,7 +440,7 @@ export default function Proposal({ mode, tpl, answers, customSpec, info, artwork
   const initial = useMemo(() => {
     const def = {
       contact: '101 E LUZERNE ST. PHILADELPHIA, PENNSYLVANIA 19124, US<br>www.epiccraftings.com<br>sales@epiccraftings.com<br>+1 (445) 444-0334',
-      infoLeft: `<b>COMPANY NAME:</b> ${esc(info.company)}<br><b>CLIENT NAME:</b> ${esc(info.client)}<br><b>CONTACT:</b> ${esc(info.contact)}<br><b>ADDRESS:</b> ${esc(info.address)}`,
+      infoLeft: `<b>COMPANY NAME:</b> ${esc(info.company)}<br><b>CLIENT NAME:</b> ${esc(info.client)}<br><b>PHONE:</b> ${esc(info.contact)}${info.email ? `<br><b>EMAIL:</b> ${esc(info.email)}` : ''}<br><b>ADDRESS:</b> ${esc(info.address)}`,
       infoRight: `<b>PROPOSAL ID:</b> ${esc(info.quoteId)}<br><b>DATE:</b> ${dateStr}<br><b>JOB NAME:</b> ${esc(info.job)}`,
       itemDesc: esc(itemDesc),
       unitPrice: money(price),

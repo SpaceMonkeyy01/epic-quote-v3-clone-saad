@@ -70,7 +70,8 @@ class QuoteController extends Controller
 
         $companyName = trim((string) $request->input('company_name', ''));
         $clientName  = trim((string) $request->input('client_name', ''));
-        $contact     = trim((string) $request->input('contact', ''));
+        $contact     = self::phoneOnly($request->input('contact', ''));   // phone: digits only (#22)
+        $email       = trim((string) $request->input('email', ''));
         $address     = trim((string) $request->input('address', ''));
         $jobName     = trim((string) $request->input('job_name', ''));
         $special     = trim((string) $request->input('special_requirements', ''));
@@ -114,7 +115,7 @@ class QuoteController extends Controller
         }
 
         $quote = DB::transaction(function () use (
-            $companyName, $clientName, $contact, $address, $jobName, $special,
+            $companyName, $clientName, $contact, $email, $address, $jobName, $special,
             $salesRep, $quoteSource, $orderId, $qid, $file, $user
         ) {
             // auto-create company (case-insensitive dedup) — only when a name is supplied.
@@ -160,6 +161,7 @@ class QuoteController extends Controller
                 'company_name'         => $company?->name ?? '',
                 'client_name'          => $clientName,
                 'contact'              => $contact,
+                'email'                => $email,
                 'address'              => $address ?: ($company?->address ?? ''),
                 'job_name'             => $jobName,
                 'special_requirements' => $special,
@@ -242,11 +244,14 @@ class QuoteController extends Controller
             $quote->quote_source = $data['quote_source'];
         }
 
-        foreach (['client_name', 'contact', 'address', 'job_name', 'special_requirements', 'company_name', 'order_id'] as $field) {
+        foreach (['client_name', 'contact', 'email', 'address', 'job_name', 'special_requirements', 'company_name', 'order_id'] as $field) {
             if (array_key_exists($field, $data)) {
                 // ConvertEmptyStringsToNull turns '' into null; these columns are NOT NULL
                 // default '' (V1 stored '', never null), so coalesce back to ''.
                 $value = $data[$field] ?? '';
+                if ($field === 'contact') {
+                    $value = self::phoneOnly($value);   // contact = phone number, digits only (#22)
+                }
                 if ((string) ($quote->{$field} ?? '') !== (string) $value) {
                     $changes[] = ucwords(str_replace('_', ' ', $field));
                 }
@@ -637,6 +642,12 @@ class QuoteController extends Controller
         ActivityLog::record($request->user()->id, 'file_uploaded', "{$quote->quote_id}: Crunched Dimension Artwork ({$filename})");
 
         return response()->json(['path' => $stored[1]]);
+    }
+
+    // Contact phone: keep digits and phone punctuation only — never letters (#22).
+    public static function phoneOnly(mixed $v): string
+    {
+        return trim(preg_replace('/[^0-9()+\-.\s]/', '', (string) $v));
     }
 
     private function safeFilename(\Illuminate\Http\UploadedFile $file): string

@@ -117,7 +117,7 @@ export default function AllQuotes() {
   // ---- Grid v4: export + copy + paste-down ----
   const EXPORT_COLS = [
     ['Quote ID', (q) => q.quote_id], ['Company', (q) => q.company_name], ['Client', (q) => q.client_name],
-    ['Contact', (q) => q.contact], ['Job', (q) => q.job_name], ['Price', (q) => q.price ?? ''],
+    ['Phone', (q) => q.contact], ['Email', (q) => q.email], ['Job', (q) => q.job_name], ['Price', (q) => q.price ?? ''],
     ['Breakeven Production', (q) => q.breakeven_production ?? ''], ['Breakeven Shipping', (q) => q.breakeven_shipping ?? ''],
     ['Profit', (q) => q.profit ?? ''], ['Profit %', (q) => q.profit_pct ?? ''],
     ['Sales Rep', (q) => q.sales_rep], ['Assigned To', (q) => q.assigned_to], ['Rush', (q) => q.rush],
@@ -221,7 +221,7 @@ export default function AllQuotes() {
                 <SortTh k="quote_id" sort={sort}>Quote ID</SortTh>
                 {columns.has('company') && <SortTh k="company_name" sort={sort}>Company</SortTh>}
                 {columns.has('client') && <SortTh k="client_name" sort={sort}>Client</SortTh>}
-                {columns.has('contact') && <th>Contact</th>}
+                {columns.has('contact') && <th>Phone</th>}
                 {columns.has('job') && <SortTh k="job_name" sort={sort}>Job</SortTh>}
                 {columns.has('price') && <SortTh k="price" sort={sort}>Price</SortTh>}
                 {columns.has('be') && <th title="Breakeven production cost — internal only">BE Prod</th>}
@@ -331,7 +331,7 @@ export default function AllQuotes() {
             <h2>Quote {viewing.quote_id}</h2>
             {[
               ['Company', viewing.company_name], ['Client', viewing.client_name],
-              ['Contact', viewing.contact], ['Address', viewing.address],
+              ['Phone', viewing.contact], ['Email', viewing.email], ['Address', viewing.address],
               ['Job', viewing.job_name],
               ['Price', viewing.price ? `$${Number(viewing.price).toLocaleString()}` : '—'],
               ['Breakeven (production + shipping)', (viewing.breakeven_production != null || viewing.breakeven_shipping != null) ? `$${Number(viewing.breakeven_production || 0).toLocaleString()} + $${Number(viewing.breakeven_shipping || 0).toLocaleString()}` : '—'],

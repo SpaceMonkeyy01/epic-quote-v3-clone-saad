@@ -123,7 +123,7 @@ export default function Generator() {
   const [loadError, setLoadError] = useState('')   // set when the quote can't be loaded (e.g. bad/deleted id)
 
   // wizard state
-  const [client, setClient] = useState({ company_name: '', client_name: '', contact: '', address: '', job_name: '', sales_rep: '' })
+  const [client, setClient] = useState({ company_name: '', client_name: '', contact: '', email: '', address: '', job_name: '', sales_rep: '' })
   const [special, setSpecial] = useState('')
   const [tpl, setTpl] = useState(null)
   const [answers, setAnswers] = useState({})
@@ -160,7 +160,7 @@ export default function Generator() {
       setGd(g)
       setClient({
         company_name: q.company_name || '', client_name: q.client_name || '',
-        contact: q.contact || '', address: q.address || '',
+        contact: q.contact || '', email: q.email || '', address: q.address || '',
         job_name: g.job_name || q.job_name || '', sales_rep: q.sales_rep || '',
       })
       setSpecial(q.special_requirements || '')
@@ -512,10 +512,16 @@ export default function Generator() {
         {step === 'client' && (
           <div className="step">
             <h3>Client Information</h3>
-            {['company_name', 'client_name', 'contact', 'address', 'job_name'].map((k) => (
+            {[['company_name', 'Company Name'], ['client_name', 'Client Name'], ['contact', 'Phone'], ['email', 'Email'], ['address', 'Address'], ['job_name', 'Job Name']].map(([k, label]) => (
               <div className="field" key={k}>
-                <label>{k.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</label>
-                <input value={client[k]} onChange={(e) => setClient({ ...client, [k]: e.target.value })} />
+                <label>{label}</label>
+                <input
+                  type={k === 'email' ? 'email' : 'text'}
+                  inputMode={k === 'contact' ? 'tel' : undefined}
+                  placeholder={k === 'contact' ? 'digits only' : k === 'email' ? 'name@company.com' : ''}
+                  value={client[k] || ''}
+                  onChange={(e) => setClient({ ...client, [k]: k === 'contact' ? e.target.value.replace(/[^0-9()+\-.\s]/g, '') : e.target.value })}
+                />
               </div>
             ))}
             <div className="field">
@@ -819,7 +825,7 @@ export default function Generator() {
               tpl={tpl}
               answers={answers}
               customSpec={customSpec}
-              info={{ company: client.company_name, client: client.client_name, contact: client.contact, address: client.address, job: client.job_name, quoteId }}
+              info={{ company: client.company_name, client: client.client_name, contact: client.contact, email: client.email, address: client.address, job: client.job_name, quoteId }}
               artworkPath={artworkPath}
               logo={logo}
               aiResult={ai}
@@ -850,7 +856,7 @@ export default function Generator() {
              tpl={tpl}
              answers={answers}
              customSpec={customSpec}
-             info={{ company: client.company_name, client: client.client_name, contact: client.contact, address: client.address, job: client.job_name, quoteId }}
+             info={{ company: client.company_name, client: client.client_name, contact: client.contact, email: client.email, address: client.address, job: client.job_name, quoteId }}
              artworkPath={artworkPath}
              logo={logo}
              aiResult={ai}

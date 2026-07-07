@@ -11,7 +11,7 @@ class Quote extends Model
 
     protected $fillable = [
         'quote_id', 'order_id', 'quote_num',
-        'company_id', 'company_name', 'client_name', 'contact', 'address',
+        'company_id', 'company_name', 'client_name', 'contact', 'email', 'address',
         'job_name', 'special_requirements', 'customer_pdf',
         'sales_rep', 'quote_source', 'status', 'tags', 'price',
         'quote_type', 'generated_data', 'crunched_artwork',
@@ -82,6 +82,7 @@ class Quote extends Model
             'company_name'         => $this->company_name,
             'client_name'          => $this->client_name,
             'contact'              => $this->contact,
+            'email'                => $this->email,
             'address'              => $this->address,
             'job_name'             => $this->job_name,
             'special_requirements' => $this->special_requirements,

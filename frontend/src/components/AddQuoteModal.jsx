@@ -6,7 +6,7 @@ import { rasterizePdf } from '../generator/pdfRaster'
 import useAuthStore from '../store/authStore'
 
 const EMPTY = {
-  company_name: '', client_name: '', contact: '', address: '',
+  company_name: '', client_name: '', contact: '', email: '', address: '',
   job_name: '', special_requirements: '', sales_rep: '', payment_link: '', quote_source: '',
 }
 
@@ -125,8 +125,9 @@ export default function AddQuoteModal({ onClose }) {
       </div>
       <div className="grid2">
         <div className="field"><label>Client Name</label><input value={form.client_name} onChange={set('client_name')} /></div>
-        <div className="field"><label>Contact (email/phone)</label><input value={form.contact} onChange={set('contact')} /></div>
+        <div className="field"><label>Phone</label><input inputMode="tel" placeholder="digits only" value={form.contact} onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value.replace(/[^0-9()+\-.\s]/g, '') }))} /></div>
       </div>
+      <div className="field"><label>Email</label><input type="email" placeholder="name@company.com" value={form.email} onChange={set('email')} /></div>
       <div className="field"><label>Address</label><input value={form.address} onChange={set('address')} /></div>
       <div className="field"><label>Job Name</label><input value={form.job_name} onChange={set('job_name')} /></div>
       <div className="field">
