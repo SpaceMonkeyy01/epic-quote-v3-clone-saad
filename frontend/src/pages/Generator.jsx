@@ -134,6 +134,7 @@ export default function Generator() {
   const [artworkPath, setArtworkPath] = useState(null)
   const [artErr, setArtErr] = useState('')
   const [cropping, setCropping] = useState(false)   // #5 big-canvas crop editor open?
+  const [signBox, setSignBox] = useState(null)      // bounding box of the sign on the artwork (fractions) for precise dim arrows
   const [paymentLink, setPaymentLink] = useState('')
   const [sideViews, setSideViews] = useState([])   // chosen side-view keys
   const [customSpec, setCustomSpec] = useState(null)
@@ -174,6 +175,7 @@ export default function Generator() {
       setAi(g.ai || null)
       setCustomSpec(g.custom_spec || null)
       if (g.artwork_path) setArtworkPath(g.artwork_path)
+      if (g.sign_box) setSignBox(g.sign_box)
       // #10: if no artwork chosen yet but the customer uploaded an image of the sign, use it
       else if (q.customer_pdf && /\.(png|jpe?g|gif|webp|svg)$/i.test(q.customer_pdf)) setArtworkPath(q.customer_pdf)
       if (g.side_views) setSideViews(g.side_views)
@@ -710,8 +712,10 @@ export default function Generator() {
               <ArtworkCropper
                 src={fileUrl(artworkPath)}
                 busy={saving}
+                initialBox={signBox}
                 onCancel={() => setCropping(false)}
-                onApply={async (file) => { await commitArtworkFile(file); setCropping(false) }}
+                onApply={async (file) => { await commitArtworkFile(file); setSignBox(null); await saveProgress({ sign_box: null }); setCropping(false) }}
+                onMark={async (box) => { setSignBox(box); await saveProgress({ sign_box: box }); setCropping(false); }}
               />
             ) : (<>
             {/* the whole area is clickable — clicking it opens the file picker (#21) */}
@@ -865,6 +869,7 @@ export default function Generator() {
               proposalNotes={proposalNotes}
               savedState={gd?.proposal_state}
               sideViews={sideViews}
+              signBox={signBox}
               onSideViews={setSideViews}
               onSave={(proposalState) => saveProgress({ proposal_state: proposalState, side_views: sideViews })}
             />
@@ -893,6 +898,7 @@ export default function Generator() {
              proposalNotes={proposalNotes}
              savedState={gd?.proposal_state}
              sideViews={sideViews}
+             signBox={signBox}
              onSideViews={setSideViews}
              onSave={(proposalState) => saveProgress({ proposal_state: proposalState, side_views: sideViews })}
            />

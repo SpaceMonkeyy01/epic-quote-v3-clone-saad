@@ -261,7 +261,7 @@ const HD_SCALE = 3   // html2canvas DPI factor for PNG/PDF downloads (~288dpi on
 const LOUPE = 185, SRC = 38   // eyedropper magnifier: loupe diameter (px) and source pixels across it
                               // (~5.5px per pixel — pixels stay visible but you keep enough context to aim)
 
-function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, proposalNotes, sideViews = [], onSideViews, approval, quoteId, canCreatePaymentLinks, onPaymentLinkCreated, mainView }, fwdRef) {
+function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, proposalNotes, sideViews = [], onSideViews, approval, quoteId, canCreatePaymentLinks, onPaymentLinkCreated, mainView, signBox }, fwdRef) {
   // approval lock: while the quote is locked and the price unapproved, nothing goes out
   const exportBlocked = !!(approval?.locked && !approval?.approved)
   const pageRef = useRef(null)
@@ -901,25 +901,31 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
           onClick={() => {
             const p = parseDims(mode === 'custom' ? customSpec?.dims : answers?.dimensions)
             const a = layout.artwork || { x: 188, y: 24, w: 360, h: 144 }
-            // Orient the labels to the IMAGE, not by field name (#6): the longer side of the
-            // artwork gets the larger measurement, so the big number never lands on the short
-            // side. When only one dimension is numeric we keep the plain width/height mapping.
+            // If the rep marked the sign with a measurement box, snap the arrows to that exact
+            // sign sub-rect within the artwork (precise measurements). Otherwise span the whole
+            // artwork box.
+            const sb = signBox && Number.isFinite(signBox.w) ? signBox : null
+            const rect = sb
+              ? { x: a.x + sb.x * a.w, y: a.y + sb.y * a.h, w: sb.w * a.w, h: sb.h * a.h }
+              : { x: a.x, y: a.y, w: a.w, h: a.h }
+            // Orient the labels to the marked box (#6): the longer side gets the larger measurement,
+            // so the big number never lands on the short side.
             const wv = parseFloat(p.w), hv = parseFloat(p.l)
             let hLbl = p.w ? p.w + '"' : 'WIDTH'     // horizontal arrow label
             let vLbl = p.l ? p.l + '"' : 'HEIGHT'    // vertical arrow label
             if (Number.isFinite(wv) && Number.isFinite(hv) && wv !== hv) {
               const big = Math.max(wv, hv) + '"', small = Math.min(wv, hv) + '"'
-              const horizLonger = a.w >= a.h
+              const horizLonger = rect.w >= rect.h
               hLbl = horizLonger ? big : small
               vLbl = horizLonger ? small : big
             }
             setLayout((L) => ({
               ...L,
               __dimsSeeded: true,
-              'dim-w': L['dim-w'] || { x: a.x, y: Math.max(2, a.y - 16), len: a.w, vert: false, label: hLbl },
-              'dim-h': L['dim-h'] || { x: Math.max(2, a.x - 18), y: a.y, len: a.h, vert: true, label: vLbl },
+              'dim-w': L['dim-w'] || { x: rect.x, y: Math.max(2, rect.y - 16), len: rect.w, vert: false, label: hLbl },
+              'dim-h': L['dim-h'] || { x: Math.max(2, rect.x - 18), y: rect.y, len: rect.h, vert: true, label: vLbl },
             }))
-            flash('Dimension arrows added — drag them into place.')
+            flash(sb ? 'Arrows snapped to your marked sign box.' : 'Dimension arrows added — drag them into place.')
           }}
         >+ Dimensions</button>
         <button

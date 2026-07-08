@@ -5,11 +5,11 @@ import { useRef, useState } from 'react'
    with four corner handles + drag-to-move, then "Apply crop" re-uploads just the selection.
    Crop rectangle is kept as fractions (0..1) of the displayed image, so it maps cleanly onto
    the natural-resolution pixels when we cut the final JPEG. */
-export default function ArtworkCropper({ src, onApply, onCancel, busy }) {
+export default function ArtworkCropper({ src, onApply, onCancel, onMark, busy, initialBox }) {
   const imgRef = useRef(null)
   const wrapRef = useRef(null)
   // box in fractions of the image: {x, y, w, h}
-  const [box, setBox] = useState({ x: 0.08, y: 0.08, w: 0.84, h: 0.84 })
+  const [box, setBox] = useState(initialBox && Number.isFinite(initialBox.w) ? initialBox : { x: 0.08, y: 0.08, w: 0.84, h: 0.84 })
 
   // pointer helpers — convert a client point to a 0..1 fraction inside the image
   const frac = (clientX, clientY) => {
@@ -83,8 +83,11 @@ export default function ArtworkCropper({ src, onApply, onCancel, busy }) {
           <span style={{ ...handle, right: -7, bottom: -7, cursor: 'nwse-resize' }} onMouseDown={startCorner('se')} />
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-        <button type="button" disabled={busy} onClick={apply}>{busy ? 'Applying…' : '✓ Apply crop'}</button>
+      <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+        <button type="button" disabled={busy} onClick={apply}>{busy ? 'Applying…' : '✂ Crop to this box'}</button>
+        {/* non-destructive: keep the full artwork but record this box as the sign's extent, so the
+            proposal's dimension arrows snap to the real sign edges (precise measurements). */}
+        {onMark && <button type="button" className="ghost" onClick={() => onMark(box)} title="Keep the whole artwork; mark this box as the sign for measurement arrows">📐 Use as measurement box</button>}
         <button type="button" className="ghost" onClick={() => setBox({ x: 0.08, y: 0.08, w: 0.84, h: 0.84 })}>Reset box</button>
         <button type="button" className="ghost" onClick={onCancel}>Cancel</button>
       </div>
