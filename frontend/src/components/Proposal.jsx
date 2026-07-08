@@ -880,64 +880,91 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
       </div>
 
       {mainView && (
-      <div className="proposal-controls" style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: '0 0 210px', maxWidth: 210 }}>
-      {onSideViews && <button type="button" className="ghost" onClick={() => setPickingSV((v) => !v)}>{pickingSV ? 'Done choosing side views' : '+ Choose side views'}</button>}
-      {/* #7 — artwork area background, so it matches the artwork's own background */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0 0', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Artwork area bg</span>
-        <input type="color" value={/^#[0-9a-f]{6}$/i.test(artBg) ? artBg : '#ffffff'} onChange={(e) => setArtBg(e.target.value)}
-          title="Set the ITEM DETAILS background to match your artwork" style={{ width: 30, height: 26, padding: 0, border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer', background: 'none' }} />
-        {['#ffffff', '#efefef', '#d9d9d9'].map((c) => (
-          <button key={c} type="button" onClick={() => setArtBg(c)} title={c}
-            style={{ width: 22, height: 22, padding: 0, borderRadius: 4, border: artBg === c ? '2px solid var(--gold)' : '1px solid var(--border)', background: c, cursor: 'pointer' }} />
-        ))}
-      </div>
-      {/* color swatches — a control, not part of the printed page */}
-      <div style={{ margin: '12px 0' }}>
-        <button type="button" className="ghost" onClick={addSwatch}>+ Add color swatch</button>
-        <button
-          type="button" className="ghost" style={{ marginLeft: 8 }}
-          title="Add measurement arrows beside the artwork (drag to place, pull the dot to resize, click the label to type the size)"
-          onClick={() => {
-            const p = parseDims(mode === 'custom' ? customSpec?.dims : answers?.dimensions)
-            const a = layout.artwork || { x: 188, y: 24, w: 360, h: 144 }
-            // If the rep marked the sign with a measurement box, snap the arrows to that exact
-            // sign sub-rect within the artwork (precise measurements). Otherwise span the whole
-            // artwork box.
-            const sb = signBox && Number.isFinite(signBox.w) ? signBox : null
-            const rect = sb
-              ? { x: a.x + sb.x * a.w, y: a.y + sb.y * a.h, w: sb.w * a.w, h: sb.h * a.h }
-              : { x: a.x, y: a.y, w: a.w, h: a.h }
-            // Orient the labels to the marked box (#6): the longer side gets the larger measurement,
-            // so the big number never lands on the short side.
-            const wv = parseFloat(p.w), hv = parseFloat(p.l)
-            let hLbl = p.w ? p.w + '"' : 'WIDTH'     // horizontal arrow label
-            let vLbl = p.l ? p.l + '"' : 'HEIGHT'    // vertical arrow label
-            if (Number.isFinite(wv) && Number.isFinite(hv) && wv !== hv) {
-              const big = Math.max(wv, hv) + '"', small = Math.min(wv, hv) + '"'
-              const horizLonger = rect.w >= rect.h
-              hLbl = horizLonger ? big : small
-              vLbl = horizLonger ? small : big
-            }
-            setLayout((L) => ({
-              ...L,
-              __dimsSeeded: true,
-              'dim-w': L['dim-w'] || { x: rect.x, y: Math.max(2, rect.y - 16), len: rect.w, vert: false, label: hLbl },
-              'dim-h': L['dim-h'] || { x: Math.max(2, rect.x - 18), y: rect.y, len: rect.h, vert: true, label: vLbl },
-            }))
-            flash(sb ? 'Arrows snapped to your marked sign box.' : 'Dimension arrows added — drag them into place.')
-          }}
-        >+ Dimensions</button>
-        <button
-          type="button" className="ghost" style={{ marginLeft: 8 }}
-          title="Replace the SPECIFICATIONS text with a fresh version built from the current answers (use after changing specs on an older quote). Your other edits are kept."
-          onClick={() => {
-            const el = document.querySelector('#proposal-print-root [data-key="specBody"]')
-            if (el) { el.innerHTML = sanitizeHtml(specHTML); queueSave(); flash('Spec text rebuilt from the current answers.') }
-          }}
-        >↻ Rebuild spec text</button>
-        <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>Click a swatch to pick its color &amp; name; drag to place. The picker never appears in the PDF.</span>
-      </div>
+      <div className="proposal-controls" style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: '0 0 220px', maxWidth: 220 }}>
+      {/* Controls are grouped and ordered to match the proposal's top-to-bottom flow, so each
+          tool sits next to the item it edits (#6): Artwork → Dimensions → Colours → Side view → Specs. */}
+      {(() => {
+        const grpLabel = { fontSize: 10.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-faint)', marginBottom: 6 }
+        return (
+          <>
+            {/* ARTWORK */}
+            <div>
+              <div style={grpLabel}>Artwork</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Area bg</span>
+                <input type="color" value={/^#[0-9a-f]{6}$/i.test(artBg) ? artBg : '#ffffff'} onChange={(e) => setArtBg(e.target.value)}
+                  title="Set the ITEM DETAILS background to match your artwork" style={{ width: 30, height: 26, padding: 0, border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer', background: 'none' }} />
+                {['#ffffff', '#efefef', '#d9d9d9'].map((c) => (
+                  <button key={c} type="button" onClick={() => setArtBg(c)} title={c}
+                    style={{ width: 22, height: 22, padding: 0, borderRadius: 4, border: artBg === c ? '2px solid var(--gold)' : '1px solid var(--border)', background: c, cursor: 'pointer' }} />
+                ))}
+              </div>
+            </div>
+
+            {/* DIMENSIONS */}
+            <div>
+              <div style={grpLabel}>Dimensions</div>
+              <button
+                type="button" className="ghost" style={{ width: '100%' }}
+                title="Add measurement arrows beside the artwork (drag to place, pull the dot to resize, click the label to type the size)"
+                onClick={() => {
+                  const p = parseDims(mode === 'custom' ? customSpec?.dims : answers?.dimensions)
+                  const a = layout.artwork || { x: 188, y: 24, w: 360, h: 144 }
+                  // Snap the arrows to the marked sign box when present, else span the whole artwork.
+                  const sb = signBox && Number.isFinite(signBox.w) ? signBox : null
+                  const rect = sb
+                    ? { x: a.x + sb.x * a.w, y: a.y + sb.y * a.h, w: sb.w * a.w, h: sb.h * a.h }
+                    : { x: a.x, y: a.y, w: a.w, h: a.h }
+                  const wv = parseFloat(p.w), hv = parseFloat(p.l)
+                  let hLbl = p.w ? p.w + '"' : 'WIDTH'
+                  let vLbl = p.l ? p.l + '"' : 'HEIGHT'
+                  if (Number.isFinite(wv) && Number.isFinite(hv) && wv !== hv) {
+                    const big = Math.max(wv, hv) + '"', small = Math.min(wv, hv) + '"'
+                    const horizLonger = rect.w >= rect.h
+                    hLbl = horizLonger ? big : small
+                    vLbl = horizLonger ? small : big
+                  }
+                  setLayout((L) => ({
+                    ...L,
+                    __dimsSeeded: true,
+                    'dim-w': L['dim-w'] || { x: rect.x, y: Math.max(2, rect.y - 16), len: rect.w, vert: false, label: hLbl },
+                    'dim-h': L['dim-h'] || { x: Math.max(2, rect.x - 18), y: rect.y, len: rect.h, vert: true, label: vLbl },
+                  }))
+                  flash(sb ? 'Arrows snapped to your marked sign box.' : 'Dimension arrows added — drag them into place.')
+                }}
+              >+ Dimensions</button>
+            </div>
+
+            {/* COLOURS */}
+            <div>
+              <div style={grpLabel}>Colours</div>
+              <button type="button" className="ghost" style={{ width: '100%' }} onClick={addSwatch}>+ Add color swatch</button>
+              <span className="muted" style={{ fontSize: 11, display: 'block', marginTop: 5 }}>Click a swatch to pick its colour &amp; name; drag to place. The picker never appears in the PDF.</span>
+            </div>
+
+            {/* SIDE VIEW */}
+            {onSideViews && (
+              <div>
+                <div style={grpLabel}>Side view</div>
+                <button type="button" className="ghost" style={{ width: '100%' }} onClick={() => setPickingSV((v) => !v)}>{pickingSV ? 'Done choosing side views' : '+ Choose side views'}</button>
+              </div>
+            )}
+
+            {/* SPECIFICATIONS */}
+            <div>
+              <div style={grpLabel}>Specifications</div>
+              <button
+                type="button" className="ghost" style={{ width: '100%' }}
+                title="Replace the SPECIFICATIONS text with a fresh version built from the current answers (use after changing specs on an older quote). Your other edits are kept."
+                onClick={() => {
+                  const el = document.querySelector('#proposal-print-root [data-key="specBody"]')
+                  if (el) { el.innerHTML = sanitizeHtml(specHTML); queueSave(); flash('Spec text rebuilt from the current answers.') }
+                }}
+              >↻ Rebuild spec text</button>
+            </div>
+          </>
+        )
+      })()}
 
       {/* actions */}
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 14 }}>
