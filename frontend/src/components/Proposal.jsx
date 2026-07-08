@@ -327,6 +327,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     const near = arr.find((s) => s.id !== id && Math.abs(s.y - me.y) <= 18)
     return near ? arr.map((s) => (s.id === id ? { ...s, y: near.y } : s)) : arr
   })
+  // #7 — the ITEM DETAILS artwork area background, so a grey-background artwork can sit on a
+  // matching grey instead of clashing white. Persisted with the proposal state.
+  const [artBg, setArtBg] = useState(savedState?.__artBg || '#ffffff')
   const [pickFor, setPickFor] = useState(null)   // swatch id currently sampling a color from the artwork
   const [loupe, setLoupe] = useState(null)       // { left, top, hex } magnifier following the cursor
   const artCanvasRef = useRef(null)              // cached CORS-readable canvas of the artwork (natural size)
@@ -506,7 +509,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   const dirtyRef = useRef(new Set(savedState?.__dirty || []))
 
   const captureState = () => {
-    const state = { __layout: layout, __swatches: swatches.filter((s) => s.color || s.name), __dirty: [...dirtyRef.current], __specTpl: tpl?.n || null }
+    const state = { __layout: layout, __swatches: swatches.filter((s) => s.color || s.name), __dirty: [...dirtyRef.current], __specTpl: tpl?.n || null, __artBg: artBg }
     pageRef.current?.querySelectorAll('[data-key]').forEach((el) => { state[el.dataset.key] = el.innerHTML })
     return state
   }
@@ -525,7 +528,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => { saveTimer.current = null; flushRef.current(); flash('Saved') }, 600)
   }
-  useEffect(() => { if (!mounted.current) { mounted.current = true; return } queueSave() }, [layout, swatches]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!mounted.current) { mounted.current = true; return } queueSave() }, [layout, swatches, artBg]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const el = pageRef.current; if (!el) return
     const h = (e) => {
@@ -751,7 +754,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
 
           {/* item details */}
           <div style={{ margin: '10px 40px 0', ...headCell, borderTop: '1px solid #777' }}>ITEM DETAILS</div>
-          <div style={{ margin: '0 40px', border: '1px solid #777', borderTop: 'none', height: 192, position: 'relative' }}>
+          <div style={{ margin: '0 40px', border: '1px solid #777', borderTop: 'none', height: 192, position: 'relative', background: artBg }}>
             {artworkPath
               ? <AdjImg {...adjProps('artwork', { x: 188, y: 24, w: 360, h: 144 })} src={fileUrl(artworkPath)} alt="artwork" lockAspect cors={/res\.cloudinary\.com/i.test(fileUrl(artworkPath) || '')} />
               : <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 12, textTransform: 'none' }}>[ Customer artwork — add it in the Artwork step ]</span>}
@@ -782,7 +785,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
 
           {/* specs (left) + package & side view (right): ONE outer frame; the divider is the left
               column's right border, so it's continuous no matter which column ends up taller */}
-          <div style={{ margin: '7px 40px 0', display: 'grid', gridTemplateColumns: '1fr 264px', border: '1px solid #777' }}>
+          <div style={{ margin: '7px 40px 0', display: 'grid', gridTemplateColumns: '1fr 240px', border: '1px solid #777' }}>
             <div style={{ borderRight: '1px solid #777' }}>
               <div style={secHead}>SPECIFICATIONS</div>
               {E('specBody', { fontSize: 10.5, lineHeight: 1.9, padding: '10px 12px', minHeight: specLong ? 255 : 215, whiteSpace: 'pre-wrap', outline: 'none', borderBottom: '1px solid #777' })}
@@ -793,24 +796,24 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             </div>
             <div>
               <div style={secHead}>PACKAGE INCLUDES</div>
-              <div style={{ position: 'relative', height: 150, borderBottom: '1px solid #777' }}>
+              <div style={{ position: 'relative', height: 116, borderBottom: '1px solid #777' }}>
                 {PACKAGE.map((p, i, arr) => (
-                  // Horizontally centred as a group: equal margins and gap across the 264px column.
-                  // (Key bumped pkg2→pkg3 to reset any saved offsets to the centred defaults;
+                  // Smaller package tiles (#3) — centred as a group across the 240px column.
+                  // (Key bumped pkg4→pkg5 to reset saved offsets to the new smaller defaults;
                   // lockAspect keeps each image in its natural proportions.)
-                  <AdjImg key={p.label} {...adjProps(`pkg4-${p.label}`, { x: Math.round(((264 - arr.length * 122) / (arr.length + 1)) * (i + 1) + 122 * i), y: 8, w: 122, h: 134 })} src={p.img} alt={p.label} lockAspect />
+                  <AdjImg key={p.label} {...adjProps(`pkg5-${p.label}`, { x: Math.round(((240 - arr.length * 96) / (arr.length + 1)) * (i + 1) + 96 * i), y: 6, w: 96, h: 96 })} src={p.img} alt={p.label} lockAspect />
                 ))}
                 {/* captions glued to each image's REAL position/size (images report their fitted
                     box on load) — always centered right below, follow drags, editable */}
                 {PACKAGE.map((p, i, arr) => {
-                  const t = layout[`pkg4-${p.label}`]
-                  const defX = Math.round(((264 - arr.length * 122) / (arr.length + 1)) * (i + 1) + 122 * i)
+                  const t = layout[`pkg5-${p.label}`]
+                  const defX = Math.round(((240 - arr.length * 96) / (arr.length + 1)) * (i + 1) + 96 * i)
                   return E(`pkgLabel${i + 1}`, {
                     position: 'absolute',
                     left: t ? t.x : defX,
-                    top: t ? t.y + t.h + 5 : 88,
-                    width: t ? t.w : 122,
-                    textAlign: 'center', fontSize: 9, letterSpacing: 2, color: '#555', fontWeight: 600,
+                    top: t ? t.y + t.h + 4 : 78,
+                    width: t ? t.w : 96,
+                    textAlign: 'center', fontSize: 8.5, letterSpacing: 1.5, color: '#555', fontWeight: 600,
                   })
                 })}
               </div>
@@ -818,17 +821,17 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
               {!sideViews.includes('__none__') && (
                 <>
                   <div style={secHead}>SIDE VIEW</div>
-                  <div style={{ position: 'relative', height: 208 }}>
+                  <div style={{ position: 'relative', height: 250 }}>
                     {sideViews.length === 0
                       ? <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 10, textTransform: 'none' }}>[ No side view selected ]</span>
                       : (() => {
-                          // tile instead of stacking: one view fills the box; several share it in a 2-per-row grid
+                          // tile instead of stacking: one view fills the (now bigger) box; several share it 2-per-row (#3)
                           const list = sideViews.filter((k) => k !== '__none__')
                           const one = list.length === 1
                           return list.map((k, i) => (
-                            <AdjImg key={k} {...adjProps(`sv-${k}`, one
-                              ? { x: 16, y: 10, w: 230, h: 188 }
-                              : { x: 8 + (i % 2) * 126, y: 6 + Math.floor(i / 2) * 100, w: 118, h: 94 })} src={svSrc(k)} alt={String(k)} />
+                            <AdjImg key={k} {...adjProps(`sv2-${k}`, one
+                              ? { x: 10, y: 8, w: 220, h: 234 }
+                              : { x: 6 + (i % 2) * 116, y: 6 + Math.floor(i / 2) * 122, w: 112, h: 116 })} src={svSrc(k)} alt={String(k)} />
                           ))
                         })()}
                   </div>
@@ -879,6 +882,16 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
       {mainView && (
       <div className="proposal-controls" style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: '0 0 210px', maxWidth: 210 }}>
       {onSideViews && <button type="button" className="ghost" onClick={() => setPickingSV((v) => !v)}>{pickingSV ? 'Done choosing side views' : '+ Choose side views'}</button>}
+      {/* #7 — artwork area background, so it matches the artwork's own background */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0 0', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Artwork area bg</span>
+        <input type="color" value={/^#[0-9a-f]{6}$/i.test(artBg) ? artBg : '#ffffff'} onChange={(e) => setArtBg(e.target.value)}
+          title="Set the ITEM DETAILS background to match your artwork" style={{ width: 30, height: 26, padding: 0, border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer', background: 'none' }} />
+        {['#ffffff', '#efefef', '#d9d9d9'].map((c) => (
+          <button key={c} type="button" onClick={() => setArtBg(c)} title={c}
+            style={{ width: 22, height: 22, padding: 0, borderRadius: 4, border: artBg === c ? '2px solid var(--gold)' : '1px solid var(--border)', background: c, cursor: 'pointer' }} />
+        ))}
+      </div>
       {/* color swatches — a control, not part of the printed page */}
       <div style={{ margin: '12px 0' }}>
         <button type="button" className="ghost" onClick={addSwatch}>+ Add color swatch</button>
