@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useQuotes, useConstants, useUpdateQuote, useUpdateStatus, useUpdateTags, useDeleteQuote } from '../hooks'
 import useAuthStore from '../store/authStore'
 import { fileUrl } from '../api/client'
@@ -69,7 +69,10 @@ export default function AllQuotes() {
   const [sourceF, setSourceF] = useState('')
   const [viewing, setViewing] = useState(null)
   const [selected, setSelected] = useState(() => new Set())   // quote_ids ticked for bulk actions
-  const [showAdd, setShowAdd] = useState(false)
+  // the dashboard's "+ New quote" button arrives with state.openNew → open the modal straight away
+  const location = useLocation()
+  const [showAdd, setShowAdd] = useState(!!location.state?.openNew)
+  useEffect(() => { if (location.state?.openNew) window.history.replaceState({}, '') }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [searchParams, setSearchParams] = useSearchParams()
   const assignedF = searchParams.get('assigned') || ''       // drill-down from the Team page
 

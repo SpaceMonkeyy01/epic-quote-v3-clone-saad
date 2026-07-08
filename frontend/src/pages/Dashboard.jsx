@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDashboard, useQuotes, useConstants, useUpdateQuote } from '../hooks'
 import useAuthStore from '../store/authStore'
+import {
+  IcSun, IcPlus, IcTrendUp, IcDollar, IcGauge, IcBell, IcChevR, IcAlert, IcMail, IcSend,
+  IcClipboard, IcSpinner, IcImage, IcCheck, IcCard, IcShare, IcClock, IcHourglass, IcPause, IcX,
+} from '../components/icons'
 
 // status → pill colour (read status by colour, everywhere)
 const COLOR = {
@@ -17,8 +21,68 @@ const ACTION = {
   'Need To Share With Customer': 'Share with customer', 'Awaiting Customer Response': 'Chase customer',
   'Awaiting Rod Response': 'Chase Rod', 'Awaiting Sir Sami Response': 'Chase Sami',
 }
+// status → a stage icon for the pipeline grid
+const STATUS_ICON = {
+  'To Do': IcClipboard, 'In Progress': IcSpinner, 'Artwork Needed': IcImage, 'Quote Approval Needed': IcCheck,
+  'Need Payment Link Sent': IcCard, 'Need To Share With Customer': IcShare, 'Awaiting Customer Response': IcClock,
+  'Awaiting Rod Response': IcHourglass, 'Awaiting Sir Sami Response': IcHourglass, 'On Hold': IcPause,
+  'Rejected by Client': IcX, 'Out of Scope': IcX, 'Done': IcCheck,
+}
 const ATTN = Object.keys(ACTION)
 const money = (n) => '$' + Number(n || 0).toLocaleString()
+
+// ---- tiny inline charts (SVG, real data) ----
+function spark(counts, w = 220, h = 52, pad = 5) {
+  if (!counts?.length) return null
+  const max = Math.max(1, ...counts), min = Math.min(...counts)
+  const rng = Math.max(1, max - min)
+  const x = (i) => (counts.length > 1 ? pad + (i / (counts.length - 1)) * (w - 2 * pad) : w / 2)
+  const y = (v) => h - pad - ((v - min) / rng) * (h - 2 * pad)
+  const pts = counts.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`)
+  return { line: pts.join(' '), area: `M${x(0)},${h} L${pts.join(' L')} L${x(counts.length - 1)},${h} Z`, w, h }
+}
+function AreaSpark({ counts, stroke, id }) {
+  const s = spark(counts); if (!s) return null
+  return (
+    <svg viewBox={`0 0 ${s.w} ${s.h}`} preserveAspectRatio="none" className="mini">
+      <defs><linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor={stroke} stopOpacity="0.30" /><stop offset="1" stopColor={stroke} stopOpacity="0" />
+      </linearGradient></defs>
+      <path d={s.area} fill={`url(#${id})`} />
+      <polyline points={s.line} fill="none" stroke={stroke} strokeWidth="2" vectorEffect="non-scaling-stroke" />
+    </svg>
+  )
+}
+function MiniLine({ counts, stroke }) {
+  const s = spark(counts, 220, 46); if (!s) return null
+  return (
+    <svg viewBox={`0 0 ${s.w} ${s.h}`} preserveAspectRatio="none" className="mini">
+      <polyline points={s.line} fill="none" stroke={stroke} strokeWidth="2" vectorEffect="non-scaling-stroke" />
+    </svg>
+  )
+}
+function MiniBars({ counts, color }) {
+  if (!counts?.length) return null
+  const max = Math.max(1, ...counts), n = counts.length, bw = 100 / n
+  return (
+    <svg viewBox="0 0 100 46" preserveAspectRatio="none" className="mini">
+      {counts.map((v, i) => {
+        const bh = Math.max(2, (v / max) * 42)
+        return <rect key={i} x={i * bw + bw * 0.22} y={46 - bh} width={bw * 0.56} height={bh} rx="1" fill={color} opacity={i === n - 1 ? 1 : 0.5} />
+      })}
+    </svg>
+  )
+}
+function Ring({ pct, color }) {
+  const r = 20, c = 2 * Math.PI * r
+  return (
+    <svg viewBox="0 0 52 52" width="52" height="52" aria-hidden="true">
+      <circle cx="26" cy="26" r={r} fill="none" stroke="rgba(15,23,42,.10)" strokeWidth="6" />
+      <circle cx="26" cy="26" r={r} fill="none" stroke={color} strokeWidth="6" strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={c * (1 - Math.min(1, Math.max(0, pct)))} transform="rotate(-90 26 26)" />
+    </svg>
+  )
+}
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -41,168 +105,189 @@ export default function Dashboard() {
   const attnCount = ATTN.reduce((n, s) => n + (cards[s] || 0), 0)
   const openCount = dash?.reports?.pending_count ?? 0
 
-  // sparkline for "Quotes this month" — built from real monthly counts (dash.quotes_trend)
-  const trend = dash?.quotes_trend || []
-  const trendMax = Math.max(1, ...trend.map((t) => t.count))
-  const trendPts = trend.map((t, i) => {
-    const x = trend.length > 1 ? (i / (trend.length - 1)) * 120 : 0
-    const y = 22 - (t.count / trendMax) * 20
-    return `${x.toFixed(1)},${y.toFixed(1)}`
-  }).join(' ')
+  const trend = (dash?.quotes_trend || []).map((t) => t.count)
+  const isViewer = user?.role === 'viewer'
 
   const hour = new Date().getHours()
   const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
   const dateStr = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
   const firstName = (user?.full_name || user?.username || 'there').split(' ')[0]
-
   const recent = quotes.slice(0, 8)
 
   return (
     <div className="dash">
-      <div className="dash-head">
-        <div>
-          <h1 style={{ marginBottom: 2 }}>{greet}, {firstName}</h1>
-          <div className="muted" style={{ fontSize: 13 }}>
-            {dateStr}{attnCount ? ` · ${attnCount} quote${attnCount > 1 ? 's' : ''} need you today` : ' · all clear'}
+      {/* ---- top bar ---- */}
+      <div className="dash-topbar">
+        <div className="greet">
+          <div className="greet-row">
+            <span className="greet-sun"><IcSun size={20} /></span>
+            <h1>{greet}, {firstName}</h1>
+          </div>
+          <div className="greet-sub">
+            {dateStr}{attnCount ? ` · ${attnCount} quote${attnCount > 1 ? 's' : ''} need your attention today` : ' · all clear today'}
           </div>
         </div>
-        {/* "New quote" lives on the All Quotes page now (#11) */}
-        {user?.role !== 'viewer'
-          ? <button className="ghost" onClick={() => navigate('/quotes')}>View all quotes →</button>
-          : <span className="pill pill-gray" title="Your account can see everything but change nothing">👁 View-only account</span>}
+        {isViewer
+          ? <span className="pill pill-gray" title="Your account can see everything but change nothing">View-only account</span>
+          : <button className="btn-new" onClick={() => navigate('/quotes', { state: { openNew: true } })}><IcPlus size={17} /> New quote</button>}
       </div>
 
+      {/* ---- KPI row ---- */}
       <div className="kpis">
         <div className="kpi feature">
-          <div className="k">Quotes · last 30 days</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 5 }}>
-            <div style={{ fontSize: 23, fontWeight: 700 }}>{dash?.totals?.total_quotes_month ?? '—'}</div>
-            {dash?.quotes_delta != null && <div style={{ fontSize: 11, fontWeight: 600, color: dash.quotes_delta >= 0 ? '#97c459' : '#f0997b' }}>{dash.quotes_delta >= 0 ? '+' : ''}{dash.quotes_delta}%</div>}
+          <div className="kpi-head"><span className="kpi-ico gold"><IcTrendUp size={16} /></span><span className="kpi-k">Quotes · last 30 days</span></div>
+          <div className="kpi-v">
+            {dash?.totals?.total_quotes_month ?? '—'}
+            {dash?.quotes_delta != null && <span className={'kpi-delta ' + (dash.quotes_delta >= 0 ? 'up' : 'down')}>{dash.quotes_delta >= 0 ? '▲' : '▼'} {Math.abs(dash.quotes_delta)}%</span>}
           </div>
-          {trend.length > 1
-            ? <svg width="100%" height="22" viewBox="0 0 120 22" preserveAspectRatio="none" style={{ marginTop: 6, display: 'block' }} aria-hidden="true"><polyline points={trendPts} fill="none" stroke="var(--gold)" strokeWidth="1.6" /></svg>
-            : <div className="sub">{dash?.month_label || ''}</div>}
+          <div className="kpi-sub">vs previous 30 days</div>
+          <div className="kpi-chart"><AreaSpark counts={trend} stroke="#f9a600" id="sparkHero" /></div>
         </div>
-        <div className="kpi"><div className="k">Pipeline value</div><div className="v">{dash ? money(dash.pipeline_value) : '—'}</div><div className="sub">{openCount} open quote{openCount === 1 ? '' : 's'}</div></div>
-        <div className="kpi"><div className="k">Avg quote value</div><div className="v">{dash ? money(dash.avg_quote_value) : '—'}</div><div className="sub">across open work</div></div>
-        <div className="kpi attn"><div className="k">Needs attention</div><div className="v">{dash ? attnCount : '—'}</div><div className="sub">act today</div></div>
-      </div>
 
-      <div className="panel">
-        <div className="panel-head">
-          <b>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f9a600" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: '-2px', marginRight: 6 }}>
-              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-            Needs attention
-          </b>
-          <span className="muted" style={{ fontSize: 12 }}>Sorted by urgency</span>
+        <div className="kpi">
+          <div className="kpi-head"><span className="kpi-ico blue"><IcDollar size={16} /></span><span className="kpi-k">Pipeline value</span></div>
+          <div className="kpi-v">{dash ? money(dash.pipeline_value) : '—'}</div>
+          <div className="kpi-sub">{openCount} open quote{openCount === 1 ? '' : 's'}</div>
+          <div className="kpi-chart"><MiniBars counts={trend} color="#378add" /></div>
         </div>
-        {needs.length === 0 ? (
-          <div className="na-empty">Nothing waiting on you right now. Nice.</div>
-        ) : needs.map((q) => {
-          const action = ACTION[q.status] || q.status
-          const chip = q.days_waiting > 0 ? `${action} · ${q.days_waiting}d` : action
-          return (
-            <div key={q.quote_id} className="na-row">
-              <div className="na-info">
-                <div className="na-id">{q.quote_id} · {q.company_name || '—'}</div>
-                <div className="na-sub">{q.job_name || ''}{q.assigned_to ? `${q.job_name ? ' · ' : ''}with ${q.assigned_to}` : ''}</div>
-              </div>
-              <div className="na-act">
-                {q.rush === 'Super Rush' && <span className="pill pill-coral" style={{ fontWeight: 700 }}>SUPER RUSH</span>}
-                {q.rush === 'Rush' && <span className="pill pill-amber" style={{ fontWeight: 600 }}>RUSH</span>}
-                <span className={'pill pill-' + (COLOR[q.status] || 'gray')}>{chip}</span>
-                {(q.tags || []).map((t) => <span key={t} className="pill pill-purple" style={{ fontSize: 10 }}>also: {ACTION[t] || t}</span>)}
-                <div className="na-val">{money(q.price)}</div>
-                <button className="ghost sm" onClick={() => navigate(`/quotes/${q.quote_id}/generate`, { state: { from: '/dashboard' } })}>Open</button>
-              </div>
+
+        <div className="kpi">
+          <div className="kpi-head"><span className="kpi-ico teal"><IcGauge size={16} /></span><span className="kpi-k">Avg quote value</span></div>
+          <div className="kpi-v">{dash ? money(dash.avg_quote_value) : '—'}</div>
+          <div className="kpi-sub">across open work</div>
+          <div className="kpi-chart"><MiniLine counts={trend} stroke="#1d9e75" /></div>
+        </div>
+
+        <div className="kpi">
+          <div className="kpi-head"><span className="kpi-ico gold"><IcBell size={16} /></span><span className="kpi-k">Needs attention</span></div>
+          <div className="kpi-gauge">
+            <div>
+              <div className="kpi-v" style={{ marginTop: 0 }}>{dash ? attnCount : '—'}</div>
+              <div className="kpi-sub">act today</div>
             </div>
-          )
-        })}
-      </div>
-
-      {(dash?.followups || []).length > 0 && (
-        <div className="panel">
-          <div className="panel-head">
-            <b>✉ Follow-ups needed</b>
-            <span className="muted" style={{ fontSize: 12 }}>Waiting on the customer — nobody has chased yet</span>
-          </div>
-          {dash.followups.map((q) => (
-            <div key={q.quote_id} className="na-row">
-              <div className="na-info">
-                <div className="na-id">{q.quote_id} · {q.company_name || '—'}</div>
-                <div className="na-sub">{q.status}{q.days_waiting > 0 ? ` · waiting ${q.days_waiting}d` : ''}</div>
-                {user?.role !== 'viewer' && <input
-                  defaultValue={q.followup_notes}
-                  placeholder="Follow-up notes… (saved when you click away)"
-                  style={{ marginTop: 4, fontSize: 12, width: '100%', maxWidth: 420 }}
-                  onBlur={(e) => { if (e.target.value !== q.followup_notes) update.mutate({ id: q.quote_id, patch: { followup_notes: e.target.value } }) }}
-                />}
-              </div>
-              <div className="na-act">
-                <div className="na-val">{money(q.price)}</div>
-                <button className="ghost sm" onClick={() => navigate(`/quotes/${q.quote_id}/generate`, { state: { from: '/dashboard' } })}>Open</button>
-                {user?.role !== 'viewer' && <button className="sm" title="Mark the follow-up as sent — drops off this list" onClick={() => update.mutate({ id: q.quote_id, patch: { followup_sent: true } })}>✓ Sent</button>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="panel" style={{ padding: '14px 16px' }}>
-        <div className="panel-row">
-          <b>Pipeline</b>
-          <span className="muted" style={{ fontSize: 12 }}>{total} active · click a stage to filter</span>
-        </div>
-        <div className="pipe">
-          {statuses.map((s) => {
-            const c = cards[s] || 0
-            return c ? <div key={s} className={'pipe-seg seg-' + (COLOR[s] || 'gray')} style={{ flexGrow: c }} title={`${s}: ${c}`} onClick={() => setStatus(status === s ? '' : s)} /> : null
-          })}
-        </div>
-        <div className="pipe-legend">
-          {statuses.map((s) => (
-            <div key={s} className={'item' + (status === s ? ' on' : '')} onClick={() => setStatus(status === s ? '' : s)}>
-              <span className={'dot seg-' + (COLOR[s] || 'gray')} /> {s} <b>{cards[s] || 0}</b>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="panel">
-        <div className="panel-head">
-          <b>{status || 'Recent quotes'}</b>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <input className="dash-search" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
-            {status && <span className="muted" style={{ fontSize: 12, cursor: 'pointer' }} onClick={() => setStatus('')}>Clear</span>}
-            <span style={{ color: 'var(--gold)', fontSize: 12, cursor: 'pointer' }} onClick={() => navigate('/quotes')}>View all</span>
+            <Ring pct={total ? attnCount / total : 0} color="#f9a600" />
           </div>
         </div>
-        <table className="dash-table">
-          <thead>
-            <tr><th>Quote</th><th>Company</th><th>Rep</th><th>Assigned</th><th style={{ textAlign: 'right' }}>Value</th><th style={{ textAlign: 'right' }}>Status</th></tr>
-          </thead>
-          <tbody>
-            {recent.length === 0 ? (
-              <tr><td colSpan={6} className="center" style={{ padding: 20 }}>No quotes found.</td></tr>
-            ) : recent.map((q) => (
-              <tr key={q.id} onClick={() => navigate(`/quotes/${q.quote_id}/generate`, { state: { from: '/dashboard' } })}>
-                <td><b>{q.quote_id}</b></td>
-                <td>{q.company_name || '—'}</td>
-                <td className="muted">{q.sales_rep || '—'}</td>
-                <td className="muted">{q.assigned_to || '—'}</td>
-                <td style={{ textAlign: 'right', fontWeight: 600 }}>{q.price ? money(q.price) : '—'}</td>
-                <td style={{ textAlign: 'right' }}>
-                  <span className={'pill pill-' + (COLOR[q.status] || 'gray')}>{q.status}</span>
-                  {(q.tags || []).map((t) => <span key={t} className="pill pill-purple" style={{ fontSize: 10, marginLeft: 4 }}>+{t}</span>)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
 
+      {/* ---- two-column body ---- */}
+      <div className="dash-cols">
+        {/* LEFT: needs attention + recent quotes */}
+        <div className="dash-col">
+          <div className="panel">
+            <div className="panel-head">
+              <b className="ph"><span className="ph-ico amber"><IcAlert size={14} /></span> Needs attention</b>
+              <span className="muted sm">Sorted by urgency</span>
+            </div>
+            {needs.length === 0 ? (
+              <div className="na-empty">Nothing waiting on you right now. Nice.</div>
+            ) : needs.map((q) => {
+              const action = ACTION[q.status] || q.status
+              const chip = q.days_waiting > 0 ? `${action} · ${q.days_waiting}d` : action
+              return (
+                <div key={q.quote_id} className="na-row">
+                  <div className="na-info">
+                    <div className="na-id">{q.quote_id} · {q.company_name || '—'}</div>
+                    <div className="na-sub">{q.job_name || ''}{q.assigned_to ? `${q.job_name ? ' · ' : ''}with ${q.assigned_to}` : ''}</div>
+                  </div>
+                  <div className="na-act">
+                    {q.rush === 'Super Rush' && <span className="pill pill-coral" style={{ fontWeight: 700 }}>SUPER RUSH</span>}
+                    {q.rush === 'Rush' && <span className="pill pill-amber" style={{ fontWeight: 600 }}>RUSH</span>}
+                    <span className={'pill pill-' + (COLOR[q.status] || 'gray')}>{chip}</span>
+                    <div className="na-val">{money(q.price)}</div>
+                    <button className="icon-btn" title="Open quote" onClick={() => navigate(`/quotes/${q.quote_id}/generate`, { state: { from: '/dashboard' } })}><IcChevR size={16} /></button>
+                  </div>
+                </div>
+              )
+            })}
+            {needs.length > 0 && <div className="panel-foot" onClick={() => navigate('/quotes')}>View all needs attention →</div>}
+          </div>
+
+          <div className="panel">
+            <div className="panel-head">
+              <b className="ph">{status || 'Recent quotes'}</b>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <input className="dash-search" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
+                {status && <span className="muted sm" style={{ cursor: 'pointer' }} onClick={() => setStatus('')}>Clear</span>}
+                <span className="link-gold sm" onClick={() => navigate('/quotes')}>View all</span>
+              </div>
+            </div>
+            <table className="dash-table">
+              <thead>
+                <tr><th>Quote</th><th>Company</th><th>Rep</th><th style={{ textAlign: 'right' }}>Value</th><th style={{ textAlign: 'right' }}>Status</th></tr>
+              </thead>
+              <tbody>
+                {recent.length === 0 ? (
+                  <tr><td colSpan={5} className="center" style={{ padding: 20 }}>No quotes found.</td></tr>
+                ) : recent.map((q) => (
+                  <tr key={q.id} onClick={() => navigate(`/quotes/${q.quote_id}/generate`, { state: { from: '/dashboard' } })}>
+                    <td><b>{q.quote_id}</b></td>
+                    <td>{q.company_name || '—'}</td>
+                    <td className="muted">{q.sales_rep || '—'}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{q.price ? money(q.price) : '—'}</td>
+                    <td style={{ textAlign: 'right' }}><span className={'pill pill-' + (COLOR[q.status] || 'gray')}>{q.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* RIGHT: follow-ups + pipeline grid */}
+        <div className="dash-col">
+          {(dash?.followups || []).length > 0 && (
+            <div className="panel">
+              <div className="panel-head">
+                <b className="ph"><span className="ph-ico teal"><IcMail size={14} /></span> Follow-ups needed</b>
+                <span className="muted sm">Nobody has chased yet</span>
+              </div>
+              {dash.followups.map((q) => (
+                <div key={q.quote_id} className="fu-row">
+                  <div className="fu-top">
+                    <div className="na-info">
+                      <div className="na-id">{q.quote_id} · {q.company_name || '—'}</div>
+                      <div className="na-sub">{q.status}{q.days_waiting > 0 ? ` · waiting ${q.days_waiting}d` : ''}</div>
+                    </div>
+                    <div className="na-val">{money(q.price)}</div>
+                  </div>
+                  {!isViewer && <input
+                    defaultValue={q.followup_notes}
+                    placeholder="Follow-up notes… (saved when you click away)"
+                    style={{ marginTop: 8, fontSize: 12 }}
+                    onBlur={(e) => { if (e.target.value !== q.followup_notes) update.mutate({ id: q.quote_id, patch: { followup_notes: e.target.value } }) }}
+                  />}
+                  <div className="fu-actions">
+                    <button className="ghost sm" onClick={() => navigate(`/quotes/${q.quote_id}/generate`, { state: { from: '/dashboard' } })}>Open</button>
+                    {!isViewer && <button className="sm" onClick={() => update.mutate({ id: q.quote_id, patch: { followup_sent: true } })}><IcSend size={13} /> Sent</button>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="panel">
+            <div className="panel-head">
+              <b className="ph">Pipeline</b>
+              <span className="muted sm">{total} active · click to filter</span>
+            </div>
+            <div className="pipe-grid">
+              {statuses.map((s) => {
+                const Icon = STATUS_ICON[s] || IcClipboard
+                const c = cards[s] || 0
+                const on = status === s
+                return (
+                  <button key={s} className={'pipe-tile' + (on ? ' on' : '') + (c === 0 ? ' zero' : '')}
+                    onClick={() => setStatus(on ? '' : s)} title={s}>
+                    <span className={'pt-ico seg-' + (COLOR[s] || 'gray')}><Icon size={15} /></span>
+                    <span className="pt-num">{c}</span>
+                    <span className="pt-lbl">{s}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
