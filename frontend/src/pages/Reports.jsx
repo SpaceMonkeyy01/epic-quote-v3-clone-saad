@@ -42,7 +42,7 @@ function MonthlyReport() {
               <g key={m.month} onMouseEnter={track} onMouseMove={track} style={{ cursor: 'pointer' }}>
                 {/* full-height hit area so hovering anywhere in the column shows the tooltip */}
                 <rect x={i * bw} y={0} width={bw} height={H} fill={active ? 'rgba(249,166,0,0.06)' : 'transparent'} />
-                <rect x={i * bw + 6} y={H - ch} width={bw - 18} height={ch} fill={active ? '#4b566b' : '#3d4657'} rx="2" />
+                <rect x={i * bw + 6} y={H - ch} width={bw - 18} height={ch} fill={active ? '#7b8698' : '#aeb7c6'} rx="2" />
                 <rect x={i * bw + 6} y={H - dh} width={(bw - 18) / 2} height={dh} fill="#f9a600" rx="2" />
                 <text x={i * bw + bw / 2} y={H + 14} textAnchor="middle" fontSize="9" fill={active ? '#f9a600' : '#8a94a6'}>{m.label}</text>
               </g>
@@ -53,8 +53,8 @@ function MonthlyReport() {
           <div style={{
             position: 'absolute', pointerEvents: 'none', zIndex: 20,
             left: `calc(${(hover.x / W) * 100}% + 12px)`, top: Math.max(0, hover.y - 10),
-            background: 'var(--navy-800, #171a21)', border: '1px solid var(--gold, #f9a600)',
-            borderRadius: 8, padding: '8px 11px', fontSize: 12, minWidth: 150, boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+            background: '#ffffff', border: '1px solid var(--border)', color: 'var(--text)',
+            borderRadius: 8, padding: '8px 11px', fontSize: 12, minWidth: 150, boxShadow: '0 8px 24px rgba(15,23,42,0.14)',
           }}>
             <div style={{ fontWeight: 700, color: 'var(--gold)', marginBottom: 4 }}>{hover.m.label}</div>
             <div>Created: <b>{hover.m.created}</b></div>

@@ -14,7 +14,8 @@ export default function Layout() {
 
   const link = ({ isActive }) => 'navlink' + (isActive ? ' active' : '')
   const name = user?.full_name || user?.username || ''
-  const initials = name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase() || 'U'
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  const initials = (words.length > 1 ? words.map((w) => w[0]).slice(0, 2).join('') : name.slice(0, 2)).toUpperCase() || 'U'
 
   return (
     <div className="app">

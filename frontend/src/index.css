@@ -131,8 +131,9 @@ label { color: var(--text-dim); font-size: 12px; font-weight: 600; display: bloc
    that shrink — that squashed the reports chart.) */
 .fill-page { height: 100%; display: flex; flex-direction: column; min-height: 0; }
 .fill-page .grid-wrap { flex: 1; min-height: 0; }
-.page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
-.page-head h1 { font-size: 25px; }
+.page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; gap: 16px; }
+.page-head h1 { font-size: 24px; letter-spacing: -0.02em; }
+.page-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
 
 /* Small screens: the fixed sidebar was eating 2/3 of a phone and squeezing every page
    into an unreadable sliver. Stack it as a slim top bar instead. */
@@ -206,7 +207,7 @@ label { color: var(--text-dim); font-size: 12px; font-weight: 600; display: bloc
 /* ============================================================
    Table
 ============================================================ */
-table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--navy-700); border-radius: var(--radius); overflow: hidden; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--navy-700); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
 th, td { padding: 9px 11px; text-align: left; border-bottom: 1px solid var(--border-soft); }
 th { color: var(--text-dim); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; background: var(--navy-800); }
 tr:hover td { background: var(--navy-600); }
