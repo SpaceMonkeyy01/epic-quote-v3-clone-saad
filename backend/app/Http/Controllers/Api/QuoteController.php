@@ -181,14 +181,22 @@ class QuoteController extends Controller
                     $company->update(['address' => $address]);
                 }
 
-                // auto-create representative for a new client (#35)
+                // auto-create/refresh the representative for this client (#35). Store phone and
+                // email in their OWN columns (the phone used to be written into `email`), and
+                // backfill blanks on an existing rep so contact details accumulate, never lost.
                 if ($clientName !== '') {
-                    $exists = Representative::where('company_id', $company->id)
-                        ->whereRaw('LOWER(name) = ?', [strtolower($clientName)])->exists();
-                    if (!$exists) {
+                    $rep = Representative::where('company_id', $company->id)
+                        ->whereRaw('LOWER(name) = ?', [strtolower($clientName)])->first();
+                    if (!$rep) {
                         Representative::create([
-                            'company_id' => $company->id, 'name' => $clientName, 'email' => $contact,
+                            'company_id' => $company->id, 'name' => $clientName,
+                            'phone' => $contact, 'email' => $email,
                         ]);
+                    } else {
+                        $patch = [];
+                        if ($contact !== '' && !$rep->phone) $patch['phone'] = $contact;
+                        if ($email !== '' && !$rep->email) $patch['email'] = $email;
+                        if ($patch) $rep->update($patch);
                     }
                 }
             }
