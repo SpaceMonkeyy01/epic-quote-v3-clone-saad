@@ -257,6 +257,7 @@ function AdjSwatch({ rk, sw, onChange, onRemove, onPick, canPick, scaleRef, sele
   )
 }
 
+const HD_SCALE = 3   // html2canvas DPI factor for PNG/PDF downloads (~288dpi on a Letter page — crisp text)
 const LOUPE = 185, SRC = 38   // eyedropper magnifier: loupe diameter (px) and source pixels across it
                               // (~5.5px per pixel — pixels stay visible but you keep enough context to aim)
 
@@ -610,7 +611,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
       im.style.objectFit = 'fill'
     })
     try {
-      return await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false })
+      // Capture DPI. On-screen/Shopify use 2×; PDF/PNG downloads use a higher factor so the
+      // rasterised text stays crisp when zoomed (2× ≈ 150dpi looked pixelated — #PDF/PNG).
+      return await html2canvas(el, { scale: opts.scale || 2, backgroundColor: '#ffffff', useCORS: true, logging: false })
     } finally {
       el.style.transform = prev
       handles.forEach((h) => { h.style.visibility = '' })
@@ -631,7 +634,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     if (exportBlocked) { flash('🔒 Blocked — the price needs approval before this quote can go out'); return }
     setBusy('png')
     try {
-      const c = await render()
+      const c = await render({ scale: HD_SCALE })   // HD so the PNG stays sharp when zoomed
       const a = document.createElement('a')
       a.download = `${info.quoteId || 'quote'}.png`
       a.href = c.toDataURL('image/png'); a.click()
@@ -670,7 +673,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     setBusy('pdf')
     try {
       const el = pageRef.current
-      const canvas = await render()                         // full proposal (price block included)
+      const canvas = await render({ scale: HD_SCALE })      // HD capture → crisp text in the PDF
       const pdf = new jsPDF({ unit: 'pt', format: 'letter', orientation: 'portrait' })
       const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight()
       const fit = Math.min(pw / canvas.width, ph / canvas.height)   // fit the whole page, one sheet (#8)
@@ -682,8 +685,8 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
       if (a) {
         const sc = scaleRef.current || 1                    // page is shown scaled on screen
         const pageRect = el.getBoundingClientRect(), r = a.getBoundingClientRect()
-        // html2canvas rendered `el` unscaled at scale:2 → 1 unscaled css px = 2 canvas px = 2*fit pt
-        const k = 2 * fit
+        // html2canvas rendered `el` unscaled at HD_SCALE → 1 unscaled css px = HD_SCALE canvas px = HD_SCALE*fit pt
+        const k = HD_SCALE * fit
         const lx = ox + ((r.left - pageRect.left) / sc) * k
         const ly = oy + ((r.top - pageRect.top) / sc) * k
         pdf.link(lx, ly, (r.width / sc) * k, (r.height / sc) * k, { url: paymentLink })
