@@ -177,14 +177,14 @@ export default function AddQuoteModal({ onClose }) {
         {exactHit && (
           <div className="muted" style={{ fontSize: 11, color: 'var(--gold)', marginTop: 4 }}>✓ Known company — details autofilled (edit anything that changed)</div>
         )}
-        {exactHit && (exactHit.contacts || []).length > 1 && (
+        {exactHit && (exactHit.contacts || []).length > 0 && (
           <select
             style={{ marginTop: 6, fontSize: 12 }}
             onChange={(e) => { const c = exactHit.contacts[Number(e.target.value)]; if (c) applyContact(c) }}
             defaultValue=""
-            title="Pick one of this company's saved contacts"
+            title="Every saved contact for this company — pick one to autofill"
           >
-            <option value="" disabled>Use a saved contact… ({exactHit.contacts.length})</option>
+            <option value="" disabled>Saved contacts for this company ({exactHit.contacts.length}) — pick one…</option>
             {exactHit.contacts.map((c, i) => (
               <option key={i} value={i}>{[c.client_name, c.contact, c.email].filter(Boolean).join(' · ') || '(blank)'}</option>
             ))}
