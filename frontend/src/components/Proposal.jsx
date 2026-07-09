@@ -6,6 +6,7 @@ import { parseDims } from '../generator/questions'
 import { SIDE_VIEWS } from '../generator/sideviews'
 import { sanitizeHtml } from '../utils/sanitizeHtml'
 import client, { fileUrl } from '../api/client'
+import { attachCheckpointImage } from '../api/quotes'
 import { uploadExtraFile } from '../api/quotes'
 import { listCatalog, saveCatalogItem } from '../api/catalog'
 
@@ -726,6 +727,10 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     if (!price || price <= 0) { flash('Set a price before creating a payment link.'); return }
     setPlBusy(kind); setPlResult(null)
     try {
+      // flush any pending edit FIRST so it's recorded as a change before the checkpoint is minted
+      // server-side (otherwise the last edit would land in the NEXT rev, not this payment's rev).
+      try { if (onSave) await onSave(captureState()) } catch { /* non-blocking */ }
+
       const canvas = await captureCleanImage()   // clean product image (no price block)
       const { data } = await client.post(`/quotes/${quoteId}/payment-link`, {
         kind, image: canvas,
@@ -734,7 +739,13 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
       setPlResult({ url: data.url, kind })
       // put the link on the proposal's pay button (preview + PDF) and persist it (#5)
       if (onPaymentLinkCreated && data.url) onPaymentLinkCreated(data.url)
-      flash('Payment link created ✓ — added to the proposal')
+
+      // the payment minted a version checkpoint ({quote_id}-rev{n}); attach the FULL proposal image
+      // (with price block) to it so the history shows exactly what went out. Best-effort.
+      if (data.checkpoint?.id) {
+        try { await attachCheckpointImage(quoteId, data.checkpoint.id, await captureSnapshot()) } catch { /* image is a nice-to-have */ }
+      }
+      flash('Payment link created ✓ — saved as ' + (data.checkpoint?.label || 'a new version'))
     } catch (e) {
       flash(e?.response?.data?.error || 'Could not create the payment link.')
     } finally { setPlBusy('') }

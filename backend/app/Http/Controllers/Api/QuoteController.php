@@ -586,19 +586,75 @@ class QuoteController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    // GET /api/quotes/{quote}/revisions — the field-level history (who/what/when) for this quote.
+    // GET /api/quotes/{quote}/revisions — the version history for this quote: changes grouped under
+    // checkpoints ({quote_id}-rev{n}, minted on payment / manual save), each checkpoint carrying one
+    // proposal image. Changes made after the last checkpoint come back under "pending".
     public function revisions(Request $request, Quote $quote): JsonResponse
     {
         if (!$quote->isVisibleTo($request->user())) {
             return response()->json(['error' => 'forbidden'], 403);
         }
-        $revs = \App\Models\QuoteRevision::where('quote_id', $quote->id)
-            ->latest('created_at')
-            ->limit(300)
-            ->get()
-            ->map->toApi();
 
-        return response()->json($revs);
+        // chronological within a group so a checkpoint reads oldest→newest change
+        $revs = \App\Models\QuoteRevision::where('quote_id', $quote->id)
+            ->orderBy('created_at')
+            ->limit(1000)
+            ->get()
+            ->groupBy('checkpoint_id');
+
+        $checkpoints = \App\Models\QuoteCheckpoint::where('quote_id', $quote->id)
+            ->orderByDesc('seq')            // newest version on top
+            ->get()
+            ->map(fn ($cp) => $cp->toApi(
+                ($revs->get($cp->id) ?? collect())->map->toApi()->values()->all()
+            ))
+            ->values();
+
+        // uncheckpointed edits (after the last payment) — most recent first
+        $pending = ($revs->get(null) ?? collect())->sortByDesc('created_at')->map->toApi()->values();
+
+        return response()->json(['checkpoints' => $checkpoints, 'pending' => $pending]);
+    }
+
+    // POST /api/quotes/{quote}/checkpoints — manual "Save checkpoint" button. Mints {quote_id}-rev{n},
+    // folds in every pending change, and (optionally) stores the rendered proposal image.
+    public function createCheckpoint(Request $request, Quote $quote): JsonResponse
+    {
+        $this->assertAccess($request, $quote);
+        $cp = \App\Services\CheckpointService::mint($quote, $request->user(), 'manual');
+
+        $img = (string) $request->input('image', '');
+        if ($img !== '') {
+            $url = $this->storeDataUrlPermanently($img, 'revisions', "cp_{$quote->quote_id}_{$cp->id}.png");
+            if ($url) {
+                $cp->update(['snapshot_image' => $url]);
+            }
+        }
+
+        return response()->json([
+            'id' => $cp->id, 'label' => $cp->label, 'seq' => $cp->seq, 'snapshot_image' => $cp->snapshot_image,
+        ], 201);
+    }
+
+    // POST /api/quotes/{quote}/checkpoints/{checkpoint}/image — attach the rendered proposal image to
+    // a checkpoint (used right after a payment mints one server-side).
+    public function attachCheckpointImage(Request $request, Quote $quote, \App\Models\QuoteCheckpoint $checkpoint): JsonResponse
+    {
+        $this->assertAccess($request, $quote);
+        if ($checkpoint->quote_id !== $quote->id) {
+            abort(404);
+        }
+        $dataUrl = (string) $request->input('image', '');
+        if (!preg_match('#^data:image/(png|jpe?g|webp);base64,#i', $dataUrl)) {
+            return response()->json(['error' => 'Expected a base64 image data URL.'], 422);
+        }
+        $url = $this->storeDataUrlPermanently($dataUrl, 'revisions', "cp_{$quote->quote_id}_{$checkpoint->id}.png");
+        if (!$url) {
+            return response()->json(['error' => 'Snapshot image could not be saved.'], 502);
+        }
+        $checkpoint->update(['snapshot_image' => $url]);
+
+        return response()->json(['ok' => true, 'snapshot_image' => $url]);
     }
 
     // POST /api/quotes/{quote}/revisions/snapshot-image — attach a rendered proposal image to the
@@ -645,8 +701,16 @@ class QuoteController extends Controller
             ->groupBy('quote_id')
             ->map(fn ($g) => $g->first());
 
-        $rows = $quotes->map(function ($q) use ($latest) {
+        // latest checkpoint per quote → its rev label + proposal image (image lives on checkpoints now)
+        $latestCp = \App\Models\QuoteCheckpoint::whereIn('quote_id', $quotes->keys())
+            ->orderByDesc('seq')
+            ->get()
+            ->groupBy('quote_id')
+            ->map(fn ($g) => $g->first());
+
+        $rows = $quotes->map(function ($q) use ($latest, $latestCp) {
             $rev = $latest->get($q->id);
+            $cp = $latestCp->get($q->id);
             $changes = $rev?->field_changes ?: [];
             $first = $changes[0] ?? null;
             return [
@@ -660,7 +724,8 @@ class QuoteController extends Controller
                 'change_count'   => count($changes),
                 'changed_by'     => $rev?->user_name ?: null,
                 'changed_at'     => optional($rev?->created_at)->toIso8601String(),
-                'snapshot_image' => $rev?->snapshot_image,
+                'rev_label'      => $cp?->label,
+                'snapshot_image' => $cp?->snapshot_image ?? $rev?->snapshot_image,
             ];
         })->values()
           // newest change first; quotes never edited (no changed_at) sink to the bottom

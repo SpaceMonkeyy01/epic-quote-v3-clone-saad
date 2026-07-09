@@ -83,7 +83,10 @@ export default function Activity() {
                       ? <img src={r.snapshot_image} alt="" style={{ width: 38, height: 48, objectFit: 'cover', objectPosition: 'top', borderRadius: 4, border: '1px solid var(--border)', background: '#fff', display: 'block' }} />
                       : <div style={{ width: 38, height: 48, borderRadius: 4, border: '1px dashed var(--border)', display: 'grid', placeItems: 'center', color: 'var(--text-faint)', fontSize: 16 }}>—</div>}
                   </td>
-                  <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{r.quote_id}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <div style={{ fontWeight: 700 }}>{r.quote_id}</div>
+                    {r.rev_label && <div className="muted" style={{ fontSize: 11 }}>{r.rev_label}</div>}
+                  </td>
                   <td>
                     <div style={{ fontWeight: 600 }}>{r.company}</div>
                     {r.job_name && <div className="muted" style={{ fontSize: 12 }}>{r.job_name}</div>}

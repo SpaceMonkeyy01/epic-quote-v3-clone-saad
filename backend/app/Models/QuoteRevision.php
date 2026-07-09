@@ -8,7 +8,7 @@ class QuoteRevision extends Model
 {
     public $timestamps = false;   // only created_at, managed by the recorder
 
-    protected $fillable = ['quote_id', 'user_id', 'user_name', 'field_changes', 'snapshot', 'snapshot_image', 'created_at'];
+    protected $fillable = ['quote_id', 'checkpoint_id', 'user_id', 'user_name', 'field_changes', 'snapshot', 'snapshot_image', 'created_at'];
 
     protected function casts(): array
     {

@@ -49,6 +49,14 @@ export const getRevisions = (quoteId) =>
 export const saveRevisionImage = (quoteId, dataUrl) =>
   client.post(`/quotes/${quoteId}/revisions/snapshot-image`, { image: dataUrl }).then((r) => r.data)
 
+// Mint a version checkpoint ({quote_id}-rev{n}) manually, optionally with a rendered proposal image.
+export const createCheckpoint = (quoteId, image = null) =>
+  client.post(`/quotes/${quoteId}/checkpoints`, { trigger: 'manual', image }).then((r) => r.data)
+
+// Attach a rendered proposal image to an existing checkpoint (used right after a payment mints one).
+export const attachCheckpointImage = (quoteId, checkpointId, dataUrl) =>
+  client.post(`/quotes/${quoteId}/checkpoints/${checkpointId}/image`, { image: dataUrl }).then((r) => r.data)
+
 // Airtable-style activity feed: one row per quote with its latest change + rendered image.
 export const getActivityFeed = () =>
   client.get('/revisions/feed').then((r) => r.data)

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { getQuote, updateQuote, putGenerated, uploadArtwork, uploadCustomerFile, generateSpecs, saveRevisionImage } from '../api/quotes'
+import { getQuote, updateQuote, putGenerated, uploadArtwork, uploadCustomerFile, generateSpecs, createCheckpoint } from '../api/quotes'
 import { getLogo } from '../api/meta'
 import { useConstants } from '../hooks'
 import useAuthStore from '../store/authStore'
@@ -232,20 +232,27 @@ export default function Generator() {
   const goto = (s) => setStep(s)
   const next = () => goto(flow[flowIndex + 1])
   const back = () => (flowIndex > 0 ? goto(flow[flowIndex - 1]) : navigate(exitTo))
-  const proposalRef = useRef(null)   // preview-step Proposal, for capturing the visual version snapshot
+  const proposalRef = useRef(null)   // preview-step Proposal, for capturing the version snapshot image
+  const [cpBusy, setCpBusy] = useState('')
+  const [cpMsg, setCpMsg] = useState('')
 
-  // Render the current proposal to a PNG and attach it to the latest revision (visual history).
-  // Best-effort: a capture failure must never block saving or navigation.
-  const captureVersionImage = async () => {
+  const saveAndReturn = async () => { await saveProgress(); navigate(exitTo) }   // #4 (top-bar action)
+
+  // Manual checkpoint: flush pending edits, then mint {quote_id}-rev{n} with the rendered proposal
+  // image. Same version boundary a payment creates — for saving a version without taking a payment.
+  const saveCheckpoint = async () => {
+    setCpBusy('1'); setCpMsg('')
     try {
-      const cap = proposalRef.current?.captureSnapshot
-      if (!cap) return
-      const dataUrl = await cap()
-      if (dataUrl) await saveRevisionImage(quoteId, dataUrl)
-    } catch { /* snapshot is a nice-to-have — ignore */ }
+      await saveProgress()   // ensure the latest edits are recorded as changes before the checkpoint
+      let img = null
+      try { img = await proposalRef.current?.captureSnapshot?.() } catch { /* image optional */ }
+      const cp = await createCheckpoint(quoteId, img)
+      setCpMsg('Saved ' + (cp?.label || 'checkpoint'))
+      setTimeout(() => setCpMsg(''), 4000)
+    } catch (e) {
+      setCpMsg(e?.response?.data?.error || 'Could not save checkpoint.')
+    } finally { setCpBusy('') }
   }
-
-  const saveAndReturn = async () => { await saveProgress(); await captureVersionImage(); navigate(exitTo) }   // #4 (top-bar action)
 
   const saveProgress = async (extra = {}) => {
     const payload = {
@@ -539,9 +546,15 @@ export default function Generator() {
   return (
     <>
       {/* top-left wizard controls — Back + Save & Return on every step (#4) */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center' }}>
         <button className="ghost sm" onClick={back}>← Back</button>
         <button className="ghost sm" onClick={saveAndReturn} disabled={saving}>{saving ? 'Saving…' : '💾 Save & Return'}</button>
+        {step === 'preview' && (
+          <button className="ghost sm" onClick={saveCheckpoint} disabled={!!cpBusy || saving} title="Save the current proposal as a version (rev) with an image">
+            {cpBusy ? 'Saving version…' : '📌 Save checkpoint'}
+          </button>
+        )}
+        {cpMsg && <span className="muted" style={{ fontSize: 12.5 }}>{cpMsg}</span>}
       </div>
       <div className="page-head">
         <div>

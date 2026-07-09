@@ -18,8 +18,9 @@ use Illuminate\Support\Arr;
  */
 class RevisionRecorder
 {
-    /** Consolidate edits by the same user within this many seconds into one revision. */
-    private const MERGE_WINDOW = 60;
+    /** Consolidate edits by the same user within this many seconds into one revision.
+     *  0 = never merge → every save that actually changes something is its own row (the chosen behaviour). */
+    private const MERGE_WINDOW = 0;
 
     /** Tracked quote columns → friendly label. */
     private const COLUMNS = [
@@ -64,8 +65,8 @@ class RevisionRecorder
         }
         $snapshot = self::snapshot($quote);
 
-        $last = QuoteRevision::where('quote_id', $quote->id)->latest('created_at')->first();
-        if (!$created && $last && $last->user_id === ($user?->id)
+        $last = self::MERGE_WINDOW > 0 ? QuoteRevision::where('quote_id', $quote->id)->latest('created_at')->first() : null;
+        if (self::MERGE_WINDOW > 0 && !$created && $last && $last->user_id === ($user?->id)
             && $last->created_at && $last->created_at->gt(now()->subSeconds(self::MERGE_WINDOW))) {
             // merge into the burst: keep each field's ORIGINAL old, take the latest new + snapshot
             $last->update([

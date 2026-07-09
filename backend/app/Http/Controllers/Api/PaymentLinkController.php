@@ -100,7 +100,14 @@ class PaymentLinkController extends Controller
 
         ActivityLog::record($user->id, 'payment_link_created', "{$quote->quote_id}: {$kind} link ({$amount})");
 
-        return response()->json($link->toApi(), 201);
+        // Mint a version checkpoint ({quote_id}-rev{n}) folding in every change since the last one.
+        // Server-side so the checkpoint is guaranteed even if the client's image capture fails; the
+        // client attaches the rendered proposal image to this checkpoint right after.
+        $checkpoint = \App\Services\CheckpointService::mint($quote, $user, 'payment');
+
+        return response()->json($link->toApi() + [
+            'checkpoint' => ['id' => $checkpoint->id, 'label' => $checkpoint->label, 'seq' => $checkpoint->seq],
+        ], 201);
     }
 
     // Decode a base64 data URL → permanent storage (Cloudinary if configured, else public disk).
