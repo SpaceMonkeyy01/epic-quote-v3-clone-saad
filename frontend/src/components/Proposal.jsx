@@ -107,13 +107,17 @@ function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, sel
         <img src={src} alt={alt} draggable={false} crossOrigin={cors ? 'anonymous' : undefined}
           onError={() => setBroken(true)}
           onLoad={(e) => {
-            // a 1×1 (or empty) source is a broken/placeholder thumbnail — don't stretch it
-            if (e.target.naturalWidth <= 1 || e.target.naturalHeight <= 1) { setBroken(true); return }
-            if (broken) setBroken(false)
-            if (lockAspect && !lay) {
-              const r = e.target.naturalWidth / e.target.naturalHeight
-              if (r > 0) setBox((b) => { const h = Math.max(20, Math.round(b.w / r)); const fitted = { ...b, h, ix: 0, iy: 0, iw: b.w, ih: h }; setTimeout(() => onLay(fitted), 0); return fitted })
-            }
+            // defer so a CACHED image (onLoad fires during render) never setStates mid-render
+            const img = e.target
+            setTimeout(() => {
+              // a 1×1 (or empty) source is a broken/placeholder thumbnail — don't stretch it
+              if (img.naturalWidth <= 1 || img.naturalHeight <= 1) { setBroken(true); return }
+              setBroken(false)
+              if (lockAspect && !lay) {
+                const r = img.naturalWidth / img.naturalHeight
+                if (r > 0) { const h = Math.max(20, Math.round(box.w / r)); const fitted = { ...box, h, ix: 0, iy: 0, iw: box.w, ih: h }; setBox(fitted); onLay(fitted) }
+              }
+            }, 0)
           }}
           style={{ position: 'absolute', left: box.ix, top: box.iy, width: box.iw, height: box.ih, objectFit: 'contain', display: broken ? 'none' : 'block', pointerEvents: 'none' }} />
       </div>
@@ -344,6 +348,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   // matching grey instead of clashing white. Persisted with the proposal state.
   const [artBg, setArtBg] = useState(savedState?.__artBg || '#ffffff')
   const artBgInputRef = useRef(null)
+  // #6 — align each control group to the vertical position of the proposal section it edits
+  const controlsRef = useRef(null)
+  const [secTops, setSecTops] = useState(null)   // { items, specs, sideview } px tops, or null = fall back to stacked
   const [pickFor, setPickFor] = useState(null)   // swatch id currently sampling a color from the artwork
   const [loupe, setLoupe] = useState(null)       // { left, top, hex } magnifier following the cursor
   const artCanvasRef = useRef(null)              // cached CORS-readable canvas of the artwork (natural size)
@@ -600,6 +607,26 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     })
   }, [specHTML, scale]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // #6 — measure each tagged proposal section's top so its control group can sit in front of it.
+  useEffect(() => {
+    if (!mainView) return
+    const measure = () => {
+      const col = controlsRef.current
+      const page = pageRef.current
+      if (!col || !page) return
+      const base = col.getBoundingClientRect().top
+      const tops = {}
+      page.querySelectorAll('[data-sec]').forEach((el) => {
+        tops[el.dataset.sec] = Math.max(0, Math.round(el.getBoundingClientRect().top - base))
+      })
+      if (tops.items != null) setSecTops(tops)
+      else setSecTops(null)
+    }
+    measure()
+    const t = setTimeout(measure, 120)   // after fonts/images settle
+    return () => clearTimeout(t)
+  }, [mainView, scale, scaledH, specHTML, sideViews, artworkPath]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // #8 — keep the dimension arrows glued to the artwork in real time: when the artwork moves or
   // is resized, the arrows re-hug its edges (or the marked sign box), scaling their LENGTH while
   // keeping the typed label/number. First sight is skipped so saved arrow positions load intact.
@@ -790,7 +817,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
           </div>
 
           {/* item details */}
-          <div style={{ margin: '10px 40px 0', ...headCell, borderTop: '1px solid #777' }}>ITEM DETAILS</div>
+          <div data-sec="items" style={{ margin: '10px 40px 0', ...headCell, borderTop: '1px solid #777' }}>ITEM DETAILS</div>
           <div style={{ margin: '0 40px', border: '1px solid #777', borderTop: 'none', height: 192, position: 'relative', background: artBg, overflow: 'hidden' }}>
             {artworkPath
               ? <AdjImg {...adjProps('artwork', { x: 188, y: 24, w: 360, h: 144 })} src={fileUrl(artworkPath)} alt="artwork" lockAspect cors={/res\.cloudinary\.com/i.test(fileUrl(artworkPath) || '')} />
@@ -824,7 +851,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
               column's right border, so it's continuous no matter which column ends up taller */}
           <div style={{ margin: '7px 40px 0', display: 'grid', gridTemplateColumns: '1fr 240px', border: '1px solid #777' }}>
             <div style={{ borderRight: '1px solid #777' }}>
-              <div style={secHead}>SPECIFICATIONS</div>
+              <div data-sec="specs" style={secHead}>SPECIFICATIONS</div>
               {E('specBody', { fontSize: 10.5, lineHeight: 1.9, padding: '10px 12px', minHeight: specLong ? 255 : 215, whiteSpace: 'pre-wrap', outline: 'none', borderBottom: '1px solid #777' })}
               {!specLong && <>
                 <div style={secHead}>ADDITIONAL NOTES</div>
@@ -857,7 +884,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
               {/* explicit "no side view" removes the whole section, headline included */}
               {!sideViews.includes('__none__') && (
                 <>
-                  <div style={secHead}>SIDE VIEW</div>
+                  <div data-sec="sideview" style={secHead}>SIDE VIEW</div>
                   <div style={{ position: 'relative', height: 250 }}>
                     {sideViews.length === 0
                       ? <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 10, textTransform: 'none' }}>[ No side view selected ]</span>
@@ -917,15 +944,17 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
       </div>
 
       {mainView && (
-      <div className="proposal-controls" style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: '0 0 220px', maxWidth: 220 }}>
-      {/* Controls are grouped and ordered to match the proposal's top-to-bottom flow, so each
-          tool sits next to the item it edits (#6): Artwork → Dimensions → Colours → Side view → Specs. */}
+      <div ref={controlsRef} className="proposal-controls" style={{ flex: '0 0 220px', maxWidth: 220 }}>
+      {/* Each control group sits IN FRONT OF the proposal section it edits (#6): once the section
+          tops are measured, the groups are absolutely positioned to line up with ITEM DETAILS,
+          SPECIFICATIONS and SIDE VIEW. Before measurement (or if it fails) they stack in order. */}
       {(() => {
         const grpLabel = { fontSize: 10.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-faint)', marginBottom: 6 }
+        const posStyle = (sec, off = 0) => secTops ? { position: 'absolute', top: (secTops[sec] ?? 0) + off, left: 0, right: 0 } : { marginBottom: 14 }
         return (
-          <>
-            {/* ARTWORK */}
-            <div>
+          <div style={secTops ? { position: 'relative', height: Math.max(scaledH || 0, 320) } : { display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* ARTWORK — aligned to ITEM DETAILS */}
+            <div style={posStyle('items')}>
               <div style={grpLabel}>Artwork</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Area bg</span>
@@ -947,8 +976,8 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
               </div>
             </div>
 
-            {/* DIMENSIONS */}
-            <div>
+            {/* DIMENSIONS — aligned just under ITEM DETAILS */}
+            <div style={posStyle('items', 54)}>
               <div style={grpLabel}>Dimensions</div>
               <button
                 type="button" className="ghost" style={{ width: '100%' }}
@@ -981,23 +1010,23 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
               >+ Dimensions</button>
             </div>
 
-            {/* COLOURS */}
-            <div>
+            {/* COLOURS — aligned to SPECIFICATIONS (where the COLOR SPECS live) */}
+            <div style={posStyle('specs')}>
               <div style={grpLabel}>Colours</div>
               <button type="button" className="ghost" style={{ width: '100%' }} onClick={addSwatch}>+ Add color swatch</button>
               <span className="muted" style={{ fontSize: 11, display: 'block', marginTop: 5 }}>Click a swatch to pick its colour &amp; name; drag to place. The picker never appears in the PDF.</span>
             </div>
 
-            {/* SIDE VIEW */}
+            {/* SIDE VIEW — aligned to the SIDE VIEW section */}
             {onSideViews && (
-              <div>
+              <div style={posStyle('sideview')}>
                 <div style={grpLabel}>Side view</div>
                 <button type="button" className="ghost" style={{ width: '100%' }} onClick={() => setPickingSV((v) => !v)}>{pickingSV ? 'Done choosing side views' : '+ Choose side views'}</button>
               </div>
             )}
 
-            {/* SPECIFICATIONS */}
-            <div>
+            {/* SPECIFICATIONS — aligned just under the SPECIFICATIONS header */}
+            <div style={posStyle('specs', 92)}>
               <div style={grpLabel}>Specifications</div>
               <button
                 type="button" className="ghost" style={{ width: '100%' }}
@@ -1008,7 +1037,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                 }}
               >↻ Rebuild spec text</button>
             </div>
-          </>
+          </div>
         )
       })()}
 
