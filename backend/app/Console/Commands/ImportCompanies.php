@@ -37,7 +37,8 @@ class ImportCompanies extends Command
             return self::FAILURE;
         }
 
-        $headers = array_map(fn ($h) => mb_strtolower(trim((string) $h)), fgetcsv($fh) ?: []);
+        // strip a UTF-8 BOM off the first header so "name" still matches
+        $headers = array_map(fn ($h) => mb_strtolower(trim(preg_replace('/^\xEF\xBB\xBF/', '', (string) $h))), fgetcsv($fh) ?: []);
         $col = function (array $names) use ($headers) {
             foreach ($names as $n) {
                 $i = array_search($n, $headers, true);
@@ -49,7 +50,7 @@ class ImportCompanies extends Command
         };
         $ci = [
             'company' => $col(['company', 'company name', 'companyname', 'customer', 'retail company']),
-            'client'  => $col(['client', 'client name', 'clientname', 'contact name', 'contact person']),
+            'client'  => $col(['client', 'client name', 'clientname', 'contact name', 'contact person', 'name']),
             'phone'   => $col(['phone', 'phone number', 'tel', 'telephone', 'mobile']),
             'email'   => $col(['email', 'e-mail', 'email address']),
             'address' => $col(['address', 'mailing address', 'company address', 'street address']),
