@@ -271,8 +271,15 @@ export default function Generator() {
     try {
       const path = await uploadArtwork(quoteId, f)
       setArtworkPath(path)                          // swap to the saved server copy
+      // A NEW image must fit fresh: drop the previous artwork crop geometry + sign box, otherwise
+      // the old crop window is applied to the new picture and it looks "picked wrong".
+      const ps = gd?.proposal_state
+      const cleanPs = ps?.__layout?.artwork
+        ? { ...ps, __layout: (() => { const l = { ...ps.__layout }; delete l.artwork; return l })() }
+        : ps
+      setSignBox(null)
       // artwork_auto:false — the rep chose this file; no re-read may ever replace it
-      await saveProgress({ artwork_path: path, artwork_auto: false })
+      await saveProgress({ artwork_path: path, artwork_auto: false, proposal_state: cleanPs, sign_box: null })
     } catch (err) {
       setArtErr('Shown locally, but the server upload failed: ' + (err.response?.data?.message || err.message || 'unknown error'))
     }

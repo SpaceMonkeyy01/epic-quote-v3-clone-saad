@@ -950,9 +950,12 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
           SPECIFICATIONS and SIDE VIEW. Before measurement (or if it fails) they stack in order. */}
       {(() => {
         const grpLabel = { fontSize: 10.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-faint)', marginBottom: 6 }
-        const posStyle = (sec, off = 0) => secTops ? { position: 'absolute', top: (secTops[sec] ?? 0) + off, left: 0, right: 0 } : { marginBottom: 14 }
+        // Compact ordered stack (Artwork → Dimensions → Colours → Side view → Specs). Absolute
+        // per-section alignment was tried but the proposal sections are too far apart — it left
+        // big gaps + overlapping labels ("astray"), so we keep a tidy stack in the same order.
+        const posStyle = () => undefined
         return (
-          <div style={secTops ? { position: 'relative', height: Math.max(scaledH || 0, 320) } : { display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {/* ARTWORK — aligned to ITEM DETAILS */}
             <div style={posStyle('items')}>
               <div style={grpLabel}>Artwork</div>
@@ -1014,7 +1017,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             <div style={posStyle('specs')}>
               <div style={grpLabel}>Colours</div>
               <button type="button" className="ghost" style={{ width: '100%' }} onClick={addSwatch}>+ Add color swatch</button>
-              <span className="muted" style={{ fontSize: 11, display: 'block', marginTop: 5 }}>Click a swatch to pick its colour &amp; name; drag to place. The picker never appears in the PDF.</span>
+              <span className="muted" style={{ fontSize: 11, display: 'block', marginTop: 5 }}>Click a swatch to set its colour &amp; name; drag to place.</span>
             </div>
 
             {/* SIDE VIEW — aligned to the SIDE VIEW section */}
