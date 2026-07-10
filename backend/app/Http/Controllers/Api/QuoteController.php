@@ -18,8 +18,9 @@ use Illuminate\Support\Facades\Storage;
 
 class QuoteController extends Controller
 {
-    /** Hard maximum any single quote may be priced at (#2). Enforced here (clamp) + in the wizard. */
-    public const MAX_QUOTE_PRICE = 20000;
+    /** Hard maximum any single quote may be priced at. Real jobs go into 6 digits (per the
+     *  meeting), so the cap is a sanity guard against typos, not a business limit. */
+    public const MAX_QUOTE_PRICE = 1000000;
 
     // GET /api/quotes — list with search + status filter, scoped to non-admins (#40,#41,#52)
     public function index(Request $request): JsonResponse
@@ -560,9 +561,16 @@ class QuoteController extends Controller
             $priceIn = $data['custom_spec']['price'];
         }
         if ($priceIn !== null) {
-            // hard cap: no quote may exceed MAX_QUOTE_PRICE (#20k). Clamp as a safety net; the
-            // wizard also blocks it up front with a message.
-            $quote->price = min(self::MAX_QUOTE_PRICE, max(0, (float) $priceIn));
+            // quote.price = the GRAND TOTAL: unit price × quantity, plus every extra line item
+            // (qty × unit) added on the proposal. Payment links and dashboards read this figure.
+            $qty = (int) ($data['proposal_state']['__qty'] ?? $data['custom_spec']['qty'] ?? $data['answers']['qty'] ?? 1);
+            $qty = max(1, $qty);
+            $extras = 0.0;
+            foreach ((array) ($data['proposal_state']['__items'] ?? []) as $it) {
+                $extras += max(0, (float) ($it['qty'] ?? 1)) * max(0, (float) ($it['unit'] ?? 0));
+            }
+            // hard cap as a typo safety net; the wizard also blocks it up front with a message.
+            $quote->price = min(self::MAX_QUOTE_PRICE, max(0, (float) $priceIn * $qty + $extras));
         }
         // a junk payment link would ship a dead button on the customer's proposal
         if (!empty($data['payment_link']) && !preg_match('#^https?://\S+\.\S+#i', $data['payment_link'])) {

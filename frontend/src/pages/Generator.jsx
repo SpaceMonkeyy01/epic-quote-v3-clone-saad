@@ -5,7 +5,7 @@ import { getQuote, updateQuote, putGenerated, uploadArtwork, uploadCustomerFile,
 import { getLogo } from '../api/meta'
 import { useConstants } from '../hooks'
 import useAuthStore from '../store/authStore'
-import { T } from '../generator/catalog'
+import { T, SIGN_GROUP_ORDER, signGroupOf } from '../generator/catalog'
 import { autoAnswerFromAI, parseDims, composeDims, cleanNum } from '../generator/questions'
 import { buildSpecLines } from '../generator/proposal'
 import { listCatalog, saveCatalogItem } from '../api/catalog'
@@ -17,7 +17,7 @@ import Proposal from '../components/Proposal'
 import MoneyInput from '../components/MoneyInput'
 import ArtworkCropper from '../components/ArtworkCropper'
 
-const MAX_PRICE = 20000   // #2 — no quote may exceed $20,000 (also clamped server-side)
+const MAX_PRICE = 1000000   // sanity guard against typos — real jobs go into 6 digits (also clamped server-side)
 
 const FLOWS = {
   generator: ['client', 'project', 'signtype', 'specs', 'artwork', 'preview'],
@@ -142,6 +142,7 @@ export default function Generator() {
   const [customSpec, setCustomSpec] = useState(null)
   const [logo, setLogoUrl] = useState(null)
   const [signSearch, setSignSearch] = useState('')
+  const [signGroup, setSignGroup] = useState(null)   // #5 — selected main category (two-level picker)
   const [customType, setCustomType] = useState('')   // free-typed sign type (not in the catalog)
   const [signLib, setSignLib] = useState([])          // team's saved custom sign types (shared, both modes)
   const [customTypeSel, setCustomTypeSel] = useState('')  // dropdown selection on the custom-specs page
@@ -469,7 +470,8 @@ export default function Generator() {
   useEffect(() => { listCatalog('sign_type').then(setSignLib).catch(() => {}) }, [])
 
   // one dimension box changed → recompose the canonical H×W×D string AND keep the spec text's
-  // dimensions line in sync, so the proposal can never show different numbers than the boxes
+  // dimensions / returns / thickness lines in sync, so the proposal can never show different
+  // numbers than the boxes (#9). The D box also drives the depth in RETURNS / LETTERS THICKNESS (#6).
   const setCustomDim = (part, v) => {
     setCustomSpec((cs) => {
       const p = parseDims(cs?.dims)
@@ -478,8 +480,31 @@ export default function Generator() {
       let specText = cs?.specText || ''
       if (/^(.*DIMENSIONS[^:]*):.*$/im.test(specText)) {
         specText = specText.replace(/^(.*DIMENSIONS[^:]*):.*$/im, `$1: ${dims}`)
+      } else if (specText.trim() && dims.trim()) {
+        // free-form spec with no dimensions line yet — add one right after SIGN TYPE (or on top)
+        specText = /^SIGN TYPE\s*:.*$/im.test(specText)
+          ? specText.replace(/^(SIGN TYPE\s*:.*)$/im, `$1\nOVERALL DIMENSIONS: ${dims}`)
+          : `OVERALL DIMENSIONS: ${dims}\n` + specText
+      }
+      // depth (the D box) drives the construction depth lines: keep any suffix text
+      // (RETURNS: 3" DEEP ALUMINUM → RETURNS: 5" DEEP ALUMINUM)
+      if (part === 'h' && p.h) {
+        specText = specText
+          .replace(/^(RETURNS?\s*:\s*)(?:[\d.\/]+["”]\s*)?/im, `$1${p.h}" `)
+          .replace(/^(LETTERS? THICKNESS\s*:\s*).*$/im, `$1${p.h}"`)
       }
       return { ...cs, dims, specText }
+    })
+  }
+
+  // the interior/exterior choice must land in the spec's APPLICATION line too (#6)
+  const setCustomApplication = (app) => {
+    setCustomSpec((cs) => {
+      let specText = cs?.specText || ''
+      specText = /^APPLICATION\s*:.*$/im.test(specText)
+        ? specText.replace(/^(APPLICATION\s*:\s*).*$/im, `$1${app}`)
+        : (specText.trim() ? specText.replace(/\s*$/, '') + `\nAPPLICATION: ${app}` : specText)
+      return { ...cs, application: app, specText }
     })
   }
 
@@ -675,32 +700,64 @@ export default function Generator() {
           <div className="step">
             <h3>Select Sign Type</h3>
             <input placeholder="Search sign types…" value={signSearch} onChange={(e) => setSignSearch(e.target.value)} style={{ marginBottom: 12 }} />
-            <p className="muted" style={{ marginTop: -4, marginBottom: 10 }}>Click a sign type to continue.</p>
-            <div className="sign-list">
-              {tpl?.customType && (
-                <div className="sign-opt sel" onClick={() => pickSign(tpl)}>
-                  {tpl.n}  ✏️ your custom type
+            <p className="muted" style={{ marginTop: -4, marginBottom: 10 }}>
+              {signSearch.trim() || signGroup ? 'Click a sign type to continue.' : 'Pick a main sign category first (#5) — searching skips straight to the types.'}
+            </p>
+            {/* two-level picker (#5): main categories → the specific types inside the chosen one.
+                Searching bypasses the grouping and filters ALL types flat. */}
+            {!signSearch.trim() && !signGroup ? (
+              <div className="sign-list">
+                {tpl?.customType && (
+                  <div className="sign-opt sel" onClick={() => pickSign(tpl)}>{tpl.n}  ✏️ your custom type</div>
+                )}
+                {SIGN_GROUP_ORDER.map((g) => {
+                  const count = T.filter((t) => signGroupOf(t.n) === g).length
+                  return count ? (
+                    <div key={g} className="sign-opt" onClick={() => setSignGroup(g)} style={{ fontWeight: 700 }}>
+                      {g} <span className="muted" style={{ fontWeight: 400 }}>· {count} types →</span>
+                    </div>
+                  ) : null
+                })}
+                {signLib.length > 0 && (
+                  <div className="sign-opt" onClick={() => setSignGroup('__team__')} style={{ fontWeight: 700 }}>
+                    TEAM'S CUSTOM TYPES <span className="muted" style={{ fontWeight: 400 }}>· {signLib.length} types →</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                {!signSearch.trim() && (
+                  <button className="ghost sm" style={{ marginBottom: 10 }} onClick={() => setSignGroup(null)}>← All categories</button>
+                )}
+                <div className="sign-list">
+                  {tpl?.customType && (
+                    <div className="sign-opt sel" onClick={() => pickSign(tpl)}>{tpl.n}  ✏️ your custom type</div>
+                  )}
+                  {T.filter((t) => (signSearch.trim()
+                      ? t.n.toLowerCase().includes(signSearch.toLowerCase())
+                      : signGroupOf(t.n) === signGroup)).map((t) => (
+                    <div
+                      key={t.n}
+                      className={'sign-opt' + (tpl?.n === t.n ? ' sel' : '') + (aiSuggestedName === t.n ? ' ai' : '')}
+                      onClick={() => pickSign(t)}
+                    >
+                      {t.n}{aiSuggestedName === t.n ? '  ⚡ AI suggested' : ''}
+                    </div>
+                  ))}
+                  {signLib.filter((s) => (signSearch.trim()
+                      ? s.name.toLowerCase().includes(signSearch.toLowerCase())
+                      : signGroup === '__team__')).map((s) => (
+                    <div
+                      key={'lib' + s.id}
+                      className={'sign-opt' + (tpl?.n === s.name ? ' sel' : '')}
+                      onClick={() => pickSign(makeCustomTpl(s.name, s.data?.spec || null))}
+                    >
+                      {s.name}  ✏️ team custom type
+                    </div>
+                  ))}
                 </div>
-              )}
-              {T.filter((t) => t.n.toLowerCase().includes(signSearch.toLowerCase())).map((t) => (
-                <div
-                  key={t.n}
-                  className={'sign-opt' + (tpl?.n === t.n ? ' sel' : '') + (aiSuggestedName === t.n ? ' ai' : '')}
-                  onClick={() => pickSign(t)}
-                >
-                  {t.n}{aiSuggestedName === t.n ? '  ⚡ AI suggested' : ''}
-                </div>
-              ))}
-              {signLib.filter((s) => s.name.toLowerCase().includes(signSearch.toLowerCase())).map((s) => (
-                <div
-                  key={'lib' + s.id}
-                  className={'sign-opt' + (tpl?.n === s.name ? ' sel' : '')}
-                  onClick={() => pickSign(makeCustomTpl(s.name, s.data?.spec || null))}
-                >
-                  {s.name}  ✏️ team custom type
-                </div>
-              ))}
-            </div>
+              </>
+            )}
             <div className="field" style={{ marginTop: 14 }}>
               <label>Can't find it? Type the sign type yourself (it gets saved for the whole team)</label>
               <div style={{ display: 'flex', gap: 10 }}>
@@ -815,9 +872,20 @@ export default function Generator() {
                 }}
               >
                 <option value="">— pick a sign type (prefills the spec) —</option>
-                {T.map((t) => <option key={t.n} value={t.n}>{t.n}</option>)}
-                {signLib.length > 0 && <option disabled>── team's custom types ──</option>}
-                {signLib.map((s) => <option key={'lib' + s.id} value={s.name}>{s.name} ✏️</option>)}
+                {/* main categories first, the specific types inside each (#5) */}
+                {SIGN_GROUP_ORDER.map((g) => {
+                  const inGroup = T.filter((t) => signGroupOf(t.n) === g)
+                  return inGroup.length ? (
+                    <optgroup key={g} label={g}>
+                      {inGroup.map((t) => <option key={t.n} value={t.n}>{t.n}</option>)}
+                    </optgroup>
+                  ) : null
+                })}
+                {signLib.length > 0 && (
+                  <optgroup label="TEAM'S CUSTOM TYPES">
+                    {signLib.map((s) => <option key={'lib' + s.id} value={s.name}>{s.name} ✏️</option>)}
+                  </optgroup>
+                )}
                 <option value="__new__">➕ Type a new sign type…</option>
               </select>
             </div>
@@ -853,11 +921,22 @@ export default function Generator() {
                   <span className="dims-unit">in</span>
                 </div>
               </div>
-              <div className="field"><label>Price (USD)</label><MoneyInput value={customSpec?.price || ''} onChange={(v) => setCustomSpec({ ...customSpec, price: v })} placeholder="e.g. 2500" /></div>
+              <div className="field"><label>Price per unit (USD)</label><MoneyInput value={customSpec?.price || ''} onChange={(v) => setCustomSpec({ ...customSpec, price: v })} placeholder="e.g. 2500" /></div>
+            </div>
+            <div className="grid2">
+              <div className="field">
+                <label>Quantity</label>
+                <input type="number" min="1" step="1" value={customSpec?.qty ?? 1}
+                  onChange={(e) => { const n = parseInt(e.target.value, 10); setCustomSpec({ ...customSpec, qty: Number.isFinite(n) && n > 0 ? n : 1 }) }} />
+              </div>
+              <div className="field">
+                <label>Total</label>
+                <input disabled value={(() => { const t = (Number(customSpec?.price) || 0) * (parseInt(customSpec?.qty, 10) > 0 ? parseInt(customSpec?.qty, 10) : 1); return t > 0 ? '$' + t.toLocaleString() : '—' })()} />
+              </div>
             </div>
             <div className="field">
               <label>Application</label>
-              <select value={customSpec?.application || 'EXTERIOR'} onChange={(e) => setCustomSpec({ ...customSpec, application: e.target.value })}>
+              <select value={customSpec?.application || 'EXTERIOR'} onChange={(e) => setCustomApplication(e.target.value)}>
                 <option value="EXTERIOR">EXTERIOR</option><option value="INTERIOR">INTERIOR</option>
               </select>
             </div>

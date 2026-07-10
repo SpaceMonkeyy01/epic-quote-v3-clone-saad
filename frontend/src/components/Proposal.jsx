@@ -49,7 +49,7 @@ const PACKAGE = [
 //  • EDGE bars crop (shrink the visible window; the image itself stays put and is clipped)
 // Absolute-positioned, so changing one never reflows the page. Geometry (incl. the crop window
 // ix/iy/iw/ih) is reported up via onLay; selection chrome carries "adj-ui" so PDF capture hides it.
-function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, selected, onSelect, liveLay, fitCenterH }) {
+function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, selected, onSelect, liveLay, fitCenterH, autoCrop }) {
   const init = lay || def
   const [box, setBox] = useState(() => ({
     x: init.x, y: init.y, w: init.w, h: init.h, rot: init.rot || 0,
@@ -152,7 +152,24 @@ function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, sel
                   // fitCenterH: vertically centre the fitted image inside its container (#5 — package
                   // tiles hugged the top edge); 14px reserved for the caption below the image.
                   const y = fitCenterH ? Math.max(2, Math.round((fitCenterH - h - 14) / 2)) : box.y
-                  const fitted = { ...box, h, y, ix: 0, iy: 0, iw: box.w, ih: h }
+                  let fitted = { ...box, h, y, ix: 0, iy: 0, iw: box.w, ih: h }
+                  // autoCrop (#8): on a FRESH artwork, crop the frame straight to the sign's
+                  // detected bounding box — background margins never even appear.
+                  if (autoCrop) {
+                    const nb = detectSubjectBox(img)
+                    if (nb) {
+                      const bx = nb.x * fitted.w, by = nb.y * fitted.h
+                      const bw = nb.w * fitted.w, bh = nb.h * fitted.h
+                      if (bw > 12 && bh > 12 && (bx > 4 || by > 4 || bx + bw < fitted.w - 4 || by + bh < fitted.h - 4)) {
+                        fitted = {
+                          ...fitted,
+                          x: Math.round(fitted.x + bx), y: Math.round(fitted.y + by),
+                          w: Math.round(bw), h: Math.round(bh),
+                          ix: -Math.round(bx), iy: -Math.round(by), iw: fitted.w, ih: fitted.h,
+                        }
+                      }
+                    }
+                  }
                   setBox(fitted); onLay(fitted)
                 }
               }
@@ -253,6 +270,23 @@ function EBlock({ k, html, style }) {
   )
 }
 
+// Editable table cell for quantities / prices / descriptions on item rows: content written once
+// (uncontrolled, like EBlock) so autosave re-renders never clobber typing; commits on blur.
+function EditCell({ value, onCommit, style }) {
+  const ref = useRef(null)
+  const first = useRef(true)
+  useEffect(() => { if (first.current && ref.current) { ref.current.innerText = String(value ?? ''); first.current = false } }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // follow an EXTERNAL value change (e.g. qty normalized after commit) — never while focused
+  useEffect(() => {
+    const el = ref.current
+    if (el && document.activeElement !== el && el.innerText !== String(value ?? '')) el.innerText = String(value ?? '')
+  }, [value])
+  return (
+    <div ref={ref} contentEditable suppressContentEditableWarning spellCheck={false}
+      onBlur={(e) => onCommit(e.target.innerText.trim())} style={{ outline: 'none', ...style }} />
+  )
+}
+
 // Luminance-based text color so the swatch label stays readable on any fill.
 function swatchText(hex) {
   const h = (hex || '').replace('#', '')
@@ -281,6 +315,21 @@ function AdjSwatch({ rk, sw, onChange, onRemove, onPick, canPick, scaleRef, sele
     const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up) }
     document.addEventListener('mousemove', move); document.addEventListener('mouseup', up)
   }
+  // Corner resize — BOTH dimensions, like the artwork image (#3). Left/top corners also move
+  // the chip so the opposite corner stays anchored.
+  const startCorner = (handle) => (e) => {
+    e.preventDefault(); e.stopPropagation(); onSelect()
+    const sx = e.clientX, sy = e.clientY, s0 = { ...sw }, sc = scaleRef.current || 1
+    const L = handle.includes('l'), T = handle.includes('t')
+    const move = (ev) => {
+      const dx = (ev.clientX - sx) / sc, dy = (ev.clientY - sy) / sc
+      const w = Math.max(28, Math.round(L ? s0.w - dx : s0.w + dx))
+      const h = Math.max(12, Math.round(T ? s0.h - dy : s0.h + dy))
+      onChange({ ...s0, w, h, x: L ? Math.round(s0.x + (s0.w - w)) : s0.x, y: T ? Math.round(s0.y + (s0.h - h)) : s0.y, moved: true })
+    }
+    const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); onDragEnd && onDragEnd() }
+    document.addEventListener('mousemove', move); document.addEventListener('mouseup', up)
+  }
   const isRGB = sw.color === 'RGB'                     // colour-changing neon (#10)
   const has = !!sw.color
   // RGB fills the swatch like a colour wheel; the label is forced to "RGB CHANGING COLOR".
@@ -297,6 +346,12 @@ function AdjSwatch({ rk, sw, onChange, onRemove, onPick, canPick, scaleRef, sele
           <div className="adj-ui" style={{ position: 'absolute', inset: -2, border: '1.5px solid #8b5cf6', pointerEvents: 'none' }} />
           <span className="adj-ui" onMouseDown={startResize} title="Drag to widen"
             style={{ position: 'absolute', right: -5, top: '50%', marginTop: -8, width: 9, height: 16, background: '#fff', border: '1.5px solid #8b5cf6', borderRadius: 2, cursor: 'ew-resize', zIndex: 71 }} />
+          {/* corner handles: resize BOTH dimensions, like the artwork image (#3) */}
+          {[['tl', { left: -6, top: -6, cursor: 'nwse-resize' }], ['tr', { right: -6, top: -6, cursor: 'nesw-resize' }],
+            ['bl', { left: -6, bottom: -6, cursor: 'nesw-resize' }], ['br', { right: -6, bottom: -6, cursor: 'nwse-resize' }]].map(([c, pos]) => (
+            <span key={c} className="adj-ui" title="Resize" onMouseDown={startCorner(c)}
+              style={{ position: 'absolute', width: 10, height: 10, background: '#fff', border: '1.5px solid #8b5cf6', borderRadius: '50%', zIndex: 71, ...pos }} />
+          ))}
           <div className="adj-ui" onMouseDown={(e) => e.stopPropagation()}
             style={{ position: 'absolute', top: '100%', left: 0, marginTop: 6, zIndex: 70, background: '#fff', border: '1px solid #8b5cf6', borderRadius: 6, padding: 8, display: 'flex', gap: 6, alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.18)', textTransform: 'none', width: 246 }}>
             <input type="color" value={isRGB || !has ? '#000000' : sw.color} onChange={(e) => onChange({ ...sw, color: e.target.value })}
@@ -410,7 +465,8 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   const [layout, setLayout] = useState(savedState?.__layout || {})  // persisted geometry per image
   const SW_W = 96, SW_H = 20   // default swatch size (now horizontally resizable)
   const [swatches, setSwatches] = useState(() => {
-    if (savedState?.__swatches?.length) return savedState.__swatches.map((s) => ({ ...s, h: s.h > 22 ? SW_H : s.h }))
+    // saved sizes are honored as-is — chips are fully resizable now (#3)
+    if (savedState?.__swatches?.length) return savedState.__swatches.map((s) => ({ ...s }))
     // custom mode: seed the two chips only when the spec text actually has colour lines
     // (catalog-prefilled specs do); a fully free-form spec starts with none.
     if (mode === 'custom' && !/FACE[^\n]*COLOR/i.test(customSpec?.specText || '')) return []
@@ -544,6 +600,34 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     ? (customSpec?.itemDesc || 'CUSTOM SIGNAGE')
     : ((tpl?.desc || 'SIGN') + ' FOR ' + (info.company || ''))
 
+  // ---- Quantity + extra line items (#2/#4): TOTAL = qty × unit price, per row; the subtotal and
+  // deposits are computed from the GRAND total (main row + every extra line item). Persisted in
+  // proposal_state as __qty / __items; the wizard's Quantity field seeds __qty. ----
+  const [qty, setQty] = useState(() => {
+    const q = parseInt(savedState?.__qty ?? (mode === 'custom' ? customSpec?.qty : answers?.qty) ?? 1, 10)
+    return Number.isFinite(q) && q > 0 ? q : 1
+  })
+  const [items, setItems] = useState(() => (Array.isArray(savedState?.__items) ? savedState.__items : []))
+  const grandTotal = price * qty + items.reduce((s, it) => s + Math.max(0, Number(it.qty) || 0) * Math.max(0, Number(it.unit) || 0), 0)
+  const addItem = () => setItems((arr) => [...arr, { id: 'li' + Date.now(), desc: 'ADDITIONAL ITEM', qty: 1, unit: 0 }])
+  const patchItem = (id, patch) => setItems((arr) => arr.map((it) => (it.id === id ? { ...it, ...patch } : it)))
+  const removeItem = (id) => setItems((arr) => arr.filter((it) => it.id !== id))
+  // live money re-sync: when qty / line items change, rewrite the derived money blocks in place
+  // (EBlocks are write-once, so DOM writes are the one honest channel after mount)
+  const setBlock = (k, html) => {
+    const el = pageRef.current?.querySelector(`[data-key="${k}"]`)
+    if (el && el.innerHTML !== html) el.innerHTML = html
+  }
+  const moneyMounted = useRef(false)
+  useEffect(() => {
+    if (!moneyMounted.current) { moneyMounted.current = true; return }
+    setBlock('totalPrice', money(price * qty))
+    setBlock('subtotal', money(grandTotal))
+    setBlock('dep1', money(grandTotal / 2))
+    setBlock('dep2', money(grandTotal / 2))
+    queueSave()
+  }, [qty, items, price]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const specHTML = useMemo(() => {
     // Break any run-on text (semicolon- or newline-separated) into clean one-per-line bullets
     // so a dumped paragraph reads as a tidy spec list instead of a wall of text.
@@ -575,16 +659,17 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   const initial = useMemo(() => {
     const def = {
       contact: '101 E LUZERNE ST. PHILADELPHIA, PENNSYLVANIA 19124, US<br>www.epiccraftings.com<br>sales@epiccraftings.com<br>+1 (445) 444-0334',
-      infoLeft: `<b>COMPANY NAME:</b> ${esc(info.company)}<br><b>CLIENT NAME:</b> ${esc(info.client)}<br><b>PHONE:</b> ${esc(info.contact)}${info.email ? `<br><b>EMAIL:</b> ${esc(info.email)}` : ''}<br><b>ADDRESS:</b> ${esc(info.address)}`,
+      // CONTACT = one line, email first; the phone only appears when there is no email (#7)
+      infoLeft: `<b>COMPANY NAME:</b> ${esc(info.company)}<br><b>CLIENT NAME:</b> ${esc(info.client)}<br><b>CONTACT:</b> ${esc(info.email || info.contact || '')}<br><b>ADDRESS:</b> ${esc(info.address)}`,
       infoRight: `<b>PROPOSAL ID:</b> ${esc(info.quoteId)}<br><b>DATE:</b> ${dateStr}<br><b>JOB NAME:</b> ${esc(info.job)}`,
       itemDesc: esc(itemDesc),
       unitPrice: money(price),
-      totalPrice: money(price),
+      totalPrice: money(price * qty),
       specBody: specHTML,
       notes: proposalNotes ? esc(proposalNotes).replace(/\n/g, '<br>') : (tpl?.notes ? esc(tpl.notes) : '&nbsp;'),
-      subtotal: money(price),
-      dep1: money(price / 2),
-      dep2: money(price / 2),
+      subtotal: money(grandTotal),
+      dep1: money(grandTotal / 2),
+      dep2: money(grandTotal / 2),
       terms: TERMS_HTML,
       pay: 'CLICK HERE TO MAKE PAYMENT',
       pkgLabel1: 'INSTALLATION TEMPLATE',
@@ -626,7 +711,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   const dirtyRef = useRef(new Set(savedState?.__dirty || []))
 
   const captureState = () => {
-    const state = { __layout: layout, __swatches: swatches.filter((s) => s.color || s.name), __dirty: [...dirtyRef.current], __specTpl: tpl?.n || null, __artBg: artBg }
+    const state = { __layout: layout, __swatches: swatches.filter((s) => s.color || s.name), __dirty: [...dirtyRef.current], __specTpl: tpl?.n || null, __artBg: artBg, __qty: qty, __items: items }
     pageRef.current?.querySelectorAll('[data-key]').forEach((el) => { state[el.dataset.key] = el.innerHTML })
     return state
   }
@@ -962,7 +1047,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
           <div data-sec="items" style={{ margin: '10px 40px 0', ...headCell, borderTop: '1px solid #777' }}>ITEM DETAILS</div>
           <div style={{ margin: '0 40px', border: '1px solid #777', borderTop: 'none', height: 192, position: 'relative', background: artBg, overflow: 'hidden' }}>
             {artworkPath
-              ? <AdjImg {...adjProps('artwork', { x: 188, y: 24, w: 360, h: 144 })} src={fileUrl(artworkPath)} alt="artwork" lockAspect liveLay cors={/res\.cloudinary\.com/i.test(fileUrl(artworkPath) || '')} />
+              ? <AdjImg {...adjProps('artwork', { x: 188, y: 24, w: 360, h: 144 })} src={fileUrl(artworkPath)} alt="artwork" lockAspect liveLay autoCrop cors={/res\.cloudinary\.com/i.test(fileUrl(artworkPath) || '')} />
               : <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 12, textTransform: 'none' }}>[ Customer artwork — add it in the Artwork step ]</span>}
             {pickFor && artworkPath && (() => { const a = layout.artwork || { x: 188, y: 24, w: 360, h: 144, rot: 0 }; return (
               <div onClick={sampleArtwork} onMouseMove={onPickMove} onMouseLeave={() => setLoupe(null)} title="Click to grab this color"
@@ -984,9 +1069,30 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>UNIT PRICE</div>
             <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>TOTAL PRICE</div>
             {E('itemDesc', { ...cell, borderTop: 'none' })}
-            <div style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }}>1</div>
+            {/* QTY is editable (#2): TOTAL = qty × unit price, live */}
+            <EditCell value={qty}
+              onCommit={(v) => { const n = parseInt(v, 10); setQty(Number.isFinite(n) && n > 0 ? n : 1) }}
+              style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }} />
             {E('unitPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' })}
             {E('totalPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' })}
+            {/* extra line items (#4) — desc / qty / unit editable, total auto; × only on screen */}
+            {items.map((it) => {
+              const rowTotal = Math.max(0, Number(it.qty) || 0) * Math.max(0, Number(it.unit) || 0)
+              return [
+                <div key={it.id + 'd'} style={{ ...cell, borderTop: 'none', position: 'relative' }}>
+                  <EditCell value={it.desc} onCommit={(v) => patchItem(it.id, { desc: v || 'ITEM' })} style={{ display: 'inline-block', minWidth: 60 }} />
+                  <span className="adj-ui" title="Remove this line item" onMouseDown={(e) => { e.preventDefault(); removeItem(it.id) }}
+                    style={{ position: 'absolute', right: 3, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, background: '#fff', border: '1.5px solid #e05661', borderRadius: '50%', color: '#e05661', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>×</span>
+                </div>,
+                <EditCell key={it.id + 'q'} value={it.qty}
+                  onCommit={(v) => { const n = parseInt(v, 10); patchItem(it.id, { qty: Number.isFinite(n) && n > 0 ? n : 1 }) }}
+                  style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }} />,
+                <EditCell key={it.id + 'u'} value={money(it.unit)}
+                  onCommit={(v) => { const n = parseFloat(String(v).replace(/[^0-9.]/g, '')); patchItem(it.id, { unit: Number.isFinite(n) && n >= 0 ? n : 0 }) }}
+                  style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }} />,
+                <div key={it.id + 't'} style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }}>{money(rowTotal)}</div>,
+              ]
+            })}
           </div>
 
           {/* specs (left) + package & side view (right): ONE outer frame; the divider is the left
@@ -1200,6 +1306,10 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                     : 'Dimension arrows added — drag them into place.')
                 }}
               >+ Dimensions</button>
+              {/* #4 — add a row to the ITEM DESCRIPTION table (desc / qty / unit editable, totals auto) */}
+              <button type="button" className="ghost" style={{ width: '100%', marginTop: 8 }}
+                title="Add another line item to the item table (its qty × unit price feeds the subtotal)"
+                onClick={addItem}>+ Line item</button>
             </div>
 
             {/* COLOURS — aligned to SPECIFICATIONS (where the COLOR SPECS live) */}

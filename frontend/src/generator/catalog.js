@@ -44,6 +44,22 @@ export const T = [
  {n:"NON-ILLUMINATED CABINET",mono:1,st:"NON-ILLUMINATED CABINET",illum:"none",pkgPower:0,mountDef:'1.5" ANGLE WALL FRAME FOR MOUNTING',colors:[],desc:"NON-ILLUMINATED CABINET"},
 ]
 
+// Main sign categories (#5): the wizard shows these first, then the specific types inside the
+// chosen one — instead of a wall of 40+ options. Order matters: first match wins (an "OPEN FACE
+// CHANNEL LETTER WITH FAUX NEON" is a channel letter, not a neon sign).
+export const SIGN_GROUP_ORDER = [
+  'CHANNEL LETTERS', 'FLAT CUT LETTERS', 'CABINETS', 'MONUMENT & PYLON SIGNS', 'LED NEON SIGNS', 'OTHER',
+]
+export function signGroupOf(name) {
+  const n = String(name || '').toUpperCase()
+  if (/MONUMENT|PYLON/.test(n)) return 'MONUMENT & PYLON SIGNS'
+  if (/CHANNEL LETTER|MARQUEE/.test(n)) return 'CHANNEL LETTERS'
+  if (/FLAT CUT/.test(n)) return 'FLAT CUT LETTERS'
+  if (/CABINET|PUSH THRU/.test(n)) return 'CABINETS'
+  if (/NEON/.test(n)) return 'LED NEON SIGNS'
+  return 'OTHER'
+}
+
 export const MOUNT_OPTS = ["STUD MOUNT", "FLUSH MOUNT", "RACEWAY MOUNT", "BACKER MOUNT", "VHB MOUNT"]
 export const TRIM_OPTS = ["METALLIC TRIM CAP", "JEWLITE TRIM CAP", "STANDARD TRIM CAP", "N/A"]
 export const ILLUM_OPTS = [
