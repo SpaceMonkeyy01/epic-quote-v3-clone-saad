@@ -42,23 +42,44 @@ function ViewProposalImage({ quote }) {
       )}
     </>
   )
-  if (gd) return (
-    // read-only live render of the real proposal (pointer events off — a viewer, not an editor)
-    <div style={{ pointerEvents: 'none', maxHeight: 420, overflow: 'hidden', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 12 }}>
-      <Proposal
-        mode={gd.quote_type || 'custom'}
-        tpl={T.find((t) => t.n === gd.tpl_name) || (gd.tpl_name ? { n: gd.tpl_name, st: 'SIGN TYPE: ' + gd.tpl_name, mono: 1, colors: [] } : null)}
-        answers={gd.answers || {}}
-        customSpec={gd.custom_spec}
-        info={{ company: quote.company_name, client: quote.client_name, contact: quote.contact, email: quote.email, address: quote.address, job: quote.job_name, quoteId: quote.quote_id }}
-        artworkPath={gd.artwork_path}
-        savedState={gd.proposal_state}
-        sideViews={gd.side_views || []}
-        paymentLink={gd.payment_link}
-        proposalNotes={gd.proposal_notes}
-      />
-    </div>
-  )
+  if (gd) {
+    // read-only live render (pointer events off — a viewer, not an editor). A multi-sign quote
+    // renders every part stacked, exactly like the editor's preview; a single-sign quote renders
+    // its one page. Falls back to the top-level bundle for a legacy quote with no `parts`.
+    const parts = (Array.isArray(gd.parts) && gd.parts.length) ? gd.parts : [gd]
+    const total = parts.reduce((s, p) => {
+      const price = Number(p?.custom_spec?.price ?? p?.answers?.price) || 0
+      const q = Math.max(1, parseInt(p?.proposal_state?.__qty ?? p?.custom_spec?.qty ?? p?.answers?.qty ?? 1, 10) || 1)
+      const extras = (Array.isArray(p?.proposal_state?.__items) ? p.proposal_state.__items : [])
+        .reduce((a, it) => a + Math.max(0, Number(it.qty) || 0) * Math.max(0, Number(it.unit) || 0), 0)
+      return s + price * q + extras
+    }, 0)
+    const info = { company: quote.company_name, client: quote.client_name, contact: quote.contact, email: quote.email, address: quote.address, job: quote.job_name, quoteId: quote.quote_id }
+    const multi = parts.length > 1
+    return (
+      <div style={{ pointerEvents: 'none', maxHeight: 420, overflow: 'auto', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {parts.map((p, i) => (
+          <Proposal
+            key={i}
+            mode={p.quote_type || gd.quote_type || 'custom'}
+            tpl={T.find((t) => t.n === p.tpl_name) || (p.tpl_name ? { n: p.tpl_name, st: 'SIGN TYPE: ' + p.tpl_name, mono: 1, colors: [] } : null)}
+            answers={p.answers || {}}
+            customSpec={p.custom_spec}
+            info={info}
+            artworkPath={p.artwork_path}
+            savedState={p.proposal_state}
+            sideViews={p.side_views || []}
+            paymentLink={gd.payment_link}
+            proposalNotes={p.proposal_notes}
+            partLabel={multi ? String.fromCharCode(65 + i) : null}
+            multi={multi}
+            isLast={i === parts.length - 1}
+            quoteTotal={multi ? total : null}
+          />
+        ))}
+      </div>
+    )
+  }
   return null
 }
 

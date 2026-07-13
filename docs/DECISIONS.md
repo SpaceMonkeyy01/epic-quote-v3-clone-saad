@@ -28,3 +28,12 @@ When a decision is reversed, add a new line — don't rewrite history.
 - **2026-07-13** — Engineering rules codified in CLAUDE.md ("humane code"): no abstraction
   before the third use, why-comments, edit-in-place, one source of truth per value,
   idempotent data commands, GOLDEN RULE iteration reports.
+- **2026-07-13** — Multi-sign quotes: a quote is an ordered list `generated_data.parts[]`
+  (A, B, C…), one client, one combined total (`quote.price` = Σ parts). The preview stacks a
+  full proposal page per sign; per-part prices are hidden — only the last page shows the
+  combined total, deposit, payment and downloads. One Shopify product per quote: total amount,
+  one clean image per sign, deduped title "A & B FOR Company". The version image stitches every
+  page. Legacy single-sign quotes lazy-wrap to `parts[0]` on load — no migration. A top-level
+  mirror of `parts[0]` is still written to `generated_data` (NOT removed): the backend price
+  fallback for truly-legacy rows and PaymentLinkController's product body_html read it. It is a
+  documented compat field, not dead data — the first part is always a valid single sign.
