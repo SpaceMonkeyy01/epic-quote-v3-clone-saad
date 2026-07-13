@@ -451,7 +451,15 @@ const HD_SCALE = 3   // html2canvas DPI factor for PNG/PDF downloads (~288dpi on
 const LOUPE = 185, SRC = 38   // eyedropper magnifier: loupe diameter (px) and source pixels across it
                               // (~5.5px per pixel — pixels stay visible but you keep enough context to aim)
 
-function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, proposalNotes, sideViews = [], onSideViews, approval, quoteId, canCreatePaymentLinks, onPaymentLinkCreated, mainView, signBox }, fwdRef) {
+function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, proposalNotes, sideViews = [], onSideViews, approval, quoteId, canCreatePaymentLinks, onPaymentLinkCreated, mainView, signBox,
+  // --- multi-page (multi-sign) quote props ---
+  // partLabel: 'A'/'B'/… shown after the PROPOSAL ID, or null for a single-sign quote.
+  // multi: this quote has >1 part → per-part prices are hidden (Sami's rule: the customer only
+  //        ever sees the combined total, on the last page).
+  // isLast: this is the last page → it alone carries the totals block, downloads and payment.
+  // quoteTotal: the whole quote's grand total (Σ parts); the totals block shows THIS, not the
+  //        part's own amount. null for single-sign (falls back to this proposal's own total).
+  partLabel = null, multi = false, isLast = true, quoteTotal = null }, fwdRef) {
   // approval lock: while the quote is locked and the price unapproved, nothing goes out
   const exportBlocked = !!(approval?.locked && !approval?.approved)
   const pageRef = useRef(null)
@@ -705,6 +713,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   })
   const [items, setItems] = useState(() => (Array.isArray(savedState?.__items) ? savedState.__items : []))
   const grandTotal = price * qty + items.reduce((s, it) => s + Math.max(0, Number(it.qty) || 0) * Math.max(0, Number(it.unit) || 0), 0)
+  // The figure the TOTALS block shows: the whole-quote sum on a multi-page quote, else this
+  // proposal's own total. Deposits, the ≤$500 rule and payment all key off this.
+  const totalsAmount = quoteTotal != null ? quoteTotal : grandTotal
   const addItem = () => setItems((arr) => [...arr, { id: 'li' + Date.now(), desc: 'ADDITIONAL ITEM', qty: 1, unit: 0 }])
   const patchItem = (id, patch) => setItems((arr) => arr.map((it) => (it.id === id ? { ...it, ...patch } : it)))
   const removeItem = (id) => setItems((arr) => arr.filter((it) => it.id !== id))
@@ -718,11 +729,12 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   useEffect(() => {
     if (!moneyMounted.current) { moneyMounted.current = true; return }
     setBlock('totalPrice', money(price * qty))
-    setBlock('subtotal', money(grandTotal))
-    setBlock('dep1', money(grandTotal / 2))
-    setBlock('dep2', money(grandTotal / 2))
+    // totals reflect the WHOLE quote (Σ parts) on a multi-page quote, this proposal otherwise
+    setBlock('subtotal', money(totalsAmount))
+    setBlock('dep1', money(totalsAmount / 2))
+    setBlock('dep2', money(totalsAmount / 2))
     queueSave()
-  }, [qty, items, price]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [qty, items, price, totalsAmount]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const specHTML = useMemo(() => {
     // Break any run-on text (semicolon- or newline-separated) into clean one-per-line bullets
@@ -757,15 +769,15 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
       contact: '101 E LUZERNE ST. PHILADELPHIA, PENNSYLVANIA 19124, US<br>www.epiccraftings.com<br>sales@epiccraftings.com<br>+1 (445) 444-0334',
       // CONTACT = one line, email first; the phone only appears when there is no email (#7)
       infoLeft: `<b>COMPANY NAME:</b> ${esc(info.company)}<br><b>CLIENT NAME:</b> ${esc(info.client)}<br><b>CONTACT:</b> ${esc(info.email || info.contact || '')}<br><b>ADDRESS:</b> ${esc(info.address)}`,
-      infoRight: `<b>PROPOSAL ID:</b> ${esc(info.quoteId)}<br><b>DATE:</b> ${dateStr}<br><b>JOB NAME:</b> ${esc(info.job)}`,
+      infoRight: `<b>PROPOSAL ID:</b> ${esc(info.quoteId)}${partLabel ? '-' + partLabel : ''}<br><b>DATE:</b> ${dateStr}<br><b>JOB NAME:</b> ${esc(info.job)}`,
       itemDesc: esc(itemDesc),
       unitPrice: money(price),
       totalPrice: money(price * qty),
       specBody: specHTML,
       notes: proposalNotes ? esc(proposalNotes).replace(/\n/g, '<br>') : (tpl?.notes ? esc(tpl.notes) : '&nbsp;'),
-      subtotal: money(grandTotal),
-      dep1: money(grandTotal / 2),
-      dep2: money(grandTotal / 2),
+      subtotal: money(totalsAmount),
+      dep1: money(totalsAmount / 2),
+      dep2: money(totalsAmount / 2),
       terms: TERMS_HTML,
       pay: 'CLICK HERE TO MAKE PAYMENT',
       pkgLabel1: 'INSTALLATION TEMPLATE',
@@ -1171,20 +1183,22 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             ))}
           </div>
 
-          {/* item table — its own bordered block with a gap above (matches the template) */}
-          <div style={{ margin: '7px 40px 0', display: 'grid', gridTemplateColumns: '1fr 56px 104px 104px' }}>
+          {/* item table. On a multi-sign quote per-part prices are hidden (Sami's rule) — the
+              table is just DESCRIPTION + QTY, and the combined total shows on the last page. On a
+              single-sign quote it keeps the full DESCRIPTION / QTY / UNIT / TOTAL layout. */}
+          <div style={{ margin: '7px 40px 0', display: 'grid', gridTemplateColumns: multi ? '1fr 56px' : '1fr 56px 104px 104px' }}>
             <div style={{ ...headCell, borderTop: '1px solid #777' }}>ITEM DESCRIPTION</div>
             <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>QTY</div>
-            <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>UNIT PRICE</div>
-            <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>TOTAL PRICE</div>
+            {!multi && <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>UNIT PRICE</div>}
+            {!multi && <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>TOTAL PRICE</div>}
             {E('itemDesc', { ...cell, borderTop: 'none' })}
             {/* QTY is editable (#2): TOTAL = qty × unit price, live */}
             <EditCell value={qty}
               onCommit={(v) => { const n = parseInt(v, 10); setQty(Number.isFinite(n) && n > 0 ? n : 1) }}
               style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }} />
-            {E('unitPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' })}
-            {E('totalPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' })}
-            {/* extra line items (#4) — desc / qty / unit editable, total auto; × only on screen */}
+            {!multi && E('unitPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' })}
+            {!multi && E('totalPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' })}
+            {/* extra line items (#4) — desc / qty editable always; unit/total shown only single-sign */}
             {items.map((it) => {
               const rowTotal = Math.max(0, Number(it.qty) || 0) * Math.max(0, Number(it.unit) || 0)
               return [
@@ -1196,10 +1210,10 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                 <EditCell key={it.id + 'q'} value={it.qty}
                   onCommit={(v) => { const n = parseInt(v, 10); patchItem(it.id, { qty: Number.isFinite(n) && n > 0 ? n : 1 }) }}
                   style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }} />,
-                <EditCell key={it.id + 'u'} value={money(it.unit)}
+                !multi && <EditCell key={it.id + 'u'} value={money(it.unit)}
                   onCommit={(v) => { const n = parseFloat(String(v).replace(/[^0-9.]/g, '')); patchItem(it.id, { unit: Number.isFinite(n) && n >= 0 ? n : 0 }) }}
                   style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }} />,
-                <div key={it.id + 't'} style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }}>{money(rowTotal)}</div>,
+                !multi && <div key={it.id + 't'} style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }}>{money(rowTotal)}</div>,
               ]
             })}
           </div>
@@ -1266,17 +1280,19 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             </div>
           </div>
 
-          {/* totals + terms */}
-          <div style={{ margin: '12px 40px 0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
+          {/* totals + terms. Terms & Conditions print on EVERY page (#4); the price block (subtotal /
+              deposit / pay) prints only on the LAST page — it carries the combined quote total. */}
+          <div style={{ margin: '12px 40px 0', display: 'grid', gridTemplateColumns: isLast ? '1fr 1fr' : '1fr', gap: '0 20px' }}>
             {E('terms', { fontSize: 8, lineHeight: 1.3, textTransform: 'none' })}
             {/* price block — hidden when capturing the "clean" image for a Shopify product,
                 since the payment options live on the Shopify page, not baked into the picture */}
+            {isLast && (
             <div data-price-block>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 800, marginBottom: 6 }}>
                   <span>SUBTOTAL</span>{E('subtotal')}
                 </div>
-                {price > 500 && <>
+                {totalsAmount > 500 && <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 6 }}>
                     <span>50% DEPOSIT DUE NOW</span>{E('dep1')}
                   </div>
@@ -1289,6 +1305,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                 ? <a data-pay-link href={paymentLink} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 14, background: '#f5a623', padding: 14, textAlign: 'center', fontSize: 15, fontWeight: 800, letterSpacing: 0.5, color: '#111', textDecoration: 'none' }}>CLICK HERE TO MAKE PAYMENT</a>
                 : E('pay', { marginTop: 14, background: '#f5a623', padding: 14, textAlign: 'center', fontSize: 15, fontWeight: 800, letterSpacing: 0.5 })}
             </div>
+            )}
           </div>
 
           {/* draggable color swatches — the filled block prints; the picker chrome (.adj-ui) does not */}
@@ -1461,24 +1478,25 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
         )
       })()}
 
-      {/* actions — full-width so the whole right column is one consistent button size (#6) */}
+      {/* actions — downloads live ONCE, on the last page (#: single set of downloads per quote).
+          The toast still shows per page (each part can flash its own save). */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
-        {exportBlocked && <span style={{ color: '#e5484d', fontWeight: 600, fontSize: 13 }}>🔒 Locked — price approval needed before this quote can be sent out</span>}
-        <button className="ghost" style={{ width: '100%' }} disabled={busy || exportBlocked} title={exportBlocked ? 'Price approval required' : undefined} onClick={downloadPNG}>{busy === 'png' ? 'Rendering…' : '⬇ PNG image'}</button>
-        <button style={{ width: '100%' }} disabled={busy || exportBlocked} title={exportBlocked ? 'Price approval required' : undefined} onClick={downloadPDF}>{busy === 'pdf' ? 'Building PDF…' : '⬇ Download PDF'}</button>
+        {isLast && exportBlocked && <span style={{ color: '#e5484d', fontWeight: 600, fontSize: 13 }}>🔒 Locked — price approval needed before this quote can be sent out</span>}
+        {isLast && <button className="ghost" style={{ width: '100%' }} disabled={busy || exportBlocked} title={exportBlocked ? 'Price approval required' : undefined} onClick={downloadPNG}>{busy === 'png' ? 'Rendering…' : '⬇ PNG image'}</button>}
+        {isLast && <button style={{ width: '100%' }} disabled={busy || exportBlocked} title={exportBlocked ? 'Price approval required' : undefined} onClick={downloadPDF}>{busy === 'pdf' ? 'Building PDF…' : '⬇ Download PDF'}</button>}
         {toast && <span style={{ color: '#2e7d32', fontWeight: 600 }}>{toast}</span>}
       </div>
 
-      {/* Shopify payment link (S5) — only for users allowed to create links */}
-      {canCreatePaymentLinks && quoteId && (
+      {/* Shopify payment link — only on the last page (one combined link per quote) */}
+      {isLast && canCreatePaymentLinks && quoteId && (
         <div style={{ marginTop: 18, padding: 14, border: '1px solid var(--border)', borderRadius: 10, background: 'var(--navy-900)' }}>
           <div style={{ fontWeight: 700, marginBottom: 8 }}>💳 Shopify payment link</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {/* all three payment options: same prominent style AND same full width (#6/#8) */}
             <button style={{ width: '100%' }} disabled={!!plBusy || exportBlocked} onClick={() => createPaymentLink('full')}>{plBusy === 'full' ? 'Creating…' : 'Full payment'}</button>
-            {price > 500 && <button style={{ width: '100%' }} disabled={!!plBusy || exportBlocked} onClick={() => createPaymentLink('deposit')}>{plBusy === 'deposit' ? 'Creating…' : '50% deposit'}</button>}
-            {price > 500 && <button style={{ width: '100%' }} disabled={!!plBusy || exportBlocked} onClick={() => createPaymentLink('balance')}>{plBusy === 'balance' ? 'Creating…' : 'Remaining Balance (50%)'}</button>}
-            {price > 0 && price <= 500 && <span className="muted" style={{ fontSize: 12 }}>≤ $500 → full payment only</span>}
+            {totalsAmount > 500 && <button style={{ width: '100%' }} disabled={!!plBusy || exportBlocked} onClick={() => createPaymentLink('deposit')}>{plBusy === 'deposit' ? 'Creating…' : '50% deposit'}</button>}
+            {totalsAmount > 500 && <button style={{ width: '100%' }} disabled={!!plBusy || exportBlocked} onClick={() => createPaymentLink('balance')}>{plBusy === 'balance' ? 'Creating…' : 'Remaining Balance (50%)'}</button>}
+            {totalsAmount > 0 && totalsAmount <= 500 && <span className="muted" style={{ fontSize: 12 }}>≤ $500 → full payment only</span>}
           </div>
           {plResult && (
             <div style={{ marginTop: 10, fontSize: 13 }}>

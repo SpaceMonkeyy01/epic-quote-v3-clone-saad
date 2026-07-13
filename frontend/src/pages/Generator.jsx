@@ -150,6 +150,11 @@ export default function Generator() {
   // parts[0] on load (see the loader), so nothing needs migrating.
   const [parts, setParts] = useState([])
   const [activePart, setActivePart] = useState(0)
+  // Latest parts/gd, readable synchronously — each Proposal page autosaves independently, so two
+  // parts can save within one render; reading state from a stale closure would drop one. Both save
+  // paths (saveProgress, savePart) update these refs BEFORE the async PUT.
+  const partsRef = useRef(parts); partsRef.current = parts
+  const gdRef = useRef(gd); gdRef.current = gd
   const [mode, setMode] = useState(null)        // 'generator' | 'custom'
   const [step, setStep] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -206,9 +211,12 @@ export default function Generator() {
 
       // Build the parts list: use g.parts when present, else lazy-wrap the legacy top-level bundle
       // as the single part[0]. The wizard opens on the FIRST part; Add Page appends more later.
-      const loadedParts = (Array.isArray(g.parts) && g.parts.length)
+      const loadedParts = ((Array.isArray(g.parts) && g.parts.length)
         ? g.parts
-        : [legacyPartFromGd(g)]
+        : [legacyPartFromGd(g)])
+        // stable id per part → the preview keys pages by it, so a page only remounts when its
+        // letter / last-ness actually changes (delete/add), never on a routine autosave.
+        .map((p, i) => ({ ...p, __pid: p.__pid || `p${i}_${Math.random().toString(36).slice(2, 8)}` }))
       setParts(loadedParts)
       setActivePart(0)
       const p0 = loadedParts[0] || {}
@@ -273,7 +281,17 @@ export default function Generator() {
   const goto = (s) => setStep(s)
   const next = () => goto(flow[flowIndex + 1])
   const back = () => (flowIndex > 0 ? goto(flow[flowIndex - 1]) : navigate(exitTo))
-  const proposalRef = useRef(null)   // preview-step Proposal, for capturing the version snapshot image
+  const proposalRef = useRef(null)   // LAST-page Proposal, for capturing the version snapshot image
+  const multiPreviewRef = useRef(null)   // wraps all stacked pages — captured whole for the version image
+
+  // Persist the shared payment link (top-level, one per quote) without touching parts or hooks.
+  const savePaymentLink = async (url) => {
+    setPaymentLink(url)
+    const payload = { ...(gdRef.current || {}), payment_link: url }
+    gdRef.current = payload
+    setGd(payload)
+    await putGenerated(quoteId, payload)
+  }
   const [cpBusy, setCpBusy] = useState('')
   const [cpMsg, setCpMsg] = useState('')
 
@@ -321,13 +339,13 @@ export default function Generator() {
 
   const saveProgress = async (extra = {}) => {
     // fold the live wizard hooks (+ any part-level extra) into the active part; leave the rest as-is
-    const base = parts.length ? parts : [{}]
+    const base = partsRef.current.length ? partsRef.current : [{}]
     const nextParts = base.map((p, i) => (i === activePart ? partFromHooks(p, extra) : p))
     const shared = {}
     for (const k of SHARED_KEYS) if (extra[k] !== undefined) shared[k] = extra[k]
 
     const payload = {
-      ...(gd || {}),
+      ...(gdRef.current || {}),
       quote_type: mode,
       job_name: client.job_name,
       payment_link: paymentLink,
@@ -338,10 +356,85 @@ export default function Generator() {
       ...legacyPartFromGd(nextParts[0] || {}),
       ...shared,
     }
-    await putGenerated(quoteId, payload)
+    partsRef.current = nextParts; gdRef.current = payload   // sync before the async write
     setParts(nextParts)
     setGd(payload)
+    await putGenerated(quoteId, payload)
     // refresh dashboard/list so quote_type + price reflect the saved progress
+    qc.invalidateQueries({ queryKey: ['quotes'] })
+    qc.invalidateQueries({ queryKey: ['dashboard'] })
+  }
+
+  // Persist a patch to ONE part (used by the preview, where each page edits itself directly, not
+  // through the wizard hooks). Does NOT fold the hooks — only touches parts[i].
+  const savePart = async (i, patch) => {
+    const nextParts = partsRef.current.map((p, idx) => (idx === i ? { ...p, ...patch } : p))
+    const payload = { ...(gdRef.current || {}), parts: nextParts, ...legacyPartFromGd(nextParts[0] || {}) }
+    partsRef.current = nextParts; gdRef.current = payload
+    setParts(nextParts)
+    setGd(payload)
+    await putGenerated(quoteId, payload)
+    qc.invalidateQueries({ queryKey: ['quotes'] })
+    qc.invalidateQueries({ queryKey: ['dashboard'] })
+  }
+
+  // One part's dollar total (mirrors the backend partTotal): unit×qty + extra line items.
+  const partAmount = (p) => {
+    const priceRaw = p?.custom_spec?.price ?? p?.answers?.price
+    const price = Number(priceRaw) || 0
+    const qRaw = parseInt(p?.proposal_state?.__qty ?? p?.custom_spec?.qty ?? p?.answers?.qty ?? 1, 10)
+    const q = Number.isFinite(qRaw) && qRaw > 0 ? qRaw : 1
+    const extras = (Array.isArray(p?.proposal_state?.__items) ? p.proposal_state.__items : [])
+      .reduce((s, it) => s + Math.max(0, Number(it.qty) || 0) * Math.max(0, Number(it.unit) || 0), 0)
+    return price * q + extras
+  }
+  const grandTotal = parts.reduce((s, p) => s + partAmount(p), 0)
+
+  // Rebuild a part's tpl object from its saved name (catalog entry, or a synthesized custom one).
+  const tplForPart = (p) => (p?.tpl_name ? (T.find((t) => t.n === p.tpl_name) || makeCustomTpl(p.tpl_name, p.tpl_stored_spec || null)) : null)
+
+  // Load a saved part into the wizard hooks (so the wizard / Edit specs edits THAT part).
+  const loadPartIntoHooks = (p = {}) => {
+    setTpl(tplForPart(p))
+    setAnswers(p.answers || {})
+    setAi(p.ai || null)
+    setCustomSpec(p.custom_spec || null)
+    setArtworkPath(p.artwork_path || null)
+    setSignBox(p.sign_box || null)
+    setSideViews(p.side_views || [])
+    setProposalNotes(p.proposal_notes || '')
+    setCustomTypeSel(''); setTypePicking(false); setTypeGroup(null)
+  }
+
+  // "+ Add page": save the current part, append a fresh blank part, and re-enter the wizard at the
+  // sign-type/specs step for it. Company/client are shared, so those steps are skipped.
+  const addPage = async () => {
+    await saveProgress()   // fold the active part's live hooks in first
+    const nextParts = [...partsRef.current, { __pid: `p${Date.now()}_${Math.random().toString(36).slice(2, 6)}` }]
+    const newIndex = nextParts.length - 1
+    const payload = { ...(gdRef.current || {}), parts: nextParts }
+    partsRef.current = nextParts; gdRef.current = payload
+    setParts(nextParts)
+    setGd(payload)
+    setActivePart(newIndex)
+    loadPartIntoHooks({})                       // blank scratch buffer for the new sign
+    await putGenerated(quoteId, payload)
+    setStep(mode === 'custom' ? 'customspecs' : 'signtype')
+  }
+
+  // Delete one page (only offered when >1). Letters (A/B/…) are index-derived, so they resync
+  // automatically; the active part is clamped and reloaded so the wizard stays coherent.
+  const deletePage = async (i) => {
+    if (partsRef.current.length <= 1) return
+    const nextParts = partsRef.current.filter((_, idx) => idx !== i)
+    const payload = { ...(gdRef.current || {}), parts: nextParts, ...legacyPartFromGd(nextParts[0] || {}) }
+    partsRef.current = nextParts; gdRef.current = payload
+    setParts(nextParts)
+    setGd(payload)
+    const newActive = Math.min(activePart, nextParts.length - 1)
+    setActivePart(newActive)
+    loadPartIntoHooks(nextParts[newActive])
+    await putGenerated(quoteId, payload)
     qc.invalidateQueries({ queryKey: ['quotes'] })
     qc.invalidateQueries({ queryKey: ['dashboard'] })
   }
@@ -1110,10 +1203,11 @@ export default function Generator() {
 
         {step === 'preview' && (
           <div className="step">
-            <h3>Proposal</h3>
             {/* the wizard controls live right above the proposal (#2). "Done" saves a version
-                (rev) with the rendered image (#4); Back asks save-or-delete (#3). */}
+                (rev) with the rendered image (#4); Back asks save-or-delete (#3). "+ Add sign page"
+                appends another sign to this quote (top-right of the preview canvas). */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <h3 style={{ margin: 0, marginRight: 6 }}>Proposal{parts.length > 1 ? ` — ${parts.length} signs` : ''}</h3>
               <button className="ghost sm" onClick={() => setExitAsk(true)}>← Back</button>
               <button className="ghost sm" onClick={() => (flowIndex > 0 ? goto(flow[flowIndex - 1]) : null)} title="Go back to the wizard steps (specs, artwork) without leaving">✎ Edit specs</button>
               {/* ONE finish button: Done = save everything, mint the version (rev + image), leave */}
@@ -1122,31 +1216,61 @@ export default function Generator() {
                 onClick={async () => { await saveCheckpoint(); navigate(exitTo) }}>
                 {cpBusy ? 'Saving version…' : '✓ Done'}
               </button>
+              <button className="ghost sm" style={{ marginLeft: 'auto' }} disabled={saving}
+                title="Add another sign to this quote — one client, one combined total"
+                onClick={addPage}>＋ Add sign page</button>
               {cpMsg && <span className="muted" style={{ fontSize: 12.5 }}>{cpMsg}</span>}
             </div>
-            <Proposal
-              ref={proposalRef}
-              mode={mode}
-              tpl={tpl}
-              answers={answers}
-              customSpec={customSpec}
-              info={{ company: client.company_name, client: client.client_name, contact: client.contact, email: client.email, address: client.address, job: client.job_name, quoteId }}
-              quoteId={quoteId}
-              mainView
-              canCreatePaymentLinks={canCreatePaymentLinks}
-              onPaymentLinkCreated={(url) => { setPaymentLink(url); saveProgress({ payment_link: url }) }}
-              artworkPath={artworkPath}
-              logo={logo}
-              aiResult={ai}
-              paymentLink={paymentLink}
-              approval={{ locked: quote?.approval_locked, approved: quote?.price_approved }}
-              proposalNotes={proposalNotes}
-              savedState={parts[activePart]?.proposal_state}
-              sideViews={sideViews}
-              signBox={signBox}
-              onSideViews={setSideViews}
-              onSave={(proposalState) => saveProgress({ proposal_state: proposalState, side_views: sideViews })}
-            />
+
+            {/* one full proposal PAGE per sign part, stacked. Each page edits ITSELF (savePart);
+                only the LAST page carries the combined total, downloads and payment. */}
+            <div ref={multiPreviewRef} style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
+              {parts.map((p, i) => {
+                const isLast = i === parts.length - 1
+                const multi = parts.length > 1
+                // key includes letter + last-ness so a page REMOUNTS when those change (add/delete/
+                // reorder) — its write-once proposal ID + price columns are recomputed correctly.
+                const pageKey = `${p.__pid}|${multi ? partLetter(i) : 's'}|${isLast ? 'L' : '_'}`
+                return (
+                  <div key={pageKey} style={{ position: 'relative' }}>
+                    {multi && (
+                      <button className="ghost sm" onClick={() => deletePage(i)} disabled={saving}
+                        title={`Delete sign page ${partLetter(i)}`}
+                        style={{ position: 'absolute', top: 0, right: 0, zIndex: 5, color: '#e05661', borderColor: '#e05661' }}>
+                        🗑 Delete page {partLetter(i)}
+                      </button>
+                    )}
+                    <Proposal
+                      ref={isLast ? proposalRef : undefined}
+                      mode={p.quote_type || mode}
+                      tpl={tplForPart(p)}
+                      answers={p.answers || {}}
+                      customSpec={p.custom_spec}
+                      info={{ company: client.company_name, client: client.client_name, contact: client.contact, email: client.email, address: client.address, job: client.job_name, quoteId }}
+                      quoteId={quoteId}
+                      mainView
+                      partLabel={multi ? partLetter(i) : null}
+                      multi={multi}
+                      isLast={isLast}
+                      quoteTotal={multi ? grandTotal : null}
+                      canCreatePaymentLinks={canCreatePaymentLinks}
+                      onPaymentLinkCreated={(url) => savePaymentLink(url)}
+                      artworkPath={p.artwork_path}
+                      logo={logo}
+                      aiResult={p.ai}
+                      paymentLink={paymentLink}
+                      approval={{ locked: quote?.approval_locked, approved: quote?.price_approved }}
+                      proposalNotes={p.proposal_notes}
+                      savedState={p.proposal_state}
+                      sideViews={p.side_views || []}
+                      signBox={p.sign_box}
+                      onSideViews={(sv) => savePart(i, { side_views: sv })}
+                      onSave={(proposalState) => savePart(i, { proposal_state: proposalState })}
+                    />
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
        </div>
