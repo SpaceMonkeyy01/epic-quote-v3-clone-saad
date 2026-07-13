@@ -211,13 +211,25 @@ export default function Generator() {
 
       // Build the parts list: use g.parts when present, else lazy-wrap the legacy top-level bundle
       // as the single part[0]. The wizard opens on the FIRST part; Add Page appends more later.
+      const seenPids = new Set()
       const loadedParts = ((Array.isArray(g.parts) && g.parts.length)
         ? g.parts
         : [legacyPartFromGd(g)])
-        // stable id per part → the preview keys pages by it, so a page only remounts when its
-        // letter / last-ness actually changes (delete/add), never on a routine autosave.
-        .map((p, i) => ({ ...p, __pid: p.__pid || `p${i}_${Math.random().toString(36).slice(2, 8)}` }))
+        // stable id per part → the preview keys pages by it AND the download/link collectors map
+        // pageRefs by it. It MUST be unique: a missing OR duplicate id (older data, a copied part)
+        // would make two pages share one ref, so every page captured the LAST one repeatedly
+        // (the "both pages are B" bug). Regenerate on miss OR collision.
+        .map((p, i) => {
+          let pid = p.__pid
+          if (!pid || seenPids.has(pid)) pid = `p${i}_${Math.random().toString(36).slice(2, 8)}_${Date.now().toString(36)}`
+          seenPids.add(pid)
+          return { ...p, __pid: pid }
+        })
       setParts(loadedParts)
+      // persist the repaired ids so the fix sticks (only when something actually changed)
+      if (loadedParts.some((p, i) => p.__pid !== (g.parts?.[i]?.__pid))) {
+        putGenerated(quoteId, { ...g, parts: loadedParts }).catch(() => {})
+      }
       setActivePart(0)
       const p0 = loadedParts[0] || {}
 
