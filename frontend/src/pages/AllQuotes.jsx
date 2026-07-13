@@ -3,30 +3,34 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useQuotes, useConstants, useUpdateQuote, useUpdateStatus, useUpdateTags, useDeleteQuote } from '../hooks'
 import useAuthStore from '../store/authStore'
 import { fileUrl } from '../api/client'
-import { getRevisions } from '../api/quotes'
+import { getRevisions, getGenerated } from '../api/quotes'
+import Proposal from '../components/Proposal'
+import { T } from '../generator/catalog'
 import { useSortable, SortTh, useColumns, ColumnPicker, gridKeyNav, downloadCsv, copyTsv } from '../components/grid'
 import AddQuoteModal from '../components/AddQuoteModal'
 import RevisionHistory from '../components/RevisionHistory'
 
-// The rendered proposal image (latest version) shown at the top of the View modal (#7).
-// Pulled from the version history — falls back quietly to nothing when no image exists yet.
-function ViewProposalImage({ quoteId }) {
+// The PROPOSAL itself at the top of the View modal (#7): the latest version image when one
+// exists, else the real proposal rendered live from the saved state (read-only) — so View
+// always shows the document, never just text.
+function ViewProposalImage({ quote }) {
   const [img, setImg] = useState(null)
+  const [gd, setGd] = useState(null)
   const [zoom, setZoom] = useState(false)
   useEffect(() => {
     let alive = true
-    setImg(null)
-    getRevisions(quoteId)
+    setImg(null); setGd(null)
+    getRevisions(quote.quote_id)
       .then((d) => {
         if (!alive) return
-        const cps = d?.checkpoints || []
-        setImg(cps.find((c) => c.snapshot_image)?.snapshot_image || null)
+        const found = (d?.checkpoints || []).find((c) => c.snapshot_image)?.snapshot_image
+        if (found) setImg(found)
+        else return getGenerated(quote.quote_id).then((g) => { if (alive) setGd(g || {}) })
       })
-      .catch(() => {})
+      .catch(() => { getGenerated(quote.quote_id).then((g) => { if (alive) setGd(g || {}) }).catch(() => {}) })
     return () => { alive = false }
-  }, [quoteId])
-  if (!img) return null
-  return (
+  }, [quote.quote_id])
+  if (img) return (
     <>
       <img src={img} alt="Latest proposal" onClick={() => setZoom(true)} title="Click to enlarge"
         style={{ width: '100%', maxHeight: 300, objectFit: 'contain', objectPosition: 'top', background: '#fff', borderRadius: 8, border: '1px solid var(--border)', cursor: 'zoom-in', marginBottom: 12 }} />
@@ -38,6 +42,24 @@ function ViewProposalImage({ quoteId }) {
       )}
     </>
   )
+  if (gd) return (
+    // read-only live render of the real proposal (pointer events off — a viewer, not an editor)
+    <div style={{ pointerEvents: 'none', maxHeight: 420, overflow: 'hidden', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 12 }}>
+      <Proposal
+        mode={gd.quote_type || 'custom'}
+        tpl={T.find((t) => t.n === gd.tpl_name) || (gd.tpl_name ? { n: gd.tpl_name, st: 'SIGN TYPE: ' + gd.tpl_name, mono: 1, colors: [] } : null)}
+        answers={gd.answers || {}}
+        customSpec={gd.custom_spec}
+        info={{ company: quote.company_name, client: quote.client_name, contact: quote.contact, email: quote.email, address: quote.address, job: quote.job_name, quoteId: quote.quote_id }}
+        artworkPath={gd.artwork_path}
+        savedState={gd.proposal_state}
+        sideViews={gd.side_views || []}
+        paymentLink={gd.payment_link}
+        proposalNotes={gd.proposal_notes}
+      />
+    </div>
+  )
+  return null
 }
 
 // clean a currency entry to a plain numeric string (digits + one dot)
@@ -368,7 +390,7 @@ export default function AllQuotes() {
           <div className="modal">
             <h2>Quote {viewing.quote_id}</h2>
             {/* the rendered PROPOSAL itself, front and centre (#7) — latest version image */}
-            <ViewProposalImage quoteId={viewing.quote_id} />
+            <ViewProposalImage quote={viewing} />
             {[
               ['Company', viewing.company_name], ['Client', viewing.client_name],
               ['Phone', viewing.contact], ['Email', viewing.email], ['Address', viewing.address],
