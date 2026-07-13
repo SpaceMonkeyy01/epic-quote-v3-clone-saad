@@ -33,6 +33,22 @@ it('clamps quote.price at the sanity cap', function () {
     expect((float) $quote->fresh()->price)->toBe((float) QuoteController::MAX_QUOTE_PRICE);
 });
 
+it('sums every part into the grand total for a multi-sign quote', function () {
+    login(makeUser(['role' => 'admin']));
+    $quote = makeQuote();
+
+    // part A: 1000 x 2 = 2000; part B: 500 x 1 + one extra line (3 x 100 = 300) = 800; grand = 2800
+    $this->putJson("/api/quotes/{$quote->quote_id}/generated", [
+        'quote_type' => 'custom',
+        'parts' => [
+            ['custom_spec' => ['price' => 1000, 'qty' => 2], 'proposal_state' => ['__qty' => 2]],
+            ['custom_spec' => ['price' => 500,  'qty' => 1], 'proposal_state' => ['__qty' => 1, '__items' => [['qty' => 3, 'unit' => 100]]]],
+        ],
+    ])->assertOk();
+
+    expect((float) $quote->fresh()->price)->toBe(2800.0);
+});
+
 it('accepts six-figure prices (the 20k cap is gone)', function () {
     login(makeUser(['role' => 'admin']));
     $quote = makeQuote();

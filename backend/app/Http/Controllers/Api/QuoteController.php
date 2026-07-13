@@ -550,27 +550,26 @@ class QuoteController extends Controller
         if (in_array($data['quote_type'] ?? null, ['generator', 'custom'], true)) {
             $quote->quote_type = $data['quote_type'];
         }
-        // Keep quote.price in sync with whichever mode holds the price: AI wizard = answers.price,
-        // custom mode = custom_spec.price. (Custom mode used to leave quote.price at 0, which broke
-        // payment-link creation.)
-        $answers = $data['answers'] ?? [];
-        $priceIn = null;
-        if (isset($answers['price']) && $answers['price'] !== '' && is_numeric($answers['price'])) {
-            $priceIn = $answers['price'];
-        } elseif (isset($data['custom_spec']['price']) && $data['custom_spec']['price'] !== '' && is_numeric($data['custom_spec']['price'])) {
-            $priceIn = $data['custom_spec']['price'];
+        // quote.price = the GRAND TOTAL across every sign PART of this quote. A multi-sign quote
+        // stores an ordered list in generated_data.parts (A, B, C…); a legacy single-sign quote
+        // has no `parts` key, so we treat the top-level bundle as the one and only part. Either way
+        // the total is Σ over parts of (unit × qty + extra line items). The customer only ever sees
+        // this combined figure on the last page (per Sami's rule: no per-part prices).
+        $parts = (isset($data['parts']) && is_array($data['parts']) && $data['parts'] !== [])
+            ? $data['parts']
+            : [$data];   // legacy: the whole bundle is part[0]
+        $anyPriced = false;
+        $grand = 0.0;
+        foreach ($parts as $part) {
+            [$total, $priced] = self::partTotal((array) $part);
+            $grand += $total;
+            $anyPriced = $anyPriced || $priced;
         }
-        if ($priceIn !== null) {
-            // quote.price = the GRAND TOTAL: unit price × quantity, plus every extra line item
-            // (qty × unit) added on the proposal. Payment links and dashboards read this figure.
-            $qty = (int) ($data['proposal_state']['__qty'] ?? $data['custom_spec']['qty'] ?? $data['answers']['qty'] ?? 1);
-            $qty = max(1, $qty);
-            $extras = 0.0;
-            foreach ((array) ($data['proposal_state']['__items'] ?? []) as $it) {
-                $extras += max(0, (float) ($it['qty'] ?? 1)) * max(0, (float) ($it['unit'] ?? 0));
-            }
+        // Only overwrite the stored price when at least one part actually carried a price — a bare
+        // autosave (e.g. dragging a swatch) must never zero out a real total.
+        if ($anyPriced) {
             // hard cap as a typo safety net; the wizard also blocks it up front with a message.
-            $quote->price = min(self::MAX_QUOTE_PRICE, max(0, (float) $priceIn * $qty + $extras));
+            $quote->price = min(self::MAX_QUOTE_PRICE, max(0, $grand));
         }
         // a junk payment link would ship a dead button on the customer's proposal
         if (!empty($data['payment_link']) && !preg_match('#^https?://\S+\.\S+#i', $data['payment_link'])) {
@@ -592,6 +591,39 @@ class QuoteController extends Controller
         $quote->save();
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * The dollar total of ONE sign part: unit price × quantity, plus every extra line item
+     * (qty × unit) the rep added on that part's proposal. Returns [total, hadAPrice] — the second
+     * flag lets a bare autosave (no price anywhere) leave the stored total untouched.
+     *
+     * A part mirrors the top-level bundle shape: custom_spec.price / custom_spec.qty (custom mode),
+     * or answers.price / answers.qty (AI mode), with proposal_state.__qty overriding the qty the
+     * customer sees and proposal_state.__items holding extra rows.
+     */
+    private static function partTotal(array $part): array
+    {
+        $answers = $part['answers'] ?? [];
+        $priceIn = null;
+        if (isset($answers['price']) && $answers['price'] !== '' && is_numeric($answers['price'])) {
+            $priceIn = (float) $answers['price'];
+        } elseif (isset($part['custom_spec']['price']) && $part['custom_spec']['price'] !== '' && is_numeric($part['custom_spec']['price'])) {
+            $priceIn = (float) $part['custom_spec']['price'];
+        }
+
+        $qty = (int) ($part['proposal_state']['__qty'] ?? $part['custom_spec']['qty'] ?? $answers['qty'] ?? 1);
+        $qty = max(1, $qty);
+
+        $extras = 0.0;
+        foreach ((array) ($part['proposal_state']['__items'] ?? []) as $it) {
+            $extras += max(0, (float) ($it['qty'] ?? 1)) * max(0, (float) ($it['unit'] ?? 0));
+        }
+
+        if ($priceIn === null && $extras <= 0) {
+            return [0.0, false];   // nothing priced on this part
+        }
+        return [max(0, ($priceIn ?? 0) * $qty + $extras), true];
     }
 
     // GET /api/quotes/{quote}/revisions — the version history for this quote: changes grouped under
