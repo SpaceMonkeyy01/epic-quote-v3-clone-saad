@@ -49,9 +49,24 @@ const PACKAGE = [
 //  • EDGE bars crop (shrink the visible window; the image itself stays put and is clipped)
 // Absolute-positioned, so changing one never reflows the page. Geometry (incl. the crop window
 // ix/iy/iw/ih) is reported up via onLay; selection chrome carries "adj-ui" so PDF capture hides it.
-function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, selected, onSelect, liveLay, fitCenterH, autoCrop }) {
+function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, selected, onSelect, liveLay, fitCenterH, autoCrop, bounds }) {
+  // bounds {w,h}: the image must stay INSIDE its section box, whole — an oversize frame is
+  // shrunk to fit (aspect kept, crop window scaled along), and the position is clamped so no
+  // gesture, saved layout, or auto-fit can ever push it out of view / over other sections.
+  const fitBounds = (b) => {
+    if (!bounds) return b
+    let { x, y, w, h, ix, iy, iw, ih } = b
+    if (w > bounds.w || h > bounds.h) {
+      const s = Math.min(bounds.w / w, bounds.h / h)
+      w = Math.max(24, Math.round(w * s)); h = Math.max(24, Math.round(h * s))
+      ix = Math.round(ix * s); iy = Math.round(iy * s); iw = Math.round(iw * s); ih = Math.round(ih * s)
+    }
+    x = Math.min(Math.max(0, x), Math.max(0, bounds.w - w))
+    y = Math.min(Math.max(0, y), Math.max(0, bounds.h - h))
+    return { ...b, x, y, w, h, ix, iy, iw, ih }
+  }
   const init = lay || def
-  const [box, setBox] = useState(() => ({
+  const [box, setBox] = useState(() => fitBounds({
     x: init.x, y: init.y, w: init.w, h: init.h, rot: init.rot || 0,
     ix: init.ix ?? 0, iy: init.iy ?? 0, iw: init.iw ?? init.w, ih: init.ih ?? init.h,
   }))
@@ -63,8 +78,8 @@ function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, sel
   useEffect(() => {
     if (draggingRef.current || !lay) return
     setBox((b) => {
-      const n = { x: lay.x, y: lay.y, w: lay.w, h: lay.h, rot: lay.rot || 0,
-                  ix: lay.ix ?? 0, iy: lay.iy ?? 0, iw: lay.iw ?? lay.w, ih: lay.ih ?? lay.h }
+      const n = fitBounds({ x: lay.x, y: lay.y, w: lay.w, h: lay.h, rot: lay.rot || 0,
+                  ix: lay.ix ?? 0, iy: lay.iy ?? 0, iw: lay.iw ?? lay.w, ih: lay.ih ?? lay.h })
       return Object.keys(n).some((k) => n[k] !== b[k]) ? n : b
     })
   }, [lay]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -96,7 +111,7 @@ function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, sel
     if (kind === 'rot' && rootRef.current) { const r = rootRef.current.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2 }
     const move = (ev) => {
       const dx = (ev.clientX - sx) / sc, dy = (ev.clientY - sy) / sc
-      if (kind === 'move') { const nb = { ...b0, x: Math.round(b0.x + dx), y: Math.round(b0.y + dy) }; last = nb; setBox(nb); reportLive(nb); return }
+      if (kind === 'move') { const nb = fitBounds({ ...b0, x: Math.round(b0.x + dx), y: Math.round(b0.y + dy) }); last = nb; setBox(nb); reportLive(nb); return }
       if (kind === 'rot') { const nb = { ...b0, rot: Math.round(Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180 / Math.PI + 90) }; last = nb; setBox(nb); reportLive(nb); return }
       if (kind === 'resize') {
         const L = handle.includes('l'), T = handle.includes('t'), R = handle.includes('r'), B = handle.includes('b')
@@ -107,7 +122,7 @@ function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, sel
         let x = b0.x, y = b0.y
         if (L) x = Math.round(b0.x + (b0.w - w)); if (T) y = Math.round(b0.y + (b0.h - h))
         const rw = w / b0.w, rh = h / b0.h   // scale the image (crop window) with the frame
-        const nb = { ...b0, w, h, x, y, ix: Math.round(b0.ix * rw), iy: Math.round(b0.iy * rh), iw: Math.round(b0.iw * rw), ih: Math.round(b0.ih * rh) }
+        const nb = fitBounds({ ...b0, w, h, x, y, ix: Math.round(b0.ix * rw), iy: Math.round(b0.iy * rh), iw: Math.round(b0.iw * rw), ih: Math.round(b0.ih * rh) })
         last = nb; setBox(nb); reportLive(nb)
         return
       }
@@ -117,7 +132,7 @@ function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, sel
       if (handle === 'b') h = Math.max(24, Math.round(b0.h + dy))
       if (handle === 'l') { const nw = Math.max(24, Math.round(b0.w - dx)); const used = b0.w - nw; x = Math.round(b0.x + used); w = nw; ix = Math.round(b0.ix - used) }
       if (handle === 't') { const nh = Math.max(24, Math.round(b0.h - dy)); const used = b0.h - nh; y = Math.round(b0.y + used); h = nh; iy = Math.round(b0.iy - used) }
-      const nb = { ...b0, x, y, w, h, ix, iy }
+      const nb = fitBounds({ ...b0, x, y, w, h, ix, iy })
       last = nb; setBox(nb); reportLive(nb)
     }
     const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); draggingRef.current = false; onLay(last) }
@@ -153,6 +168,9 @@ function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, sel
                   // tiles hugged the top edge); 14px reserved for the caption below the image.
                   const y = fitCenterH ? Math.max(2, Math.round((fitCenterH - h - 14) / 2)) : box.y
                   let fitted = { ...box, h, y, ix: 0, iy: 0, iw: box.w, ih: h }
+                  // an image taller/wider than its section box shrinks to fit, aspect kept — it
+                  // must NEVER spill past the box (the vanished-artwork bug)
+                  fitted = fitBounds(fitted)
                   // autoCrop (#8): on a FRESH artwork, crop the frame straight to the sign's
                   // detected bounding box — background margins never even appear.
                   if (autoCrop) {
@@ -161,14 +179,18 @@ function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, sel
                       const bx = nb.x * fitted.w, by = nb.y * fitted.h
                       const bw = nb.w * fitted.w, bh = nb.h * fitted.h
                       if (bw > 12 && bh > 12 && (bx > 4 || by > 4 || bx + bw < fitted.w - 4 || by + bh < fitted.h - 4)) {
-                        fitted = {
+                        fitted = fitBounds({
                           ...fitted,
                           x: Math.round(fitted.x + bx), y: Math.round(fitted.y + by),
                           w: Math.round(bw), h: Math.round(bh),
                           ix: -Math.round(bx), iy: -Math.round(by), iw: fitted.w, ih: fitted.h,
-                        }
+                        })
                       }
                     }
+                  }
+                  // centre the final frame inside its bounds so a shrunk image sits nicely
+                  if (bounds) {
+                    fitted = { ...fitted, x: Math.round((bounds.w - fitted.w) / 2), y: fitCenterH ? fitted.y : Math.round((bounds.h - fitted.h) / 2) }
                   }
                   setBox(fitted); onLay(fitted)
                 }
@@ -1134,7 +1156,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
           <div data-sec="items" style={{ margin: '10px 40px 0', ...headCell, borderTop: '1px solid #777' }}>ITEM DETAILS</div>
           <div style={{ margin: '0 40px', border: '1px solid #777', borderTop: 'none', height: 192, position: 'relative', background: artBg, overflow: 'hidden' }}>
             {artworkPath
-              ? <AdjImg {...adjProps('artwork', { x: 188, y: 24, w: 360, h: 144 })} src={fileUrl(artworkPath)} alt="artwork" lockAspect liveLay autoCrop cors={/res\.cloudinary\.com/i.test(fileUrl(artworkPath) || '')} />
+              ? <AdjImg {...adjProps('artwork', { x: 188, y: 24, w: 360, h: 144 })} src={fileUrl(artworkPath)} alt="artwork" lockAspect liveLay autoCrop bounds={{ w: 734, h: 192 }} cors={/res\.cloudinary\.com/i.test(fileUrl(artworkPath) || '')} />
               : <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 12, textTransform: 'none' }}>[ Customer artwork — add it in the Artwork step ]</span>}
             {pickFor && artworkPath && (() => { const a = layout.artwork || { x: 188, y: 24, w: 360, h: 144, rot: 0 }; return (
               <div onClick={sampleArtwork} onMouseMove={onPickMove} onMouseLeave={() => setLoupe(null)} title="Click to grab this color"
@@ -1205,7 +1227,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                   // Smaller package tiles (#3) — centred as a group across the 240px column.
                   // (Key bumped pkg5→pkg6 to reset saved offsets: tiles are now vertically centred
                   // in the 116px box via fitCenterH (#5); lockAspect keeps natural proportions.)
-                  <AdjImg key={p.label} {...adjProps(`pkg6-${p.label}`, { x: Math.round(((240 - arr.length * 96) / (arr.length + 1)) * (i + 1) + 96 * i), y: 6, w: 96, h: 96 })} src={p.img} alt={p.label} lockAspect fitCenterH={116} />
+                  <AdjImg key={p.label} {...adjProps(`pkg6-${p.label}`, { x: Math.round(((240 - arr.length * 96) / (arr.length + 1)) * (i + 1) + 96 * i), y: 6, w: 96, h: 96 })} src={p.img} alt={p.label} lockAspect fitCenterH={116} bounds={{ w: 238, h: 114 }} />
                 ))}
                 {/* captions glued to each image's REAL position/size (images report their fitted
                     box on load) — always centered right below, follow drags, editable */}
@@ -1235,7 +1257,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                           return list.map((k, i) => (
                             <AdjImg key={k} {...adjProps(`sv2-${k}`, one
                               ? { x: 10, y: 8, w: 220, h: 234 }
-                              : { x: 6 + (i % 2) * 116, y: 6 + Math.floor(i / 2) * 122, w: 112, h: 116 })} src={svSrc(k)} alt={String(k)} />
+                              : { x: 6 + (i % 2) * 116, y: 6 + Math.floor(i / 2) * 122, w: 112, h: 116 })} src={svSrc(k)} alt={String(k)} bounds={{ w: 238, h: 248 }} />
                           ))
                         })()}
                   </div>
