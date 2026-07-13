@@ -1051,9 +1051,10 @@ export default function Generator() {
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <button className="ghost sm" onClick={() => setExitAsk(true)}>← Back</button>
               <button className="ghost sm" onClick={() => (flowIndex > 0 ? goto(flow[flowIndex - 1]) : null)} title="Go back to the wizard steps (specs, artwork) without leaving">✎ Edit specs</button>
-              <button className="ghost sm" onClick={saveAndReturn} disabled={saving}>{saving ? 'Saving…' : '💾 Save & Return'}</button>
-              <button className="sm" onClick={saveCheckpoint} disabled={!!cpBusy || saving}
-                title="Finish this version: saves a checkpoint (rev) with the rendered proposal image">
+              {/* ONE finish button: Done = save everything, mint the version (rev + image), leave */}
+              <button className="sm" disabled={!!cpBusy || saving}
+                title="Save everything, record this version (rev with the rendered proposal image) and return"
+                onClick={async () => { await saveCheckpoint(); navigate(exitTo) }}>
                 {cpBusy ? 'Saving version…' : '✓ Done'}
               </button>
               {cpMsg && <span className="muted" style={{ fontSize: 12.5 }}>{cpMsg}</span>}
