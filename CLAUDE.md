@@ -129,6 +129,17 @@ Rules baked into that structure:
   the same commit as the behavior change — stale docs are worse than none.
 - No auto-generated doc dumps. A doc exists because someone will read it before acting.
 
+## Team process (decided 2026-07-13)
+
+- **Tests**: Pest tests are REQUIRED for anything touching money (price math, payment
+  links), permissions, or restore/delete. Other backend tests when the logic warrants.
+  Frontend stays manual-E2E-verified. `backend/tests/Feature/` is the home;
+  `php artisan test` must pass before pushing backend changes.
+- **Backlog**: GitHub Issues + milestones on the origin repo. Iteration reports reference
+  issue numbers; every bug found gets an issue before it gets a fix.
+- **Git flow**: direct-to-main until the first dev lands; then feature branches + PR review
+  with branch protection. (Flip the switch in the repo settings on that day.)
+
 ## QA / problem-finding discipline
 
 - Hunt flaws proactively across BOTH modes and all sibling features of anything you touch —
