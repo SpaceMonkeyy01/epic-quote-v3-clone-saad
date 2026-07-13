@@ -173,17 +173,25 @@ class ShopifyService
         if (!$p) {
             return ['ok' => false, 'reason' => 'no_product'];
         }
+        $variants = collect($p['variants'] ?? [])->map(fn ($v) => [
+            'id'    => (string) $v['id'],
+            'title' => $v['title'] ?? $v['option1'] ?? '',
+            'price' => $v['price'] ?? '',
+        ])->all();
+        $variantId = $variants[0]['id'] ?? null;
+
         return [
             'ok'         => true,
             'product_id' => (string) $p['id'],
             'handle'     => $p['handle'] ?? '',
-            // customer link on the storefront/custom domain → no cross-domain redirect (#10)
-            'url'        => 'https://'.self::storefrontHost().'/products/'.($p['handle'] ?? ''),
-            'variants'   => collect($p['variants'] ?? [])->map(fn ($v) => [
-                'id'    => (string) $v['id'],
-                'title' => $v['title'] ?? $v['option1'] ?? '',
-                'price' => $v['price'] ?? '',
-            ])->all(),
+            // CART PERMALINK, not the product page: /cart/{variant}:1 makes Shopify CLEAR any
+            // existing cart and check out exactly this one item. Product-page links let every
+            // link a customer ever opened pile into one cart — they'd be billed for the whole
+            // queue of deposits/balances at once (the EC100145+EC100146+EC116311 blunder).
+            'url'        => $variantId
+                ? 'https://'.self::storefrontHost().'/cart/'.$variantId.':1'
+                : 'https://'.self::storefrontHost().'/products/'.($p['handle'] ?? ''),
+            'variants'   => $variants,
         ];
     }
 

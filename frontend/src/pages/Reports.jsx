@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSalesReps } from '../hooks'
 import client from '../api/client'
@@ -23,7 +23,8 @@ function MonthlyReport() {
     queryKey: ['reports-monthly'],
     queryFn: async () => (await client.get('/reports/monthly')).data,
   })
-  const [hover, setHover] = useState(null)   // { m, x, y } — the hovered month + cursor position
+  const [hover, setHover] = useState(null)   // { m, x, y, w } — cursor in WRAPPER pixels + wrapper width
+  const chartWrapRef = useRef(null)
   if (!months.length) return null
   const max = Math.max(1, ...months.map((m) => m.created))
   const W = 720, H = 150, bw = W / months.length
@@ -31,13 +32,20 @@ function MonthlyReport() {
   return (
     <div className="panel" style={{ padding: 16, marginBottom: 24, position: 'relative' }}>
       <h3 style={{ marginBottom: 12 }}>Month by month — last 12 months</h3>
-      <div style={{ position: 'relative' }} onMouseLeave={() => setHover(null)}>
+      <div ref={chartWrapRef} style={{ position: 'relative' }} onMouseLeave={() => setHover(null)}>
         <svg viewBox={`0 0 ${W} ${H + 20}`} style={{ width: '100%', maxWidth: 860, display: 'block' }}>
           {months.map((m, i) => {
             const ch = (m.created / max) * H
             const dh = (m.done / max) * H
             const active = hover?.m?.month === m.month
-            const track = (e) => setHover({ m, x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY })
+            // position in WRAPPER pixels (clientX/Y vs the wrapper rect) — offsetX is relative to
+            // whichever SVG child fired the event, and % of the wide wrapper drifted the tooltip
+            // rightwards until it left the canvas (#8)
+            const track = (e) => {
+              const r = chartWrapRef.current?.getBoundingClientRect()
+              if (!r) return
+              setHover({ m, x: e.clientX - r.left, y: e.clientY - r.top, w: r.width })
+            }
             return (
               <g key={m.month} onMouseEnter={track} onMouseMove={track} style={{ cursor: 'pointer' }}>
                 {/* full-height hit area so hovering anywhere in the column shows the tooltip */}
@@ -50,16 +58,15 @@ function MonthlyReport() {
           })}
         </svg>
         {hover && (() => {
-          // flip the tooltip to the LEFT of the cursor for right-side months so it never
-          // runs off the chart's right edge (#2)
-          const frac = hover.x / W
-          const flip = frac > 0.6
+          // pixel-anchored to the cursor, flipped to the LEFT past mid-chart and CLAMPED to the
+          // wrapper — it can never leave the canvas (#8)
+          const TIP_W = 170
+          const flip = hover.x > hover.w * 0.55
+          const left = flip ? Math.max(0, hover.x - TIP_W - 12) : Math.min(hover.w - TIP_W, hover.x + 12)
           return (
           <div style={{
             position: 'absolute', pointerEvents: 'none', zIndex: 20,
-            ...(flip
-              ? { right: `calc(${(1 - frac) * 100}% + 12px)` }
-              : { left: `calc(${frac * 100}% + 12px)` }),
+            left,
             top: Math.max(0, hover.y - 10),
             background: '#ffffff', border: '1px solid var(--border)', color: 'var(--text)',
             borderRadius: 8, padding: '8px 11px', fontSize: 12, minWidth: 150, boxShadow: '0 8px 24px rgba(15,23,42,0.14)',

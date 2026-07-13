@@ -441,6 +441,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   const [pickingSV, setPickingSV] = useState(false)
   const [svLib, setSvLib] = useState([])   // team side-view library ({name, data:{path}}) — shared across quotes
   const [svSearch, setSvSearch] = useState('')   // search across ~100 side-view cards
+  const [svGroup, setSvGroup] = useState(null)   // #3 — selected main sign type in the two-level picker
   // category buckets so ~100 cards read as a catalog, not a wall (T18)
   const svGroupOf = (label) => {
     const t = String(label || '').toUpperCase()
@@ -500,6 +501,24 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   // matching grey instead of clashing white. Persisted with the proposal state.
   const [artBg, setArtBg] = useState(savedState?.__artBg || '#ffffff')
   const [hideNotes, setHideNotes] = useState(!!savedState?.__hideNotes)   // #6 — Additional Notes removable
+  // #7 — PROPOSAL ID / DATE / JOB align to the START of the header address ("101 E LUZERNE …"),
+  // not to the right wall. The header block shrink-wraps, so its left edge IS that start; measure
+  // it and pad the info-right cell to line up, left-aligned.
+  const [infoRightPad, setInfoRightPad] = useState(null)
+  useEffect(() => {
+    const measure = () => {
+      const page = pageRef.current
+      const contact = page?.querySelector('[data-key="contact"]')
+      const right = page?.querySelector('[data-key="infoRight"]')
+      if (!contact || !right) return
+      const sc = scaleRef.current || 1
+      const pad = (contact.getBoundingClientRect().left - right.getBoundingClientRect().left) / sc
+      if (Number.isFinite(pad) && pad > 0 && pad < 500) setInfoRightPad(Math.round(pad))
+    }
+    measure()
+    const t = setTimeout(measure, 200)   // after fonts settle
+    return () => clearTimeout(t)
+  }, [scale]) // eslint-disable-line react-hooks/exhaustive-deps
   const artBgInputRef = useRef(null)
   // #6 — align each control group to the vertical position of the proposal section it edits
   const controlsRef = useRef(null)
@@ -745,6 +764,17 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     // since, the saved text is guaranteed wrong, so rebuild it fresh for the new type.
     if (savedState?.specBody && savedState.__specTpl && tpl?.n && savedState.__specTpl !== tpl.n) {
       merged.specBody = def.specBody
+    }
+    // MIGRATION (#6): old saved blocks (incl. hand-edited ones) still carry separate PHONE +
+    // EMAIL lines — collapse them into the single CONTACT line (email first, phone as fallback)
+    // no matter where the block came from. Idempotent: no PHONE/EMAIL labels → untouched.
+    if (/<b>\s*(PHONE|EMAIL)\s*:?\s*<\/b>/i.test(merged.infoLeft || '')) {
+      const src = merged.infoLeft
+      const phone = (src.match(/<b>\s*PHONE\s*:?\s*<\/b>\s*([^<]*)/i)?.[1] || '').trim()
+      const email = (src.match(/<b>\s*EMAIL\s*:?\s*<\/b>\s*([^<]*)/i)?.[1] || '').trim()
+      merged.infoLeft = src
+        .replace(/<b>\s*PHONE\s*:?\s*<\/b>\s*[^<]*/i, `<b>CONTACT:</b> ${esc(email || phone)}`)
+        .replace(/(<br\s*\/?>)?\s*<b>\s*EMAIL\s*:?\s*<\/b>\s*[^<]*/i, '')
     }
     return merged
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1095,7 +1125,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
           {/* info grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '6px 40px 0', gap: 4 }}>
             {E('infoLeft', { fontSize: 11, lineHeight: 1.9 })}
-            {E('infoRight', { fontSize: 11, lineHeight: 1.9, textAlign: 'right' })}
+            {E('infoRight', infoRightPad != null
+              ? { fontSize: 11, lineHeight: 1.9, textAlign: 'left', paddingLeft: infoRightPad }
+              : { fontSize: 11, lineHeight: 1.9, textAlign: 'right' })}
           </div>
 
           {/* item details */}
@@ -1457,37 +1489,59 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                 <span style={{ fontSize: 20, lineHeight: 1.4 }}>🚫</span>
                 <span>No side view<br />(hides the section)</span>
               </label>
-              {/* every card (built-ins + team library) searched and grouped by category */}
+              {/* two-level picker (#3): MAIN sign types first, click one → its side views, with a
+                  back button. Searching skips straight to matching cards across all groups. */}
               {(() => {
                 const cards = [
                   ...SIDE_VIEWS.map((sv) => ({ key: sv.key, label: sv.label, src: `/side_views/${sv.key}.png` })),
                   ...svLib.filter((it) => it.data?.path).map((it) => ({ key: it.data.path, label: it.name, src: svSrc(it.data.path) })),
-                ].filter((c) => !svSearch.trim() || String(c.label).toUpperCase().includes(svSearch.trim().toUpperCase()))
+                ]
                 const groups = new Map()
                 cards.forEach((c) => {
                   const g = svGroupOf(c.label)
                   if (!groups.has(g)) groups.set(g, [])
                   groups.get(g).push(c)
                 })
-                const ordered = SV_GROUP_ORDER.filter((g) => groups.has(g))
-                if (!cards.length) return <div className="muted" style={{ fontSize: 12, width: '100%' }}>No side views match “{svSearch}”.</div>
-                return ordered.map((g) => (
-                  <div key={g} style={{ width: '100%' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, margin: '8px 0 6px', color: 'var(--text-dim, #777)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{g} ({groups.get(g).length})</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                      {groups.get(g).map((c) => {
-                        const on = sideViews.includes(c.key)
-                        return (
-                          <label key={c.key} style={{ width: 120, fontSize: 10, textAlign: 'center', cursor: 'pointer', border: on ? '2px solid #f5a623' : '1px solid #ccc', borderRadius: 6, padding: 4 }}>
-                            <input type="checkbox" checked={on} onChange={(e) => onSideViews(e.target.checked ? [...sideViews.filter((x) => x !== '__none__'), c.key] : sideViews.filter((x) => x !== c.key))} />
-                            <img src={c.src} alt={c.label} style={{ width: '100%', height: 70, objectFit: 'contain' }} />
-                            <div>{c.label}</div>
-                          </label>
-                        )
-                      })}
-                    </div>
+                const searching = !!svSearch.trim()
+                const CardGrid = ({ list }) => (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                    {list.map((c) => {
+                      const on = sideViews.includes(c.key)
+                      return (
+                        <label key={c.key} style={{ width: 120, fontSize: 10, textAlign: 'center', cursor: 'pointer', border: on ? '2px solid #f5a623' : '1px solid #ccc', borderRadius: 6, padding: 4 }}>
+                          <input type="checkbox" checked={on} onChange={(e) => onSideViews(e.target.checked ? [...sideViews.filter((x) => x !== '__none__'), c.key] : sideViews.filter((x) => x !== c.key))} />
+                          <img src={c.src} alt={c.label} style={{ width: '100%', height: 70, objectFit: 'contain' }} />
+                          <div>{c.label}</div>
+                        </label>
+                      )
+                    })}
                   </div>
-                ))
+                )
+                if (searching) {
+                  const hits = cards.filter((c) => String(c.label).toUpperCase().includes(svSearch.trim().toUpperCase()))
+                  return hits.length
+                    ? <div style={{ width: '100%' }}><CardGrid list={hits} /></div>
+                    : <div className="muted" style={{ fontSize: 12, width: '100%' }}>No side views match “{svSearch}”.</div>
+                }
+                if (!svGroup || !groups.has(svGroup)) {
+                  return (
+                    <div style={{ width: '100%', display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                      {SV_GROUP_ORDER.filter((g) => groups.has(g)).map((g) => (
+                        <button key={g} type="button" className="ghost" onClick={() => setSvGroup(g)}
+                          style={{ minWidth: 180, textAlign: 'left' }}>
+                          <b>{g}</b> <span className="muted">· {groups.get(g).length} →</span>
+                        </button>
+                      ))}
+                    </div>
+                  )
+                }
+                return (
+                  <div style={{ width: '100%' }}>
+                    <button type="button" className="ghost sm" style={{ marginBottom: 8 }} onClick={() => setSvGroup(null)}>← Main sign types</button>
+                    <div style={{ fontSize: 12, fontWeight: 700, margin: '2px 0 6px', color: 'var(--text-dim, #777)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{svGroup} ({groups.get(svGroup).length})</div>
+                    <CardGrid list={groups.get(svGroup)} />
+                  </div>
+                )
               })()}
               {/* one-off uploads on this quote that aren't in the library */}
               {sideViews.filter((k) => !SIDE_VIEWS.some((s) => s.key === k) && !svLib.some((it) => it.data?.path === k)).map((k) => (

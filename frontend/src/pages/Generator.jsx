@@ -144,6 +144,8 @@ export default function Generator() {
   const [signSearch, setSignSearch] = useState('')
   const [signGroup, setSignGroup] = useState(null)   // #5 — selected main category (two-level picker)
   const [exitAsk, setExitAsk] = useState(false)      // #3 — "save or delete?" ask when leaving the proposal
+  const [typePicking, setTypePicking] = useState(false)  // #2 — two-level custom-mode type picker open
+  const [typeGroup, setTypeGroup] = useState(null)       //      selected main type inside it
   const [customType, setCustomType] = useState('')   // free-typed sign type (not in the catalog)
   const [signLib, setSignLib] = useState([])          // team's saved custom sign types (shared, both modes)
   const [customTypeSel, setCustomTypeSel] = useState('')  // dropdown selection on the custom-specs page
@@ -600,14 +602,9 @@ export default function Generator() {
 
   return (
     <>
-      {/* wizard controls: on ordinary steps a slim top bar; on the PREVIEW step the buttons move
-          right above the proposal itself (#2) — rendered inside that step below. */}
-      {step !== 'preview' && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center' }}>
-          <button className="ghost sm" onClick={back}>← Back</button>
-          <button className="ghost sm" onClick={saveAndReturn} disabled={saving}>{saving ? 'Saving…' : '💾 Save & Return'}</button>
-        </div>
-      )}
+      {/* NO top bar anywhere (#5): the wizard controls always sit right above the proposal —
+          inside the preview step, and on earlier steps above the live-preview column (or at the
+          top of the step card when the live preview is hidden). */}
 
       {/* Back on the proposal asks what to do with the quote (#3): keep it or delete it entirely */}
       {exitAsk && (
@@ -892,12 +889,13 @@ export default function Generator() {
           <div className="step">
             <h3>Custom Specifications</h3>
             <div className="field">
-              <label>Sign type — the full catalog, the team's saved custom types, or type a new one</label>
-              <select
-                value={customTypeSel}
-                onChange={(e) => {
-                  const v = e.target.value
+              <label>Sign type</label>
+              {/* Two-level, fully reversible picker (#2): main sign types first, then the
+                  underlying types; "← Main sign types" walks back up at any point. */}
+              {(() => {
+                const pickCustomType = (v) => {
                   setCustomTypeSel(v)
+                  setTypePicking(false); setTypeGroup(null)
                   if (v === '' || v === '__new__') return
                   const cat = T.find((t) => t.n === v)
                   const stored = signLib.find((s) => s.name === v)
@@ -908,7 +906,6 @@ export default function Generator() {
                     customSpec
                   )
                   // the sign type implies its construction side view — pick it automatically
-                  // (same curated map the AI mode uses); the rep can still change it on the proposal
                   if (cat && sideViews.length === 0) {
                     const sv = pickSideView(cat.n)
                     if (sv?.selected) setSideViews([sv.selected])
@@ -920,25 +917,56 @@ export default function Generator() {
                     application: customSpec?.application || 'EXTERIOR',
                     price: customSpec?.price || '',
                   })
-                }}
-              >
-                <option value="">— pick a sign type (prefills the spec) —</option>
-                {/* main categories first, the specific types inside each (#5) */}
-                {SIGN_GROUP_ORDER.map((g) => {
-                  const inGroup = T.filter((t) => signGroupOf(t.n) === g)
-                  return inGroup.length ? (
-                    <optgroup key={g} label={g}>
-                      {inGroup.map((t) => <option key={t.n} value={t.n}>{t.n}</option>)}
-                    </optgroup>
-                  ) : null
-                })}
-                {signLib.length > 0 && (
-                  <optgroup label="TEAM'S CUSTOM TYPES">
-                    {signLib.map((s) => <option key={'lib' + s.id} value={s.name}>{s.name} ✏️</option>)}
-                  </optgroup>
-                )}
-                <option value="__new__">➕ Type a new sign type…</option>
-              </select>
+                }
+                if (!typePicking) {
+                  return (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <div style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 8, padding: '9px 12px', background: 'var(--navy-900)' }}>
+                        {customTypeSel && customTypeSel !== '__new__' ? customTypeSel : <span className="muted">— pick a sign type (prefills the spec) —</span>}
+                      </div>
+                      <button type="button" className="ghost sm" onClick={() => { setTypePicking(true); setTypeGroup(null) }}>
+                        {customTypeSel ? 'Change' : 'Pick a type'}
+                      </button>
+                    </div>
+                  )
+                }
+                return (
+                  <div style={{ border: '1px dashed var(--border)', borderRadius: 8, padding: 10 }}>
+                    {typeGroup == null ? (
+                      <div className="sign-list">
+                        {SIGN_GROUP_ORDER.map((g) => {
+                          const c = T.filter((t) => signGroupOf(t.n) === g).length
+                          return c ? (
+                            <div key={g} className="sign-opt" style={{ fontWeight: 700 }} onClick={() => setTypeGroup(g)}>
+                              {g} <span className="muted" style={{ fontWeight: 400 }}>· {c} types →</span>
+                            </div>
+                          ) : null
+                        })}
+                        {signLib.length > 0 && (
+                          <div className="sign-opt" style={{ fontWeight: 700 }} onClick={() => setTypeGroup('__team__')}>
+                            TEAM'S CUSTOM TYPES <span className="muted" style={{ fontWeight: 400 }}>· {signLib.length} →</span>
+                          </div>
+                        )}
+                        <div className="sign-opt" onClick={() => pickCustomType('__new__')}>➕ Type a new sign type…</div>
+                        <div className="sign-opt muted" onClick={() => { setTypePicking(false); setTypeGroup(null) }}>Cancel</div>
+                      </div>
+                    ) : (
+                      <>
+                        <button type="button" className="ghost sm" style={{ marginBottom: 8 }} onClick={() => setTypeGroup(null)}>← Main sign types</button>
+                        <div className="sign-list">
+                          {typeGroup === '__team__'
+                            ? signLib.map((s) => (
+                                <div key={'lib' + s.id} className={'sign-opt' + (customTypeSel === s.name ? ' sel' : '')} onClick={() => pickCustomType(s.name)}>{s.name} ✏️</div>
+                              ))
+                            : T.filter((t) => signGroupOf(t.n) === typeGroup).map((t) => (
+                                <div key={t.n} className={'sign-opt' + (customTypeSel === t.n ? ' sel' : '')} onClick={() => pickCustomType(t.n)}>{t.n}</div>
+                              ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
             {customTypeSel === '__new__' && (
               <div className="field" style={{ border: '1px dashed var(--border)', borderRadius: 8, padding: 12 }}>
@@ -1062,6 +1090,11 @@ export default function Generator() {
            "extra canvas" gap #1). Editable; remounted via a debounced key so typing survives. */}
        {livePreview && step !== 'preview' && (
          <aside className="wiz-live">
+           {/* wizard controls right above the (live) proposal on every step (#5) */}
+           <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+             <button className="ghost sm" onClick={back}>← Back</button>
+             <button className="ghost sm" onClick={saveAndReturn} disabled={saving}>{saving ? 'Saving…' : '💾 Save & Return'}</button>
+           </div>
            <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Live preview — updates as you fill the steps; you can edit it directly.</div>
            <Proposal
              key={'live' + previewKey}
