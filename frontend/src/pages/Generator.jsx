@@ -393,6 +393,15 @@ export default function Generator() {
   // Rebuild a part's tpl object from its saved name (catalog entry, or a synthesized custom one).
   const tplForPart = (p) => (p?.tpl_name ? (T.find((t) => t.n === p.tpl_name) || makeCustomTpl(p.tpl_name, p.tpl_stored_spec || null)) : null)
 
+  // The active part's proposal_state for the LIVE preview, with __qty forced to the wizard's
+  // Quantity field — so QTY/TOTAL update on the wizard steps, not only on the preview page (#5).
+  // (Price flows straight from customSpec, so it was already live.)
+  const livePreviewState = () => {
+    const ps = parts[activePart]?.proposal_state || {}
+    const wq = parseInt(mode === 'custom' ? customSpec?.qty : answers?.qty, 10)
+    return Number.isFinite(wq) && wq > 0 ? { ...ps, __qty: wq } : ps
+  }
+
   // Every page's Proposal instance, keyed by its stable part id — so the last page can pull a
   // clean product image from EVERY sign when it creates the combined payment link.
   const pageRefs = useRef({})
@@ -446,6 +455,16 @@ export default function Generator() {
     let y = 0
     for (const im of imgs) { ctx.drawImage(im, Math.round((w - im.width) / 2), y); y += im.height + GAP }
     return cv.toDataURL('image/png')
+  }
+
+  // Every sign page at HD ({url,w,h}) for the multi-page download (PDF = one page each; PNG stitched).
+  const capturePagesExport = async () => {
+    const out = []
+    for (const p of parts) {
+      const el = pageRefs.current[p.__pid]
+      if (el?.captureExport) { try { out.push(await el.captureExport()) } catch { /* skip */ } }
+    }
+    return out
   }
 
   // Load a saved part into the wizard hooks (so the wizard / Edit specs edits THAT part).
@@ -1311,6 +1330,7 @@ export default function Generator() {
                       collectImages={multi ? collectPartImages : null}
                       linkTitle={multi ? linkTitle : null}
                       captureAll={multi ? captureAllPages : null}
+                      capturePages={multi ? capturePagesExport : null}
                       canCreatePaymentLinks={canCreatePaymentLinks}
                       onPaymentLinkCreated={(url) => savePaymentLink(url)}
                       artworkPath={p.artwork_path}
@@ -1357,7 +1377,7 @@ export default function Generator() {
              paymentLink={paymentLink}
              approval={{ locked: quote?.approval_locked, approved: quote?.price_approved }}
              proposalNotes={proposalNotes}
-             savedState={parts[activePart]?.proposal_state}
+             savedState={livePreviewState()}
              sideViews={sideViews}
              signBox={signBox}
              onSideViews={setSideViews}

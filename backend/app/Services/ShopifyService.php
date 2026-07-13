@@ -193,24 +193,36 @@ class ShopifyService
             'title' => $v['title'] ?? $v['option1'] ?? '',
             'price' => $v['price'] ?? '',
         ])->all();
-        $variantId = $variants[0]['id'] ?? null;
-
         return [
             'ok'         => true,
             'product_id' => (string) $p['id'],
             'handle'     => $p['handle'] ?? '',
-            // CART PERMALINK, not the product page: /cart/{variant}:1 makes Shopify CLEAR any
-            // existing cart and check out exactly this one item. Product-page links let every
-            // link a customer ever opened pile into one cart — they'd be billed for the whole
-            // queue of deposits/balances at once (the EC100145+EC100146+EC116311 blunder).
-            'url'        => $variantId
-                ? 'https://'.self::storefrontHost().'/cart/'.$variantId.':1'
-                : 'https://'.self::storefrontHost().'/products/'.($p['handle'] ?? ''),
+            // PRODUCT PAGE: the customer lands on the sign's preview (image + specs) and pays from
+            // there — NOT a cart permalink (/cart/…:1 forwarded straight to checkout, skipping the
+            // preview). Each link is its own single-variant product, so nothing accumulates.
+            'url'        => 'https://'.self::storefrontHost().'/products/'.($p['handle'] ?? ''),
             'variants'   => $variants,
         ];
     }
 
     /** Lightweight connection check (GET shop.json) — used by /api/shopify/status. */
+    /** Fetch a product's handle by id (for rebuilding an existing link's URL). Null on any failure. */
+    public static function productHandle(string $productId): ?string
+    {
+        if (!self::configured()) {
+            return null;
+        }
+        $domain  = self::domain();
+        $version = config('services.shopify.version', '2025-01');
+        try {
+            $resp = Http::timeout(15)->withHeaders(['X-Shopify-Access-Token' => config('services.shopify.token')])
+                ->get("https://{$domain}/admin/api/{$version}/products/{$productId}.json", ['fields' => 'handle']);
+        } catch (\Throwable) {
+            return null;
+        }
+        return $resp->successful() ? ($resp->json('product.handle') ?: null) : null;
+    }
+
     public static function testConnection(): array
     {
         if (!self::configured()) {

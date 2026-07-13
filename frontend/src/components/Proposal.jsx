@@ -281,7 +281,7 @@ function AdjDim({ rk, lay, onLay, scaleRef, selected, onSelect, onRemove }) {
 // Editable block: content is written ONCE on mount, imperatively — never through props.
 // (Passing dangerouslySetInnerHTML makes React re-apply the ORIGINAL html on every re-render,
 // erasing whatever the user typed the moment anything else updates — e.g. the "Saved" toast.)
-function EBlock({ k, html, style }) {
+function EBlock({ k, html, style, noPaste }) {
   const ref = useRef(null)
   const first = useRef(true)
   useEffect(() => {
@@ -290,6 +290,10 @@ function EBlock({ k, html, style }) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div ref={ref} data-key={k} contentEditable suppressContentEditableWarning
+      // spec text is sensitive: pasting into it is blocked (typed edits still allowed). Additional
+      // notes stay pasteable. Blocks paste + drag-drop of text.
+      onPaste={noPaste ? (e) => { e.preventDefault(); } : undefined}
+      onDrop={noPaste ? (e) => { e.preventDefault(); } : undefined}
       spellCheck lang="en-US" style={{ outline: 'none', ...style }} />
   )
 }
@@ -465,7 +469,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   //   link carries one clean image PER sign (all pages), not just this one. null → this page only.
   // linkTitle: combined "A & B FOR Company" title for a multi-sign payment link. null → default.
   // captureAll: async () => dataURL of the WHOLE stacked multi-page proposal (for the version image).
-  partLabel = null, multi = false, isLast = true, quoteTotal = null, collectImages = null, linkTitle = null, captureAll = null }, fwdRef) {
+  // capturePages: async () => [{url,w,h},…] — every sign page at HD, supplied by the parent on the
+  //   LAST page so Download PDF (one page per sign) / PNG (stitched) cover the whole quote.
+  partLabel = null, multi = false, isLast = true, quoteTotal = null, collectImages = null, linkTitle = null, captureAll = null, capturePages = null }, fwdRef) {
   // approval lock: while the quote is locked and the price unapproved, nothing goes out
   const exportBlocked = !!(approval?.locked && !approval?.approved)
   const pageRef = useRef(null)
@@ -517,21 +523,38 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   // Add a chip to the RIGHT of the existing ones, on the same row (auto-aligned).
   // With no existing chips (custom mode has no seeded colour lines), start inside the
   // SPECIFICATIONS block instead of floating over the item table.
+  // Colour chips must NEVER overlap: nudge chip `id` right until its box clears every other chip.
+  const resolveOverlap = (arr, id) => {
+    const me = arr.find((s) => s.id === id); if (!me) return arr
+    const others = arr.filter((s) => s.id !== id)
+    const hits = (x, o) => x < o.x + o.w && x + me.w > o.x && me.y < o.y + o.h && me.y + me.h > o.y
+    let x = me.x, guard = 0
+    while (guard++ < 60) {
+      const clash = others.find((o) => hits(x, o))
+      if (!clash) break
+      x = clash.x + clash.w + 8   // sit just to the right of whatever it collided with
+    }
+    return x === me.x ? arr : arr.map((s) => (s.id === id ? { ...s, x } : s))
+  }
+
   const addSwatch = () => {
     const id = 'sw' + Date.now()
     setSwatches((s) => {
       const row = s.find((x) => x.id === 'face') || s[0]
       const rightX = s.reduce((m, x) => Math.max(m, x.x + x.w), row ? row.x : 96)
       // keep:true → a hand-added chip stays visible even while empty (it used to vanish on deselect)
-      return [...s, { id, name: '', color: '', keep: true, x: row ? rightX + 16 : 96, y: row ? row.y : 640, w: SW_W, h: SW_H }]
+      const next = [...s, { id, name: '', color: '', keep: true, x: row ? rightX + 16 : 96, y: row ? row.y : 640, w: SW_W, h: SW_H }]
+      return resolveOverlap(next, id)
     })
     setSelId('swatch-' + id)
   }
-  // After a drag, snap a chip's row to a neighbour so rows stay aligned.
+  // After a drag/resize, snap a chip's row to a neighbour so rows stay aligned, THEN push it clear
+  // of any chip it now overlaps — chips can never sit on top of each other.
   const snapRow = (id) => setSwatches((arr) => {
     const me = arr.find((s) => s.id === id); if (!me) return arr
     const near = arr.find((s) => s.id !== id && Math.abs(s.y - me.y) <= 18)
-    return near ? arr.map((s) => (s.id === id ? { ...s, y: near.y } : s)) : arr
+    const snapped = near ? arr.map((s) => (s.id === id ? { ...s, y: near.y } : s)) : arr
+    return resolveOverlap(snapped, id)
   })
   // #7 — the ITEM DETAILS artwork area background, so a grey-background artwork can sit on a
   // matching grey instead of clashing white. Persisted with the proposal state.
@@ -821,7 +844,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   }, [])
 
   // editable block — content written once at mount (see EBlock) so React can NEVER clobber edits
-  const E = (key, style) => <EBlock key={key} k={key} html={initial[key]} style={style} />
+  const E = (key, style, opts) => <EBlock key={key} k={key} html={initial[key]} style={style} noPaste={opts?.noPaste} />
   // when the SPECIFICATIONS run long, drop ADDITIONAL NOTES so the proposal stays on one page (#17)
   const specLong = (initial.specBody || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().length > 520
 
@@ -1040,16 +1063,40 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     const c = await render({ scale: 2 })
     return c.toDataURL('image/png')
   }
-  useImperativeHandle(fwdRef, () => ({ captureCleanImage, captureSnapshot }))
+  // HD render of THIS page for download — dataURL + pixel dims (the parent gathers one per sign
+  // to build the multi-page PDF / stitched PNG).
+  const captureExport = async () => {
+    const c = await render({ scale: HD_SCALE })
+    return { url: c.toDataURL('image/png'), w: c.width, h: c.height }
+  }
+  useImperativeHandle(fwdRef, () => ({ captureCleanImage, captureSnapshot, captureExport }))
+
+  // load a dataURL into an <img> (for stitching); resolves null on failure
+  const loadImg = (src) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src })
 
   const downloadPNG = async () => {
     if (exportBlocked) { flash('🔒 Blocked — the price needs approval before this quote can go out'); return }
     setBusy('png')
     try {
-      const c = await render({ scale: HD_SCALE })   // HD so the PNG stays sharp when zoomed
+      // every sign page (multi) → ONE stitched PNG; single sign → just this page
+      const pages = capturePages ? await capturePages() : [await captureExport()]
+      let href
+      if (pages.length <= 1) {
+        href = pages[0].url
+      } else {
+        const imgs = (await Promise.all(pages.map((p) => loadImg(p.url)))).filter(Boolean)
+        const GAP = Math.round(HD_SCALE * 10)
+        const W = Math.max(...imgs.map((im) => im.width))
+        const H = imgs.reduce((s, im) => s + im.height, 0) + GAP * (imgs.length - 1)
+        const cv = document.createElement('canvas'); cv.width = W; cv.height = H
+        const ctx = cv.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H)
+        let y = 0
+        for (const im of imgs) { ctx.drawImage(im, Math.round((W - im.width) / 2), y); y += im.height + GAP }
+        href = cv.toDataURL('image/png')
+      }
       const a = document.createElement('a')
       a.download = `${info.quoteId || 'quote'}.png`
-      a.href = c.toDataURL('image/png'); a.click()
+      a.href = href; a.click()
       flash('PNG downloaded')
     } catch (e) { flash('PNG failed: ' + e.message) } finally { setBusy('') }
   }
@@ -1096,15 +1143,31 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     if (exportBlocked) { flash('🔒 Blocked — the price needs approval before this quote can go out'); return }
     setBusy('pdf')
     try {
-      const el = pageRef.current
-      const canvas = await render({ scale: HD_SCALE })      // HD capture → crisp text in the PDF
       const pdf = new jsPDF({ unit: 'pt', format: 'letter', orientation: 'portrait' })
       const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight()
+
+      if (capturePages) {
+        // multi-sign quote → ONE Letter page per sign. (The clickable pay-link annotation is a
+        // single-page feature; on a multi-sign PDF the pay button is baked into the last page's
+        // image and the live link travels via the payment link itself.)
+        const pages = await capturePages()
+        pages.forEach((p, i) => {
+          if (i > 0) pdf.addPage()
+          const fit = Math.min(pw / p.w, ph / p.h)
+          pdf.addImage(p.url, 'PNG', (pw - p.w * fit) / 2, 0, p.w * fit, p.h * fit)
+        })
+        pdf.save(`${info.quoteId || 'quote'}.pdf`)
+        flash(`PDF downloaded — ${pages.length} pages`)
+        return
+      }
+
+      // single sign — one sheet, with the clickable payment-link annotation over the pay button
+      const el = pageRef.current
+      const canvas = await render({ scale: HD_SCALE })      // HD capture → crisp text in the PDF
       const fit = Math.min(pw / canvas.width, ph / canvas.height)   // fit the whole page, one sheet (#8)
       const w = canvas.width * fit, h = canvas.height * fit
       const ox = (pw - w) / 2, oy = 0
       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', ox, oy, w, h)
-      // clickable payment link over the pay button
       const a = paymentLink ? el.querySelector('[data-pay-link]') : null
       if (a) {
         const sc = scaleRef.current || 1                    // page is shown scaled on screen
@@ -1231,7 +1294,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
           <div style={{ margin: '7px 40px 0', display: 'grid', gridTemplateColumns: '1fr 240px', border: '1px solid #777' }}>
             <div style={{ borderRight: '1px solid #777' }}>
               <div data-sec="specs" style={secHead}>SPECIFICATIONS</div>
-              {E('specBody', { fontSize: 10.5, lineHeight: 1.9, padding: '10px 12px', minHeight: specLong ? 255 : 215, whiteSpace: 'pre-wrap', outline: 'none', borderBottom: '1px solid #777' })}
+              {/* specBody: paste blocked (sensitive #2). Its bottom border is the separator ABOVE
+                  Additional Notes — drop it when notes are hidden so no line dangles (#4). */}
+              {E('specBody', { fontSize: 10.5, lineHeight: 1.9, padding: '10px 12px', minHeight: specLong ? 255 : 215, whiteSpace: 'pre-wrap', outline: 'none', borderBottom: (!specLong && !hideNotes) ? '1px solid #777' : 'none' }, { noPaste: true })}
               {!specLong && !hideNotes && <>
                 <div style={{ ...secHead, position: 'relative' }}>ADDITIONAL NOTES
                   {/* screen-only remover (#6) — restore via "+ Notes" in the right column */}

@@ -7,9 +7,10 @@ use App\Services\ShopifyService;
 use Illuminate\Console\Command;
 
 /**
- * One-time fix: rewrite existing payment-link URLs from product pages to cart permalinks
- * (/cart/{variant}:1). Product-page links let every link a customer opened accumulate into one
- * cart, billing them for the whole queue at once. Idempotent — already-fixed rows are skipped.
+ * Rebuild existing payment-link URLs to PRODUCT-PAGE links (/products/{handle}), so the customer
+ * lands on the sign's preview instead of being forwarded straight to checkout. Fetches each
+ * product's handle from Shopify by its stored product id. Idempotent — a link that already points
+ * at /products/ is skipped. Needs Shopify configured (best-effort; unreachable rows are left as-is).
  *
  *   php artisan payments:fix-links
  */
@@ -17,22 +18,32 @@ class FixPaymentLinkUrls extends Command
 {
     protected $signature = 'payments:fix-links';
 
-    protected $description = 'Rewrite payment-link URLs to single-item cart permalinks';
+    protected $description = 'Rebuild payment-link URLs to product-page links';
 
     public function handle(): int
     {
+        if (!ShopifyService::configured()) {
+            $this->error('Shopify is not configured — cannot look up product handles.');
+            return self::FAILURE;
+        }
+        $host = ShopifyService::storefrontHost();
         $fixed = 0;
         $skipped = 0;
-        foreach (PaymentLink::whereNotNull('shopify_variant_id')->get() as $link) {
-            if (str_contains((string) $link->url, '/cart/')) {
+        $failed = 0;
+        foreach (PaymentLink::whereNotNull('shopify_product_id')->get() as $link) {
+            if (str_contains((string) $link->url, '/products/')) {
                 $skipped++;
                 continue;
             }
-            $host = parse_url((string) $link->url, PHP_URL_HOST) ?: ShopifyService::domain();
-            $link->update(['url' => "https://{$host}/cart/{$link->shopify_variant_id}:1"]);
+            $handle = ShopifyService::productHandle((string) $link->shopify_product_id);
+            if (!$handle) {
+                $failed++;
+                continue;
+            }
+            $link->update(['url' => "https://{$host}/products/{$handle}"]);
             $fixed++;
         }
-        $this->info("fixed: {$fixed}, already-permalinks: {$skipped}");
+        $this->info("fixed: {$fixed}, already-product-links: {$skipped}, could-not-resolve: {$failed}");
         return self::SUCCESS;
     }
 }
