@@ -459,7 +459,11 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   // isLast: this is the last page → it alone carries the totals block, downloads and payment.
   // quoteTotal: the whole quote's grand total (Σ parts); the totals block shows THIS, not the
   //        part's own amount. null for single-sign (falls back to this proposal's own total).
-  partLabel = null, multi = false, isLast = true, quoteTotal = null }, fwdRef) {
+  // collectImages: async () => [dataURL,…] — supplied by the parent on the LAST page so a payment
+  //   link carries one clean image PER sign (all pages), not just this one. null → this page only.
+  // linkTitle: combined "A & B FOR Company" title for a multi-sign payment link. null → default.
+  // captureAll: async () => dataURL of the WHOLE stacked multi-page proposal (for the version image).
+  partLabel = null, multi = false, isLast = true, quoteTotal = null, collectImages = null, linkTitle = null, captureAll = null }, fwdRef) {
   // approval lock: while the quote is locked and the price unapproved, nothing goes out
   const exportBlocked = !!(approval?.locked && !approval?.approved)
   const pageRef = useRef(null)
@@ -1053,16 +1057,18 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   const [plResult, setPlResult] = useState(null)   // { url, kind } on success
   const createPaymentLink = async (kind) => {
     if (exportBlocked) { flash('🔒 Blocked — the price needs approval first'); return }
-    if (!price || price <= 0) { flash('Set a price before creating a payment link.'); return }
+    // gate on the WHOLE-quote total (a multi-sign last page may have a small own price)
+    if (!totalsAmount || totalsAmount <= 0) { flash('Set a price before creating a payment link.'); return }
     setPlBusy(kind); setPlResult(null)
     try {
       // flush any pending edit FIRST so it's recorded as a change before the checkpoint is minted
       // server-side (otherwise the last edit would land in the NEXT rev, not this payment's rev).
       try { if (onSave) await onSave(captureState()) } catch { /* non-blocking */ }
 
-      const canvas = await captureCleanImage()   // clean product image (no price block)
+      // one clean image per sign on a multi-sign quote (parent-collected), else just this page
+      const images = collectImages ? await collectImages() : [await captureCleanImage()]
       const { data } = await client.post(`/quotes/${quoteId}/payment-link`, {
-        kind, image: canvas,
+        kind, images, title: linkTitle || undefined,
         contact: info.contact || '', email: info.email || '',
       })
       setPlResult({ url: data.url, kind })
@@ -1070,9 +1076,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
       if (onPaymentLinkCreated && data.url) onPaymentLinkCreated(data.url)
 
       // the payment minted a version checkpoint ({quote_id}-rev{n}); attach the FULL proposal image
-      // (with price block) to it so the history shows exactly what went out. Best-effort.
+      // (whole quote when multi-sign) so the history shows exactly what went out. Best-effort.
       if (data.checkpoint?.id) {
-        try { await attachCheckpointImage(quoteId, data.checkpoint.id, await captureSnapshot()) } catch { /* image is a nice-to-have */ }
+        try { await attachCheckpointImage(quoteId, data.checkpoint.id, captureAll ? await captureAll() : await captureSnapshot()) } catch { /* image is a nice-to-have */ }
       }
       flash('Payment link created ✓ — saved as ' + (data.checkpoint?.label || 'a new version'))
     } catch (e) {

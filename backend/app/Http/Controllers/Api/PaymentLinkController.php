@@ -53,12 +53,18 @@ class PaymentLinkController extends Controller
             return response()->json(['error' => 'Quotes of $500 or less are full-payment only.'], 422);
         }
 
-        // the clean product image (base64 data URL) → permanent storage
-        $imageBase64 = $request->input('image');   // "data:image/png;base64,…"
+        // Clean product image(s): a multi-sign quote sends `images` (one per sign, all attach to
+        // the product); a single-sign quote sends `image`. Only the FIRST is kept in the ledger
+        // as the thumbnail. `title` is the combined "A & B FOR Company" for multi-sign quotes.
+        $images = $request->input('images');
+        $images = is_array($images) && $images !== [] ? array_values(array_filter($images, 'is_string'))
+            : array_filter([$request->input('image')]);
+        $imageBase64 = $images[0] ?? null;
         $imageRef = $imageBase64 ? $this->storeImage($imageBase64, $quote->quote_id.'-'.$kind) : null;
+        $titleOverride = trim((string) $request->input('title', '')) ?: null;
 
         // build + create the Shopify product for THIS payment kind (one variant, one price)
-        $payload = ShopifyService::buildProductPayload($quote, $total, $imageBase64, $kind);
+        $payload = ShopifyService::buildProductPayload($quote, $total, $images, $kind, $titleOverride);
         $result = ShopifyService::createProduct($payload);
 
         if (!($result['ok'] ?? false)) {

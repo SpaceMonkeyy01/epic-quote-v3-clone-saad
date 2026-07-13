@@ -393,6 +393,36 @@ export default function Generator() {
   // Rebuild a part's tpl object from its saved name (catalog entry, or a synthesized custom one).
   const tplForPart = (p) => (p?.tpl_name ? (T.find((t) => t.n === p.tpl_name) || makeCustomTpl(p.tpl_name, p.tpl_stored_spec || null)) : null)
 
+  // Every page's Proposal instance, keyed by its stable part id — so the last page can pull a
+  // clean product image from EVERY sign when it creates the combined payment link.
+  const pageRefs = useRef({})
+
+  // One sign's title for the combined payment link, WITHOUT the trailing "FOR {company}" (added
+  // once at the end so "Signarama" appears a single time — Sami's rule #2).
+  const signTitleOf = (p) => {
+    const company = client.company_name || ''
+    let d = p?.custom_spec?.itemDesc || tplForPart(p)?.desc || 'SIGN'
+    if (company) {
+      const esc = company.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      d = d.replace(new RegExp('\\s*FOR\\s+' + esc + '\\s*$', 'i'), '')
+    }
+    return d.trim() || 'SIGN'
+  }
+  const linkTitle = (() => {
+    const company = client.company_name || ''
+    return parts.map(signTitleOf).join(' & ') + (company ? ' FOR ' + company : '')
+  })()
+
+  // Clean product image for EVERY sign, in page order (skips any that fail to render).
+  const collectPartImages = async () => {
+    const imgs = []
+    for (const p of parts) {
+      const el = pageRefs.current[p.__pid]
+      if (el?.captureCleanImage) { try { imgs.push(await el.captureCleanImage()) } catch { /* skip a bad page */ } }
+    }
+    return imgs
+  }
+
   // Load a saved part into the wizard hooks (so the wizard / Edit specs edits THAT part).
   const loadPartIntoHooks = (p = {}) => {
     setTpl(tplForPart(p))
@@ -1241,7 +1271,7 @@ export default function Generator() {
                       </button>
                     )}
                     <Proposal
-                      ref={isLast ? proposalRef : undefined}
+                      ref={(el) => { pageRefs.current[p.__pid] = el; if (isLast) proposalRef.current = el }}
                       mode={p.quote_type || mode}
                       tpl={tplForPart(p)}
                       answers={p.answers || {}}
@@ -1253,6 +1283,8 @@ export default function Generator() {
                       multi={multi}
                       isLast={isLast}
                       quoteTotal={multi ? grandTotal : null}
+                      collectImages={multi ? collectPartImages : null}
+                      linkTitle={multi ? linkTitle : null}
                       canCreatePaymentLinks={canCreatePaymentLinks}
                       onPaymentLinkCreated={(url) => savePaymentLink(url)}
                       artworkPath={p.artwork_path}

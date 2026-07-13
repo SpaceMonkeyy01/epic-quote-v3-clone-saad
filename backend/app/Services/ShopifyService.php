@@ -63,15 +63,25 @@ class ShopifyService
      * Build the REST product payload (pure — no network, unit-testable).
      * $kind: 'quote' (Full + Deposit variants), or 'balance' (single Balance variant).
      */
-    public static function buildProductPayload(Quote $quote, float $total, ?string $imageBase64, string $kind = 'full'): array
+    /**
+     * @param string|array|null $images   one clean-image data URL, or an ARRAY of them (one per
+     *                                     sign on a multi-page quote — all attach to the product).
+     * @param string|null       $titleOverride  combined title for a multi-sign quote
+     *                                     ("A & B FOR Company"); null → the single-sign default.
+     */
+    public static function buildProductPayload(Quote $quote, float $total, string|array|null $images, string $kind = 'full', ?string $titleOverride = null): array
     {
         $gd = $quote->generated_data ?: [];
         $itemDesc = $gd['custom_spec']['itemDesc'] ?? $quote->job_name ?: 'CUSTOM SIGNAGE';
         $signType = $gd['tpl_name'] ?? ($gd['custom_spec']['signType'] ?? '');
 
         $variants = self::variantsFor($total, $kind);
-        // title: "{ID} - {Title Case item} - {Payment part}" (#1, #4)
-        $title = trim($quote->quote_id.' - '.self::titleCase($itemDesc).' - '.self::kindLabel($kind));
+        // title: multi-sign quotes pass a combined title; single-sign uses the classic
+        // "{ID} - {Title Case item} - {Payment part}" (#1, #4).
+        $baseTitle = $titleOverride !== null && trim($titleOverride) !== ''
+            ? self::titleCase(trim($titleOverride))
+            : self::titleCase($itemDesc);
+        $title = trim($quote->quote_id.' - '.$baseTitle.' - '.self::kindLabel($kind));
 
         $product = [
             'title'          => $title,
@@ -88,11 +98,16 @@ class ShopifyService
             'variants'       => $variants,
         ];
 
-        if ($imageBase64) {
-            // Shopify accepts a base64 "attachment" (strip any data: URI prefix)
-            $product['images'] = [[
-                'attachment' => preg_replace('#^data:image/\w+;base64,#', '', $imageBase64),
-            ]];
+        // one image per sign — Shopify shows them all in the product gallery. Base64 "attachment"
+        // (strip any data: URI prefix). Empty / malformed entries are skipped, not sent.
+        $attachments = [];
+        foreach ((array) $images as $img) {
+            if (is_string($img) && $img !== '') {
+                $attachments[] = ['attachment' => preg_replace('#^data:image/\w+;base64,#', '', $img)];
+            }
+        }
+        if ($attachments) {
+            $product['images'] = $attachments;
         }
 
         return ['product' => $product];
