@@ -188,9 +188,11 @@ function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, sel
                       }
                     }
                   }
-                  // centre the final frame inside its bounds so a shrunk image sits nicely
-                  if (bounds) {
-                    fitted = { ...fitted, x: Math.round((bounds.w - fitted.w) / 2), y: fitCenterH ? fitted.y : Math.round((bounds.h - fitted.h) / 2) }
+                  // centre the fitted frame inside its bounds — ONLY for a single free image (the
+                  // artwork). Package tiles / side views use fitCenterH and have deliberate spread
+                  // x positions; centring them stacked every tile at the same x (alignment bug).
+                  if (bounds && !fitCenterH) {
+                    fitted = { ...fitted, x: Math.round((bounds.w - fitted.w) / 2), y: Math.round((bounds.h - fitted.h) / 2) }
                   }
                   setBox(fitted); onLay(fitted)
                 }
@@ -1189,22 +1191,22 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             ))}
           </div>
 
-          {/* item table. On a multi-sign quote per-part prices are hidden (Sami's rule) — the
-              table is just DESCRIPTION + QTY, and the combined total shows on the last page. On a
-              single-sign quote it keeps the full DESCRIPTION / QTY / UNIT / TOTAL layout. */}
-          <div style={{ margin: '7px 40px 0', display: 'grid', gridTemplateColumns: multi ? '1fr 56px' : '1fr 56px 104px 104px' }}>
+          {/* item table — DESCRIPTION / QTY / UNIT / TOTAL on EVERY page (each sign shows its own
+              price now). The last page additionally carries the COMBINED quote total in the
+              totals block below; per-page item prices are the part's own. */}
+          <div style={{ margin: '7px 40px 0', display: 'grid', gridTemplateColumns: '1fr 56px 104px 104px' }}>
             <div style={{ ...headCell, borderTop: '1px solid #777' }}>ITEM DESCRIPTION</div>
             <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>QTY</div>
-            {!multi && <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>UNIT PRICE</div>}
-            {!multi && <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>TOTAL PRICE</div>}
+            <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>UNIT PRICE</div>
+            <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>TOTAL PRICE</div>
             {E('itemDesc', { ...cell, borderTop: 'none' })}
             {/* QTY is editable (#2): TOTAL = qty × unit price, live */}
             <EditCell value={qty}
               onCommit={(v) => { const n = parseInt(v, 10); setQty(Number.isFinite(n) && n > 0 ? n : 1) }}
               style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }} />
-            {!multi && E('unitPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' })}
-            {!multi && E('totalPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' })}
-            {/* extra line items (#4) — desc / qty editable always; unit/total shown only single-sign */}
+            {E('unitPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' })}
+            {E('totalPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' })}
+            {/* extra line items (#4) — desc / qty / unit editable, total auto; × only on screen */}
             {items.map((it) => {
               const rowTotal = Math.max(0, Number(it.qty) || 0) * Math.max(0, Number(it.unit) || 0)
               return [
@@ -1216,10 +1218,10 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                 <EditCell key={it.id + 'q'} value={it.qty}
                   onCommit={(v) => { const n = parseInt(v, 10); patchItem(it.id, { qty: Number.isFinite(n) && n > 0 ? n : 1 }) }}
                   style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }} />,
-                !multi && <EditCell key={it.id + 'u'} value={money(it.unit)}
+                <EditCell key={it.id + 'u'} value={money(it.unit)}
                   onCommit={(v) => { const n = parseFloat(String(v).replace(/[^0-9.]/g, '')); patchItem(it.id, { unit: Number.isFinite(n) && n >= 0 ? n : 0 }) }}
                   style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }} />,
-                !multi && <div key={it.id + 't'} style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }}>{money(rowTotal)}</div>,
+                <div key={it.id + 't'} style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }}>{money(rowTotal)}</div>,
               ]
             })}
           </div>
@@ -1245,14 +1247,14 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
               <div style={{ position: 'relative', height: 116, borderBottom: '1px solid #777' }}>
                 {PACKAGE.map((p, i, arr) => (
                   // Smaller package tiles (#3) — centred as a group across the 240px column.
-                  // (Key bumped pkg5→pkg6 to reset saved offsets: tiles are now vertically centred
-                  // in the 116px box via fitCenterH (#5); lockAspect keeps natural proportions.)
-                  <AdjImg key={p.label} {...adjProps(`pkg6-${p.label}`, { x: Math.round(((240 - arr.length * 96) / (arr.length + 1)) * (i + 1) + 96 * i), y: 6, w: 96, h: 96 })} src={p.img} alt={p.label} lockAspect fitCenterH={116} bounds={{ w: 238, h: 114 }} />
+                  // (Key bumped pkg6→pkg7 to drop the offsets a bounds-centring bug had saved on
+                  // top of each other; tiles now sit at their spread default x again.)
+                  <AdjImg key={p.label} {...adjProps(`pkg7-${p.label}`, { x: Math.round(((240 - arr.length * 96) / (arr.length + 1)) * (i + 1) + 96 * i), y: 6, w: 96, h: 96 })} src={p.img} alt={p.label} lockAspect fitCenterH={116} bounds={{ w: 238, h: 114 }} />
                 ))}
                 {/* captions glued to each image's REAL position/size (images report their fitted
                     box on load) — always centered right below, follow drags, editable */}
                 {PACKAGE.map((p, i, arr) => {
-                  const t = layout[`pkg6-${p.label}`]
+                  const t = layout[`pkg7-${p.label}`]
                   const defX = Math.round(((240 - arr.length * 96) / (arr.length + 1)) * (i + 1) + 96 * i)
                   return E(`pkgLabel${i + 1}`, {
                     position: 'absolute',
