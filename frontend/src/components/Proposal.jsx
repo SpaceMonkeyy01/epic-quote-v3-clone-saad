@@ -505,6 +505,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   const [svLib, setSvLib] = useState([])   // team side-view library ({name, data:{path}}) — shared across quotes
   const [svSearch, setSvSearch] = useState('')   // search across ~100 side-view cards
   const [svGroup, setSvGroup] = useState(null)   // #3 — selected main sign type in the two-level picker
+  const [svAnchor, setSvAnchor] = useState({ left: 0, top: 0 })   // #9 — picker panel anchor (right of the button)
   // category buckets so ~100 cards read as a catalog, not a wall (T18)
   const svGroupOf = (label) => {
     const t = String(label || '').toUpperCase()
@@ -622,6 +623,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   const [artBg, setArtBg] = useState(savedState?.__artBg || '#ffffff')
   const [hideNotes, setHideNotes] = useState(!!savedState?.__hideNotes)   // #6 — Additional Notes removable
   const [pkgSet, setPkgSet] = useState(savedState?.__pkgSet && PACKAGE_SETS[savedState.__pkgSet] ? savedState.__pkgSet : 'standard')   // #11 — chosen package set
+  const [pkgPicking, setPkgPicking] = useState(false)   // #8 — image dropdown open
   const packageItems = PACKAGE_SETS[pkgSet].items
   const pkgW = pkgTileW(packageItems.length)
   // #7 — PROPOSAL ID / DATE / JOB align to the START of the header address ("101 E LUZERNE …"),
@@ -1604,10 +1606,31 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             {/* PACKAGE SET — pick ONE of the two sets shown under PACKAGE INCLUDES (#11) */}
             <div>
               <div style={grpLabel}>Package set</div>
-              <select value={pkgSet} onChange={(e) => setPkgSet(e.target.value)} style={{ width: '100%' }}
-                title="Choose which set of included items shows under PACKAGE INCLUDES">
-                {Object.entries(PACKAGE_SETS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select>
+              {/* image dropdown (#8): the picker shows each set's actual item IMAGES, not text */}
+              <div style={{ position: 'relative' }}>
+                <button type="button" className="ghost" style={{ width: '100%', display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}
+                  title="Choose which set of included items shows under PACKAGE INCLUDES"
+                  onClick={() => setPkgPicking((v) => !v)}>
+                  {PACKAGE_SETS[pkgSet].items.map((it) => (
+                    <img key={it.img} src={it.img} alt={it.label} style={{ height: 26, objectFit: 'contain', background: '#fff', borderRadius: 3 }} />
+                  ))}
+                  <span style={{ fontSize: 11 }}>▾</span>
+                </button>
+                {pkgPicking && (
+                  <div style={{ position: 'absolute', top: '105%', left: 0, right: 0, zIndex: 90, background: 'var(--navy-700)', border: '1px solid var(--border)', borderRadius: 8, padding: 8, boxShadow: 'var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.3))', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {Object.entries(PACKAGE_SETS).map(([k, v]) => (
+                      <button key={k} type="button" className="ghost"
+                        onClick={() => { setPkgSet(k); setPkgPicking(false) }}
+                        style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', padding: 8, borderColor: pkgSet === k ? 'var(--gold)' : undefined }}
+                        title={v.label}>
+                        {v.items.map((it) => (
+                          <img key={it.img} src={it.img} alt={it.label} style={{ height: 44, objectFit: 'contain', background: '#fff', borderRadius: 4, padding: 2 }} />
+                        ))}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* SPECIFICATIONS — aligned just under the SPECIFICATIONS header */}
@@ -1631,7 +1654,13 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             {onSideViews && (
               <div ref={setGrp('sv')}>
                 <div style={grpLabel}>Side view</div>
-                <button type="button" className="ghost" style={{ width: '100%' }} onClick={() => setPickingSV((v) => !v)}>{pickingSV ? 'Done choosing side views' : '+ Choose side views'}</button>
+                <button type="button" className="ghost" style={{ width: '100%' }}
+                  onClick={(e) => {
+                    // the picker opens as a panel at the BUTTON'S RIGHT (#9), not below the page
+                    const r = e.currentTarget.getBoundingClientRect()
+                    setSvAnchor({ left: Math.min(r.right + 10, window.innerWidth - 640), top: Math.max(10, Math.min(r.top, window.innerHeight - 520)) })
+                    setPickingSV((v) => !v)
+                  }}>{pickingSV ? 'Done choosing side views' : '+ Choose side views'}</button>
               </div>
             )}
           </div>
@@ -1673,10 +1702,10 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
       )}
       </div>{/* /proposal-layout */}
 
-      {/* side-view picker GRID — opens full-width below the preview when toggled from the right column */}
+      {/* side-view picker — a floating panel at the RIGHT of the "+ Choose side views" button (#9) */}
       {onSideViews && mainView && pickingSV && (
-        <div style={{ margin: '12px 0' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
+        <div style={{ position: 'fixed', left: svAnchor.left, top: svAnchor.top, width: 620, maxHeight: '72vh', overflowY: 'auto', zIndex: 150, background: 'var(--navy-700)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.45)' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
               <input
                 placeholder="Search side views… (e.g. raceway, monument)"
                 value={svSearch}

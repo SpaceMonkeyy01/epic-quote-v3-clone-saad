@@ -74,8 +74,15 @@ export default function AddQuoteModal({ onClose }) {
       const hit = (data || []).find((c) => c.name.toLowerCase() === name.trim().toLowerCase())
       setExactHit(hit || null)
       if (hit) {
-        const c0 = (hit.contacts || [])[0] || {}
-        applyAuto({ address: hit.address || '', client_name: c0.client_name || '', contact: c0.contact || '', email: c0.email || '' })
+        // Dropdown-ONLY autofill (#3, Sami 2026-07-14): a known company fills its ADDRESS, but
+        // contact details are never auto-applied — the rep picks the exact contact from the
+        // dropdown below (the data still carries duplicates/mislabeled rows; auto-applying the
+        // first one kept picking wrong people).
+        applyAuto({ address: hit.address || '' })
+        // pre-pick the rep who handled this company's latest quote (#5) — only when untouched
+        if (hit.last_sales_rep) {
+          setForm((f) => (f.sales_rep ? f : { ...f, sales_rep: hit.last_sales_rep }))
+        }
       }
     } catch { /* suggestions are best-effort */ }
   }

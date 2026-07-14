@@ -97,6 +97,69 @@ class CleanCompanyData extends Command
             }
         }
 
+        // ---- v2 (#4, Sami 2026-07-14): meaningful entries only ----
+        $stats['co_rolename_deleted'] = 0;
+        $stats['rep_dupe_merged'] = 0;
+        $stats['rep_roleonly_deleted'] = 0;
+
+        // A "company" whose name is really a job title / junk. Only deleted when NOTHING points
+        // at it (no quotes) — a role-named company with real quotes needs a human rename instead.
+        $roleRe = '/^(office|office manager|owner|manager|sales|sales rep(resentative)?|project manager|'
+                .'accounting|accounts?|front desk|admin|receptionist|estimator|designer|purchasing|'
+                .'n\/?a|none|unknown|test|tbd)([ \/|&-]+(office|manager|owner|sales|project manager|admin))*$/iu';
+        foreach (Company::all() as $c) {
+            if (!preg_match($roleRe, $norm($c->name))) {
+                continue;
+            }
+            $hasQuotes = \App\Models\Quote::where('company_id', $c->id)->exists()
+                || \App\Models\Quote::whereRaw('LOWER(company_name) = ?', [mb_strtolower($norm($c->name))])->exists();
+            if ($hasQuotes) {
+                $this->warn("kept role-named company (has quotes): {$c->name}");
+                continue;
+            }
+            $stats['co_rolename_deleted']++;
+            if (!$dry) {
+                Representative::where('company_id', $c->id)->delete();
+                $c->delete();
+            }
+        }
+
+        // Redundant contacts per company ("Sharon Khoo" three ways): group by normalized name,
+        // keep the most complete row (email + phone filled beats blank; longer name breaks ties),
+        // fold any missing email/phone from the dupes into the survivor, delete the rest.
+        $repKey = fn ($s) => preg_replace('/[^a-z0-9]/', '', mb_strtolower($norm($s)));
+        foreach (Company::all() as $c) {
+            $groups = [];
+            foreach (Representative::where('company_id', $c->id)->get() as $r) {
+                $k = $repKey($r->name);
+                if ($k === '') continue;
+                $groups[$k][] = $r;
+            }
+            foreach ($groups as $g) {
+                if (count($g) < 2) continue;
+                usort($g, fn ($a, $b) =>
+                    [(int) !empty($b->email) + (int) !empty($b->phone), mb_strlen($b->name)]
+                    <=> [(int) !empty($a->email) + (int) !empty($a->phone), mb_strlen($a->name)]);
+                $keep = array_shift($g);
+                $patch = [];
+                foreach ($g as $dupe) {
+                    if (!$keep->email && $dupe->email) { $patch['email'] = $dupe->email; $keep->email = $dupe->email; }
+                    if (!$keep->phone && $dupe->phone) { $patch['phone'] = $dupe->phone; $keep->phone = $dupe->phone; }
+                    $stats['rep_dupe_merged']++;
+                    if (!$dry) $dupe->delete();
+                }
+                if ($patch && !$dry) $keep->update($patch);
+            }
+        }
+
+        // A contact whose NAME is just a role word and who has no email AND no phone is noise.
+        foreach (Representative::all() as $r) {
+            if (preg_match($roleRe, $norm($r->name)) && !$norm($r->email) && !$norm($r->phone)) {
+                $stats['rep_roleonly_deleted']++;
+                if (!$dry) $r->delete();
+            }
+        }
+
         foreach ($stats as $k => $v) $this->info(str_pad($k, 26).$v);
         if ($dry) $this->warn('Dry run — nothing written.');
         return self::SUCCESS;
