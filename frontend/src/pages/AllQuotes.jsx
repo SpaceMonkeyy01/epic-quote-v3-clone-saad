@@ -16,36 +16,23 @@ import RevisionHistory from '../components/RevisionHistory'
 function ViewProposalImage({ quote }) {
   const [img, setImg] = useState(null)
   const [gd, setGd] = useState(null)
-  const [zoom, setZoom] = useState(false)
+  const [page, setPage] = useState(0)
   useEffect(() => {
     let alive = true
-    setImg(null); setGd(null)
-    getRevisions(quote.quote_id)
-      .then((d) => {
-        if (!alive) return
-        const found = (d?.checkpoints || []).find((c) => c.snapshot_image)?.snapshot_image
-        if (found) setImg(found)
-        else return getGenerated(quote.quote_id).then((g) => { if (alive) setGd(g || {}) })
-      })
-      .catch(() => { getGenerated(quote.quote_id).then((g) => { if (alive) setGd(g || {}) }).catch(() => {}) })
+    setImg(null); setGd(null); setPage(0)
+    // the live per-page render is primary (it pages sign-by-sign); the latest version image is
+    // the fallback for quotes whose generated data can't load.
+    getGenerated(quote.quote_id)
+      .then((g) => { if (alive) setGd(g || {}) })
+      .catch(() => getRevisions(quote.quote_id).then((d) => {
+        if (alive) setImg((d?.checkpoints || []).find((c) => c.snapshot_image)?.snapshot_image || null)
+      }).catch(() => {}))
     return () => { alive = false }
   }, [quote.quote_id])
-  if (img) return (
-    <>
-      <img src={img} alt="Latest proposal" onClick={() => setZoom(true)} title="Click to enlarge"
-        style={{ width: '100%', maxHeight: 300, objectFit: 'contain', objectPosition: 'top', background: '#fff', borderRadius: 8, border: '1px solid var(--border)', cursor: 'zoom-in', marginBottom: 12 }} />
-      {zoom && (
-        <div onMouseDown={(e) => { e.stopPropagation(); setZoom(false) }}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out' }}>
-          <img src={img} alt="Proposal" style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 6, background: '#fff' }} />
-        </div>
-      )}
-    </>
-  )
+
   if (gd) {
-    // read-only live render (pointer events off — a viewer, not an editor). A multi-sign quote
-    // renders every part stacked, exactly like the editor's preview; a single-sign quote renders
-    // its one page. Falls back to the top-level bundle for a legacy quote with no `parts`.
+    // IMAGES ONLY (#12): the proposal itself, one page at a time — a multi-sign quote pages
+    // through A/B/… with ‹ › (a "multi-page wizard"), read-only.
     const parts = (Array.isArray(gd.parts) && gd.parts.length) ? gd.parts : [gd]
     const total = parts.reduce((s, p) => {
       const price = Number(p?.custom_spec?.price ?? p?.answers?.price) || 0
@@ -56,9 +43,18 @@ function ViewProposalImage({ quote }) {
     }, 0)
     const info = { company: quote.company_name, client: quote.client_name, contact: quote.contact, email: quote.email, address: quote.address, job: quote.job_name, quoteId: quote.quote_id }
     const multi = parts.length > 1
+    const i = Math.min(page, parts.length - 1)
+    const p = parts[i]
     return (
-      <div style={{ pointerEvents: 'none', maxHeight: 420, overflow: 'auto', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 18 }}>
-        {parts.map((p, i) => (
+      <div style={{ marginBottom: 12 }}>
+        {multi && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 8 }}>
+            <button className="ghost sm" disabled={i === 0} onClick={() => setPage(i - 1)}>‹ Prev</button>
+            <b style={{ fontSize: 13 }}>Page {String.fromCharCode(65 + i)} of {String.fromCharCode(65 + parts.length - 1)}</b>
+            <button className="ghost sm" disabled={i === parts.length - 1} onClick={() => setPage(i + 1)}>Next ›</button>
+          </div>
+        )}
+        <div style={{ pointerEvents: 'none', maxHeight: 460, overflow: 'auto', borderRadius: 8, border: '1px solid var(--border)' }}>
           <Proposal
             key={i}
             mode={p.quote_type || gd.quote_type || 'custom'}
@@ -76,10 +72,13 @@ function ViewProposalImage({ quote }) {
             isLast={i === parts.length - 1}
             quoteTotal={multi ? total : null}
           />
-        ))}
+        </div>
       </div>
     )
   }
+  if (img) return (
+    <img src={img} alt="Latest proposal" style={{ width: '100%', maxHeight: 460, objectFit: 'contain', objectPosition: 'top', background: '#fff', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 12 }} />
+  )
   return null
 }
 
@@ -145,6 +144,7 @@ export default function AllQuotes() {
   const [rushOnly, setRushOnly] = useState(false)
   const [sourceF, setSourceF] = useState('')
   const [viewing, setViewing] = useState(null)
+  const [viewDetails, setViewDetails] = useState(false)   // #12 — text details collapsed by default
   const [selected, setSelected] = useState(() => new Set())   // quote_ids ticked for bulk actions
   // the dashboard's "+ New quote" button arrives with state.openNew → open the modal straight away
   const location = useLocation()
@@ -411,8 +411,13 @@ export default function AllQuotes() {
         <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && setViewing(null)}>
           <div className="modal">
             <h2>Quote {viewing.quote_id}</h2>
-            {/* the rendered PROPOSAL itself, front and centre (#7) — latest version image */}
+            {/* IMAGES ONLY (#12): the proposal pages front and centre; the text details live
+                behind the Details toggle (kept — notes editing + internals still reachable). */}
             <ViewProposalImage quote={viewing} />
+            <button className="ghost sm" style={{ marginBottom: 10 }} onClick={() => setViewDetails((v) => !v)}>
+              {viewDetails ? 'Hide details' : 'Details & notes ▾'}
+            </button>
+            {viewDetails && <>
             {[
               ['Company', viewing.company_name], ['Client', viewing.client_name],
               ['Phone', viewing.contact], ['Email', viewing.email], ['Address', viewing.address],
@@ -445,6 +450,7 @@ export default function AllQuotes() {
                 />
               </div>
             ))}
+            </>}
             <div className="foot"><button onClick={() => setViewing(null)}>Close</button></div>
           </div>
         </div>

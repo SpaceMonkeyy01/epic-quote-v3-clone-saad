@@ -12,6 +12,8 @@ export default function RevisionHistory({ quoteId, onClose }) {
   const [error, setError] = useState('')
   const [zoom, setZoom] = useState(null)
   const [restoring, setRestoring] = useState(null)   // checkpoint id being restored
+  const [cpPage, setCpPage] = useState(0)            // #13 — which version the wizard shows (0 = newest)
+  const [showDiffs, setShowDiffs] = useState(false)  //      field diffs behind a toggle
 
   // #8 — revert the quote to this version. Two-step (confirm) because it rewrites the live quote;
   // the restore itself is versioned server-side, so even a wrong restore can be undone the same way.
@@ -77,45 +79,60 @@ export default function RevisionHistory({ quoteId, onClose }) {
         {!data && !error && <div className="center" style={{ padding: 30 }}>Loading history…</div>}
         {isEmpty && <div className="muted" style={{ padding: 20 }}>No changes recorded yet.</div>}
 
-        <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* uncheckpointed edits (after the last payment/checkpoint) */}
-          {pending.length > 0 && (
-            <div style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: '11px 13px', background: 'var(--navy-700)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 }}>
-                <b style={{ fontSize: 13, color: 'var(--gold)' }}>Current — not yet checkpointed</b>
-                <span className="muted" style={{ fontSize: 11.5 }}>{pending.length} change{pending.length === 1 ? '' : 's'}</span>
+        {/* IMAGES WIZARD (#13): one version at a time — its proposal image front and centre,
+            ‹ › walks the versions (newest first). Field diffs live behind the Details toggle. */}
+        {checkpoints.length > 0 && (() => {
+          const i = Math.min(cpPage, checkpoints.length - 1)
+          const cp = checkpoints[i]
+          return (
+            <div style={{ overflowY: 'auto' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 8 }}>
+                <button className="ghost sm" disabled={i === 0} onClick={() => setCpPage(i - 1)}>‹ Newer</button>
+                <b style={{ fontSize: 14 }}>{cp.label}</b>
+                <span className="badge" style={{ fontSize: 10.5 }}>{cp.trigger === 'payment' ? 'payment' : 'manual'}</span>
+                <span className="muted" style={{ fontSize: 11.5 }} title={fullTime(cp.created_at)}>{timeAgo(cp.created_at)}</span>
+                <button className="ghost sm" disabled={i === checkpoints.length - 1} onClick={() => setCpPage(i + 1)}>Older ›</button>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {pending.map((c, i) => <ChangeRow key={i} c={c} />)}
+              {cp.snapshot_image
+                ? <img src={cp.snapshot_image} alt={cp.label} onClick={() => setZoom(cp.snapshot_image)} title="Click to enlarge"
+                    style={{ width: '100%', maxHeight: 380, objectFit: 'contain', objectPosition: 'top', background: '#fff', borderRadius: 8, border: '1px solid var(--border)', cursor: 'zoom-in' }} />
+                : <div className="muted" style={{ padding: 24, textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 8 }}>No image was captured for this version.</div>}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+                <button className="ghost sm" disabled={!!restoring} onClick={() => doRestore(cp)}
+                  title="Revert the quote to exactly how it was at this version">
+                  {restoring === cp.id ? 'Restoring…' : '↩ Restore this version'}
+                </button>
+                <button className="ghost sm" onClick={() => setShowDiffs((v) => !v)}>
+                  {showDiffs ? 'Hide details' : `Details ▾ (${cp.changes.length} change${cp.changes.length === 1 ? '' : 's'}${pending.length ? ` · ${pending.length} pending` : ''})`}
+                </button>
               </div>
-            </div>
-          )}
-
-          {/* checkpoints (versions), newest first */}
-          {checkpoints.map((cp) => (
-            <div key={cp.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px', background: 'var(--navy-700)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 9, flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                  <b style={{ fontSize: 14 }}>{cp.label}</b>
-                  <span className="badge" style={{ fontSize: 10.5 }}>{cp.trigger === 'payment' ? 'payment' : 'manual'}</span>
-                  <span className="muted" style={{ fontSize: 11.5 }} title={fullTime(cp.created_at)}>{timeAgo(cp.created_at)}</span>
+              {showDiffs && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 10 }}>
+                  {pending.length > 0 && i === 0 && (
+                    <div style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: '9px 11px' }}>
+                      <b style={{ fontSize: 12.5, color: 'var(--gold)' }}>Current — not yet checkpointed</b>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+                        {pending.map((c, j) => <ChangeRow key={j} c={c} />)}
+                      </div>
+                    </div>
+                  )}
+                  {cp.changes.length === 0
+                    ? <div className="muted" style={{ fontSize: 12 }}>No changes in this version.</div>
+                    : cp.changes.map((c, j) => <ChangeRow key={j} c={c} />)}
                 </div>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  {cp.snapshot_image
-                    ? <button className="ghost sm" onClick={() => setZoom(cp.snapshot_image)} title="View the proposal at this version">🖼 View proposal</button>
-                    : <span className="muted" style={{ fontSize: 11.5 }}>no image</span>}
-                  <button className="ghost sm" disabled={!!restoring} onClick={() => doRestore(cp)}
-                    title="Revert the quote to exactly how it was at this version">
-                    {restoring === cp.id ? 'Restoring…' : '↩ Restore'}
-                  </button>
-                </div>
-              </div>
-              {cp.changes.length === 0
-                ? <div className="muted" style={{ fontSize: 12, paddingLeft: 12 }}>No changes in this version.</div>
-                : <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>{cp.changes.map((c, i) => <ChangeRow key={i} c={c} />)}</div>}
+              )}
             </div>
-          ))}
-        </div>
+          )
+        })()}
+        {/* edits exist but no checkpoint yet — show them directly */}
+        {checkpoints.length === 0 && pending.length > 0 && (
+          <div style={{ overflowY: 'auto', border: '1px dashed var(--border)', borderRadius: 10, padding: '11px 13px' }}>
+            <b style={{ fontSize: 13, color: 'var(--gold)' }}>Current — not yet checkpointed</b>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 8 }}>
+              {pending.map((c, i) => <ChangeRow key={i} c={c} />)}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* full-size proposal viewer */}
