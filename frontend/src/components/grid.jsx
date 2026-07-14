@@ -61,7 +61,7 @@ export function ColumnPicker({ columns }) {
   const [open, setOpen] = useState(false)
   return (
     <div style={{ position: 'relative' }}>
-      <button className="ghost sm" onClick={() => setOpen(!open)} title="Choose which columns to show">☰ Columns</button>
+      <button className="ghost sm" onClick={() => setOpen(!open)} title="Choose which columns to show">☰ Filter</button>
       {open && (
         <div style={{ position: 'absolute', right: 0, top: '110%', zIndex: 50, background: 'var(--navy-700)', border: '1px solid var(--border)', borderRadius: 8, padding: 10, minWidth: 170, boxShadow: 'var(--shadow-lg)' }}>
           {columns.cols.map((c) => (

@@ -395,7 +395,8 @@ export default function AllQuotes() {
                     <button className="ghost sm" onClick={() => setViewing(q)}>View</button>{' '}
                     {!readOnly && <><button className="ghost sm" onClick={() => navigate(`/quotes/${q.quote_id}/generate`, { state: { from: '/quotes' } })}>Edit</button>{' '}</>}
                     {admin && <><button className="ghost sm" title="Field-level change history (who changed what, when)" onClick={() => setHistoryFor(q.quote_id)}>History</button>{' '}</>}
-                    {admin && <><button className="ghost sm" title={q.is_test ? 'Unmark test — counts again in all numbers' : 'Mark as TEST — excluded from every KPI, pipeline and report'} onClick={() => patch(q.quote_id, 'is_test', !q.is_test)}>{q.is_test ? 'Untest' : 'Test'}</button>{' '}</>}
+                    {/* Test-flag toggle removed from the UI for now (Sami, 2026-07-14) — the
+                        is_test field and its KPI exclusion stay intact server-side. */}
                     {admin && <button className="danger sm" onClick={() => remove(q)}>Delete</button>}
                   </td>
                 </tr>

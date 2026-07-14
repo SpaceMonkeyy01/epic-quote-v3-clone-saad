@@ -735,19 +735,20 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     if (h.stack.length > 80) h.stack.shift()
     h.idx = h.stack.length - 1
   }, [layout, swatches])
+  // shared by the Ctrl+Z/Y shortcuts AND the visible ↶/↷ buttons (#7)
+  const applyHist = (dir) => {
+    const h = histRef.current
+    const to = h.idx + dir
+    if (to < 0 || to >= h.stack.length) return
+    h.idx = to
+    // both writes batch into ONE history-effect run — one silent flag covers it
+    h.silent = true
+    setLayout(h.stack[to].layout)
+    setSwatches(h.stack[to].swatches)
+    flash(dir < 0 ? 'Undo' : 'Redo')
+  }
   useEffect(() => {
     if (!mainView) return
-    const applyHist = (dir) => {
-      const h = histRef.current
-      const to = h.idx + dir
-      if (to < 0 || to >= h.stack.length) return
-      h.idx = to
-      // both writes batch into ONE history-effect run — one silent flag covers it
-      h.silent = true
-      setLayout(h.stack[to].layout)
-      setSwatches(h.stack[to].swatches)
-      flash(dir < 0 ? 'Undo' : 'Redo')
-    }
     const onKey = (e) => {
       // while typing in any text field/block, the browser's own shortcuts must win
       if (e.target?.closest?.('[contenteditable], input, textarea, select')) return
@@ -1199,17 +1200,30 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
       const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight()
 
       if (capturePages) {
-        // multi-sign quote → ONE Letter page per sign. (The clickable pay-link annotation is a
-        // single-page feature; on a multi-sign PDF the pay button is baked into the last page's
-        // image and the live link travels via the payment link itself.)
+        // multi-sign quote → ONE Letter page per sign, with the clickable pay-link annotation on
+        // the LAST page (#10). Downloads only render on the last page, so THIS proposal's DOM is
+        // that page — its pay-button rect maps straight onto the last PDF page (which is also the
+        // current jsPDF page after the loop).
         const pages = await capturePages()
+        let lastFit = 1, lastOx = 0
         pages.forEach((p, i) => {
           if (i > 0) pdf.addPage()
           const fit = Math.min(pw / p.w, ph / p.h)
-          pdf.addImage(p.url, 'PNG', (pw - p.w * fit) / 2, 0, p.w * fit, p.h * fit)
+          const ox = (pw - p.w * fit) / 2
+          pdf.addImage(p.url, 'PNG', ox, 0, p.w * fit, p.h * fit)
+          lastFit = fit; lastOx = ox
         })
+        const el = pageRef.current
+        const a = paymentLink ? el.querySelector('[data-pay-link]') : null
+        if (a) {
+          const sc = scaleRef.current || 1
+          const pageRect = el.getBoundingClientRect(), r = a.getBoundingClientRect()
+          const k = HD_SCALE * lastFit   // 1 unscaled css px = HD_SCALE canvas px = HD_SCALE*fit pt
+          pdf.link(lastOx + ((r.left - pageRect.left) / sc) * k, ((r.top - pageRect.top) / sc) * k,
+            (r.width / sc) * k, (r.height / sc) * k, { url: paymentLink })
+        }
         pdf.save(`${info.quoteId || 'quote'}.pdf`)
-        flash(`PDF downloaded — ${pages.length} pages`)
+        flash(`PDF downloaded — ${pages.length} pages` + (a ? ' — payment link is clickable' : ''))
         return
       }
 
@@ -1437,7 +1451,15 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             <AdjSwatch key={sw.id} rk={'swatch-' + sw.id} sw={sw} scaleRef={scaleRef}
               locked={false}
               selected={selId === 'swatch-' + sw.id} onSelect={() => setSelId('swatch-' + sw.id)}
-              onChange={(n) => setSwatches((arr) => arr.map((x) => (x.id === sw.id ? clampToArea(n) : x)))}
+              onChange={(n) => setSwatches((arr) => {
+                // uniform chips (#6): resizing ANY swatch applies the same w/h to ALL of them,
+                // so the colour row always reads as one consistent set while editing.
+                const sizeChanged = n.w !== sw.w || n.h !== sw.h
+                return arr.map((x) => {
+                  if (x.id === sw.id) return clampToArea(n)
+                  return sizeChanged ? clampToArea({ ...x, w: n.w, h: n.h }) : x
+                })
+              })}
               onRemove={() => { setSwatches((arr) => arr.filter((x) => x.id !== sw.id)); setSelId(null) }}
               onDragEnd={() => { snapRow(sw.id); if (sw.id === 'face' || sw.id === 'rettrim') setSwatches((arr) => arr.map((x) => (x.id === sw.id ? { ...x, moved: true } : x))) }}
               onPick={() => { artCanvasRef.current = null; setPickFor(sw.id) }} canPick={!!artworkPath} />
@@ -1459,6 +1481,11 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
         const setGrp = (k) => (el) => { grpRefs.current[k] = el }
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* UNDO / REDO (#7) — same history the Ctrl+Z / Ctrl+Y shortcuts walk */}
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button type="button" className="ghost sm" style={{ flex: 1 }} title="Undo (Ctrl+Z)" onClick={() => applyHist(-1)}>↶ Undo</button>
+              <button type="button" className="ghost sm" style={{ flex: 1 }} title="Redo (Ctrl+Y)" onClick={() => applyHist(+1)}>↷ Redo</button>
+            </div>
             {/* ARTWORK — aligned to ITEM DETAILS */}
             <div ref={setGrp('art')}>
               <div style={grpLabel}>Artwork</div>
@@ -1633,12 +1660,13 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
           </div>
           {plResult && (
             <div style={{ marginTop: 10, fontSize: 13 }}>
-              Link ({plResult.kind}): <a href={plResult.url} target="_blank" rel="noreferrer">{plResult.url}</a>{' '}
+              {/* truncated link display (#11) — the full URL is on the anchor + Copy */}
+              <a href={plResult.url} target="_blank" rel="noreferrer" title={plResult.url}>
+                {plResult.url.length > 48 ? plResult.url.slice(0, 48) + '……' : plResult.url}
+              </a>{' '}
               <button className="ghost sm" onClick={() => { navigator.clipboard?.writeText(plResult.url); flash('Link copied') }}>Copy</button>
-              <div className="muted" style={{ fontSize: 11, marginTop: 5 }}>Newly-created products can take up to ~1 minute to go live on the store — if it looks slow at first, give it a moment before sending to the customer.</div>
             </div>
           )}
-          <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>Creates the product in Shopify with a clean image (no price block) and records it under Payment Links.</div>
         </div>
       )}
       </div>
