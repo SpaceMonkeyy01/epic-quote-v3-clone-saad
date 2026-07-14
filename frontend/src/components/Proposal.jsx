@@ -37,16 +37,21 @@ const headCell = { ...cell, background: HEAD, fontWeight: 700, borderTop: 'none'
 // Section header bar inside the single-framed specs/package box — border only on the bottom; the outer
 // box + the left column's right edge supply the frame, so the divider stays one continuous line.
 const secHead = { background: HEAD, fontWeight: 700, fontSize: 11, padding: '5px 8px', borderBottom: '1px solid #777' }
-// Standard package items shown on every proposal (matches the approved template). The third is a
-// single combined image of the adaptor / dimmer / hardware SET (#11) — one image, labels baked in.
-const PACKAGE = [
-  { label: 'INSTALLATION TEMPLATE', img: '/package/installation-template.png' },
-  { label: 'POWER SUPPLY', img: '/package/power-supply.png' },
-  { label: 'ADAPTOR · DIMMER · HARDWARE', img: '/package/hardware-set.png' },
-]
-// tile width so the whole set fits the 240px column (2 → 96px squares, 3 → ~66px).
-const PKG_TILE_W = Math.max(56, Math.min(96, Math.floor((240 - (PACKAGE.length + 1) * 8) / PACKAGE.length)))
-const pkgDefX = (i) => Math.round(((240 - PACKAGE.length * PKG_TILE_W) / (PACKAGE.length + 1)) * (i + 1) + PKG_TILE_W * i)
+// PACKAGE INCLUDES is a SET — the rep picks ONE of two on the proposal (#11):
+//  • standard: Installation Template + Power Supply (the approved default)
+//  • hardware: one combined image of the Adaptor / Dimmer / Hardware set (labels baked in)
+const PACKAGE_SETS = {
+  standard: { label: 'Installation Template + Power Supply', items: [
+    { label: 'INSTALLATION TEMPLATE', img: '/package/installation-template.png' },
+    { label: 'POWER SUPPLY', img: '/package/power-supply.png' },
+  ] },
+  hardware: { label: 'Adaptor + Dimmer + Hardware', items: [
+    { label: 'ADAPTOR · DIMMER · HARDWARE', img: '/package/hardware-set.png' },
+  ] },
+}
+// tile width so a set fits the 240px column (1 wide image, or 2 squares).
+const pkgTileW = (n) => Math.max(56, Math.min(150, Math.floor((240 - (n + 1) * 10) / n)))
+const pkgDefX = (i, n, w) => Math.round(((240 - n * w) / (n + 1)) * (i + 1) + w * i)
 
 // Canva-style adjustable image. Click to select, then:
 //  • drag the body to move, the top grip to rotate
@@ -560,8 +565,25 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     })
     return rects
   }
-  // Colour chips must NEVER overlap another chip OR proposal text: nudge chip `id` right until its
-  // box clears every obstacle.
+  // The SPECIFICATIONS column bounds (page coords) — swatches belong here and must never leave it.
+  const specAreaRect = () => {
+    const page = pageRef.current
+    const spec = page?.querySelector('[data-key="specBody"]')?.parentElement   // the left column
+    if (!page || !spec) return null
+    const sc = scaleRef.current || 1
+    const pr = page.getBoundingClientRect()
+    const r = spec.getBoundingClientRect()
+    return { x: (r.left - pr.left) / sc, y: (r.top - pr.top) / sc, w: r.width / sc, h: r.height / sc }
+  }
+  // Keep a swatch fully inside its area (the SPECIFICATIONS column) — can't be dragged/pushed out.
+  const clampToArea = (sw) => {
+    const a = specAreaRect(); if (!a) return sw
+    const x = Math.min(Math.max(a.x + 2, sw.x), Math.max(a.x + 2, a.x + a.w - sw.w - 2))
+    const y = Math.min(Math.max(a.y + 2, sw.y), Math.max(a.y + 2, a.y + a.h - sw.h - 2))
+    return { ...sw, x: Math.round(x), y: Math.round(y) }
+  }
+  // Colour chips must NEVER overlap another chip OR proposal text, and must stay inside their area:
+  // nudge right past obstacles, then clamp back into the SPECIFICATIONS column.
   const resolveOverlap = (arr, id) => {
     const me = arr.find((s) => s.id === id); if (!me) return arr
     const obstacles = [...arr.filter((s) => s.id !== id), ...textObstacles()]
@@ -572,7 +594,8 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
       if (!clash) break
       x = Math.round(clash.x + clash.w + 8)   // sit just to the right of whatever it collided with
     }
-    return x === me.x ? arr : arr.map((s) => (s.id === id ? { ...s, x } : s))
+    const clamped = clampToArea({ ...me, x })
+    return (clamped.x === me.x && clamped.y === me.y) ? arr : arr.map((s) => (s.id === id ? clamped : s))
   }
 
   const addSwatch = () => {
@@ -598,6 +621,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   // matching grey instead of clashing white. Persisted with the proposal state.
   const [artBg, setArtBg] = useState(savedState?.__artBg || '#ffffff')
   const [hideNotes, setHideNotes] = useState(!!savedState?.__hideNotes)   // #6 — Additional Notes removable
+  const [pkgSet, setPkgSet] = useState(savedState?.__pkgSet && PACKAGE_SETS[savedState.__pkgSet] ? savedState.__pkgSet : 'standard')   // #11 — chosen package set
+  const packageItems = PACKAGE_SETS[pkgSet].items
+  const pkgW = pkgTileW(packageItems.length)
   // #7 — PROPOSAL ID / DATE / JOB align to the START of the header address ("101 E LUZERNE …"),
   // not to the right wall. The header block shrink-wraps, so its left edge IS that start; measure
   // it and pad the info-right cell to line up, left-aligned.
@@ -847,9 +873,6 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
       dep2: money(totalsAmount / 2),
       terms: TERMS_HTML,
       pay: 'CLICK HERE TO MAKE PAYMENT',
-      pkgLabel1: PACKAGE[0].label,
-      pkgLabel2: PACKAGE[1].label,
-      pkgLabel3: PACKAGE[2]?.label || '',
     }
     const merged = { ...def, ...(savedState || {}) }
     // EVERY wizard-derived block (money, client info, item description, spec text, notes) must
@@ -898,7 +921,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   const dirtyRef = useRef(new Set(savedState?.__dirty || []))
 
   const captureState = () => {
-    const state = { __layout: layout, __swatches: swatches.filter((s) => s.color || s.name), __dirty: [...dirtyRef.current], __specTpl: tpl?.n || null, __artBg: artBg, __qty: qty, __items: items, __hideNotes: hideNotes }
+    const state = { __layout: layout, __swatches: swatches.filter((s) => s.color || s.name), __dirty: [...dirtyRef.current], __specTpl: tpl?.n || null, __artBg: artBg, __qty: qty, __items: items, __hideNotes: hideNotes, __pkgSet: pkgSet }
     pageRef.current?.querySelectorAll('[data-key]').forEach((el) => { state[el.dataset.key] = el.innerHTML })
     return state
   }
@@ -917,7 +940,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => { saveTimer.current = null; flushRef.current(); flash('Saved') }, 600)
   }
-  useEffect(() => { if (!mounted.current) { mounted.current = true; return } queueSave() }, [layout, swatches, artBg, hideNotes]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!mounted.current) { mounted.current = true; return } queueSave() }, [layout, swatches, artBg, hideNotes, pkgSet]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const el = pageRef.current; if (!el) return
     const h = (e) => {
@@ -1339,22 +1362,23 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             <div>
               <div style={secHead}>PACKAGE INCLUDES</div>
               <div style={{ position: 'relative', height: 116, borderBottom: '1px solid #777' }}>
-                {PACKAGE.map((p, i) => (
-                  // Package tiles, adaptive width so the whole set fits the column (#11 added a 3rd).
-                  // Key bumped pkg7→pkg8 so saved 2-tile offsets don't clash with the new 3-tile spread.
-                  <AdjImg key={p.label} {...adjProps(`pkg8-${p.label}`, { x: pkgDefX(i), y: 6, w: PKG_TILE_W, h: PKG_TILE_W })} src={p.img} alt={p.label} lockAspect fitCenterH={116} bounds={{ w: 238, h: 114 }} />
+                {packageItems.map((p, i) => (
+                  // Package tiles of the CHOSEN set (#11). Key includes the set so switching sets
+                  // remounts with fresh default positions.
+                  <AdjImg key={`${pkgSet}-${p.label}`} {...adjProps(`pkg-${pkgSet}-${p.label}`, { x: pkgDefX(i, packageItems.length, pkgW), y: 6, w: pkgW, h: pkgW })} src={p.img} alt={p.label} lockAspect fitCenterH={116} bounds={{ w: 238, h: 114 }} />
                 ))}
-                {/* captions glued to each image's REAL position/size (images report their fitted
-                    box on load) — always centered right below, follow drags, editable */}
-                {PACKAGE.map((p, i) => {
-                  const t = layout[`pkg8-${p.label}`]
-                  return E(`pkgLabel${i + 1}`, {
-                    position: 'absolute',
-                    left: t ? t.x : pkgDefX(i),
-                    top: t ? t.y + t.h + 4 : 78,
-                    width: t ? t.w : PKG_TILE_W,
-                    textAlign: 'center', fontSize: 7.5, letterSpacing: 1, color: '#555', fontWeight: 600, lineHeight: 1.15,
-                  })
+                {/* captions from the set's item labels (plain — switch cleanly with the set) */}
+                {packageItems.map((p, i) => {
+                  const t = layout[`pkg-${pkgSet}-${p.label}`]
+                  return (
+                    <div key={`cap-${pkgSet}-${p.label}`} style={{
+                      position: 'absolute',
+                      left: t ? t.x : pkgDefX(i, packageItems.length, pkgW),
+                      top: t ? t.y + t.h + 4 : 78,
+                      width: t ? t.w : pkgW,
+                      textAlign: 'center', fontSize: 7.5, letterSpacing: 1, color: '#555', fontWeight: 600, lineHeight: 1.15,
+                    }}>{p.label}</div>
+                  )
                 })}
               </div>
               {/* explicit "no side view" removes the whole section, headline included */}
@@ -1413,7 +1437,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             <AdjSwatch key={sw.id} rk={'swatch-' + sw.id} sw={sw} scaleRef={scaleRef}
               locked={false}
               selected={selId === 'swatch-' + sw.id} onSelect={() => setSelId('swatch-' + sw.id)}
-              onChange={(n) => setSwatches((arr) => arr.map((x) => (x.id === sw.id ? n : x)))}
+              onChange={(n) => setSwatches((arr) => arr.map((x) => (x.id === sw.id ? clampToArea(n) : x)))}
               onRemove={() => { setSwatches((arr) => arr.filter((x) => x.id !== sw.id)); setSelId(null) }}
               onDragEnd={() => { snapRow(sw.id); if (sw.id === 'face' || sw.id === 'rettrim') setSwatches((arr) => arr.map((x) => (x.id === sw.id ? { ...x, moved: true } : x))) }}
               onPick={() => { artCanvasRef.current = null; setPickFor(sw.id) }} canPick={!!artworkPath} />
@@ -1548,6 +1572,15 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
               <div style={grpLabel}>Colours</div>
               <button type="button" className="ghost" style={{ width: '100%' }} onClick={addSwatch}>+ Add color swatch</button>
               <span className="muted" style={{ fontSize: 11, display: 'block', marginTop: 5 }}>Click a swatch to set its colour &amp; name; drag to place.</span>
+            </div>
+
+            {/* PACKAGE SET — pick ONE of the two sets shown under PACKAGE INCLUDES (#11) */}
+            <div>
+              <div style={grpLabel}>Package set</div>
+              <select value={pkgSet} onChange={(e) => setPkgSet(e.target.value)} style={{ width: '100%' }}
+                title="Choose which set of included items shows under PACKAGE INCLUDES">
+                {Object.entries(PACKAGE_SETS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
             </div>
 
             {/* SPECIFICATIONS — aligned just under the SPECIFICATIONS header */}

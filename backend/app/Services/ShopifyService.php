@@ -224,6 +224,13 @@ class ShopifyService
     {
         $partOf = function (array $p, string $fallbackType): string {
             $specs = trim((string) ($p['custom_spec']['specText'] ?? ($p['ai']['fullSpec'] ?? '')));
+            if ($specs === '') {
+                // fall back to the ACTUAL spec block shown on the proposal (HTML) → plain text
+                $html = (string) ($p['proposal_state']['specBody'] ?? '');
+                if ($html !== '') {
+                    $specs = trim(html_entity_decode(strip_tags(preg_replace('/<br\s*\/?>/i', "\n", $html)), ENT_QUOTES | ENT_HTML5));
+                }
+            }
             return $specs !== '' ? nl2br(e($specs)) : e($fallbackType);
         };
 
