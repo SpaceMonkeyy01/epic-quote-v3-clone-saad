@@ -125,16 +125,69 @@ class ShopifyService
     {
         $price = fn ($n) => number_format(round($n, 2), 2, '.', '');
         $base = [
-            // Always payable — allow selling even at 0 stock, so the product never reads "sold
-            // out" and a paid deposit doesn't block the balance.
-            'inventory_policy'  => 'continue',
-            'requires_shipping' => true,
-            'taxable'           => true,
+            // Track inventory and keep exactly ONE in stock (team convention): the link shows
+            // "1 in stock" and is a one-time purchase. The quantity itself is set at the US
+            // location AFTER create (see setInventoryOne) — REST no longer accepts it inline.
+            'inventory_management' => 'shopify',
+            'inventory_policy'     => 'deny',
+            'requires_shipping'    => true,
+            'taxable'              => true,
         ];
         $amount = $kind === 'full' ? $total : $total / 2;
         // No option1 → Shopify uses the default variant, so the storefront shows NO "Full Payment"
-        // selector tag (#9). The payment kind already lives in the product title.
+        // selector tag. The payment kind already lives in the product title.
         return [['price' => $price($amount)] + $base];
+    }
+
+    /**
+     * Set the product's stock to 1 at the US warehouse (the store's primary location for now).
+     * Called right after createProduct. Returns true on success. On ANY failure the caller must
+     * untrack the variant so the link never becomes an unpayable "sold out" (0 tracked stock).
+     */
+    public static function setInventoryOne(string $inventoryItemId): bool
+    {
+        if (!self::configured() || $inventoryItemId === '') {
+            return false;
+        }
+        $domain  = self::domain();
+        $version = config('services.shopify.version', '2025-01');
+        $headers = ['X-Shopify-Access-Token' => config('services.shopify.token'), 'Content-Type' => 'application/json'];
+        try {
+            // primary (US) location — the first active location Shopify returns
+            $loc = Http::timeout(15)->withHeaders($headers)
+                ->get("https://{$domain}/admin/api/{$version}/locations.json", ['limit' => 1]);
+            $locationId = $loc->json('locations.0.id');
+            if (!$locationId) {
+                return false;
+            }
+            $set = Http::timeout(15)->withHeaders($headers)
+                ->post("https://{$domain}/admin/api/{$version}/inventory_levels/set.json", [
+                    'location_id'       => $locationId,
+                    'inventory_item_id' => $inventoryItemId,
+                    'available'         => 1,
+                ]);
+            return $set->successful();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /** Turn tracking OFF for a variant (safety fallback: a product whose stock we couldn't set
+     *  must stay payable, not read "sold out"). Best-effort. */
+    public static function untrackVariant(string $variantId): void
+    {
+        if (!self::configured() || $variantId === '') {
+            return;
+        }
+        $domain  = self::domain();
+        $version = config('services.shopify.version', '2025-01');
+        try {
+            Http::timeout(15)->withHeaders([
+                'X-Shopify-Access-Token' => config('services.shopify.token'), 'Content-Type' => 'application/json',
+            ])->put("https://{$domain}/admin/api/{$version}/variants/{$variantId}.json", [
+                'variant' => ['id' => $variantId, 'inventory_management' => null, 'inventory_policy' => 'continue'],
+            ]);
+        } catch (\Throwable) { /* best-effort */ }
     }
 
     /** Build the storefront product description: the sign specs shown under the CTA. On a multi-
@@ -222,9 +275,10 @@ class ShopifyService
             return ['ok' => false, 'reason' => 'no_product'];
         }
         $variants = collect($p['variants'] ?? [])->map(fn ($v) => [
-            'id'    => (string) $v['id'],
-            'title' => $v['title'] ?? $v['option1'] ?? '',
-            'price' => $v['price'] ?? '',
+            'id'                => (string) $v['id'],
+            'inventory_item_id' => (string) ($v['inventory_item_id'] ?? ''),
+            'title'             => $v['title'] ?? $v['option1'] ?? '',
+            'price'             => $v['price'] ?? '',
         ])->all();
         return [
             'ok'         => true,

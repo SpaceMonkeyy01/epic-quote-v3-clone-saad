@@ -84,6 +84,14 @@ class PaymentLinkController extends Controller
         $variant = $result['variants'][0] ?? null;
         $amount = $kind === 'full' ? $total : round($total / 2, 2);
 
+        // Stock the variant with exactly 1 at the US warehouse (team convention). If we can't set
+        // the level, untrack the variant so the link never becomes an unpayable "sold out".
+        if ($variant && ($variant['inventory_item_id'] ?? '') !== '') {
+            if (!ShopifyService::setInventoryOne($variant['inventory_item_id'])) {
+                ShopifyService::untrackVariant($variant['id']);
+            }
+        }
+
         $gd = $quote->generated_data ?: [];
         $link = PaymentLink::create([
             'quote_id'           => $quote->id,

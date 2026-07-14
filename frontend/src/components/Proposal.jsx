@@ -37,11 +37,16 @@ const headCell = { ...cell, background: HEAD, fontWeight: 700, borderTop: 'none'
 // Section header bar inside the single-framed specs/package box — border only on the bottom; the outer
 // box + the left column's right edge supply the frame, so the divider stays one continuous line.
 const secHead = { background: HEAD, fontWeight: 700, fontSize: 11, padding: '5px 8px', borderBottom: '1px solid #777' }
-// Standard package items shown on every proposal (matches the approved template)
+// Standard package items shown on every proposal (matches the approved template). The third is a
+// single combined image of the adaptor / dimmer / hardware SET (#11) — one image, labels baked in.
 const PACKAGE = [
   { label: 'INSTALLATION TEMPLATE', img: '/package/installation-template.png' },
   { label: 'POWER SUPPLY', img: '/package/power-supply.png' },
+  { label: 'ADAPTOR · DIMMER · HARDWARE', img: '/package/hardware-set.png' },
 ]
+// tile width so the whole set fits the 240px column (2 → 96px squares, 3 → ~66px).
+const PKG_TILE_W = Math.max(56, Math.min(96, Math.floor((240 - (PACKAGE.length + 1) * 8) / PACKAGE.length)))
+const pkgDefX = (i) => Math.round(((240 - PACKAGE.length * PKG_TILE_W) / (PACKAGE.length + 1)) * (i + 1) + PKG_TILE_W * i)
 
 // Canva-style adjustable image. Click to select, then:
 //  • drag the body to move, the top grip to rotate
@@ -842,8 +847,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
       dep2: money(totalsAmount / 2),
       terms: TERMS_HTML,
       pay: 'CLICK HERE TO MAKE PAYMENT',
-      pkgLabel1: 'INSTALLATION TEMPLATE',
-      pkgLabel2: 'POWER SUPPLY',
+      pkgLabel1: PACKAGE[0].label,
+      pkgLabel2: PACKAGE[1].label,
+      pkgLabel3: PACKAGE[2]?.label || '',
     }
     const merged = { ...def, ...(savedState || {}) }
     // EVERY wizard-derived block (money, client info, item description, spec text, notes) must
@@ -1333,23 +1339,21 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             <div>
               <div style={secHead}>PACKAGE INCLUDES</div>
               <div style={{ position: 'relative', height: 116, borderBottom: '1px solid #777' }}>
-                {PACKAGE.map((p, i, arr) => (
-                  // Smaller package tiles (#3) — centred as a group across the 240px column.
-                  // (Key bumped pkg6→pkg7 to drop the offsets a bounds-centring bug had saved on
-                  // top of each other; tiles now sit at their spread default x again.)
-                  <AdjImg key={p.label} {...adjProps(`pkg7-${p.label}`, { x: Math.round(((240 - arr.length * 96) / (arr.length + 1)) * (i + 1) + 96 * i), y: 6, w: 96, h: 96 })} src={p.img} alt={p.label} lockAspect fitCenterH={116} bounds={{ w: 238, h: 114 }} />
+                {PACKAGE.map((p, i) => (
+                  // Package tiles, adaptive width so the whole set fits the column (#11 added a 3rd).
+                  // Key bumped pkg7→pkg8 so saved 2-tile offsets don't clash with the new 3-tile spread.
+                  <AdjImg key={p.label} {...adjProps(`pkg8-${p.label}`, { x: pkgDefX(i), y: 6, w: PKG_TILE_W, h: PKG_TILE_W })} src={p.img} alt={p.label} lockAspect fitCenterH={116} bounds={{ w: 238, h: 114 }} />
                 ))}
                 {/* captions glued to each image's REAL position/size (images report their fitted
                     box on load) — always centered right below, follow drags, editable */}
-                {PACKAGE.map((p, i, arr) => {
-                  const t = layout[`pkg7-${p.label}`]
-                  const defX = Math.round(((240 - arr.length * 96) / (arr.length + 1)) * (i + 1) + 96 * i)
+                {PACKAGE.map((p, i) => {
+                  const t = layout[`pkg8-${p.label}`]
                   return E(`pkgLabel${i + 1}`, {
                     position: 'absolute',
-                    left: t ? t.x : defX,
+                    left: t ? t.x : pkgDefX(i),
                     top: t ? t.y + t.h + 4 : 78,
-                    width: t ? t.w : 96,
-                    textAlign: 'center', fontSize: 8.5, letterSpacing: 1.5, color: '#555', fontWeight: 600,
+                    width: t ? t.w : PKG_TILE_W,
+                    textAlign: 'center', fontSize: 7.5, letterSpacing: 1, color: '#555', fontWeight: 600, lineHeight: 1.15,
                   })
                 })}
               </div>
