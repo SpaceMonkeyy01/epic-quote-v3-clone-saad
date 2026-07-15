@@ -213,6 +213,29 @@ class DashboardController extends Controller
         return response()->json($out);
     }
 
+    // GET /api/reports/funnel?days=365 — pipeline stage counts for the conversion funnel (admin).
+    // Stages a quote passes through on the way to a sale: Created → Priced (a price was set) →
+    // Approved (price approved) → Won (status Done). Drop-off between stages is where sales leak.
+    public function funnel(Request $request): JsonResponse
+    {
+        if (!$request->user()->isAdmin()) {
+            return response()->json(['error' => 'forbidden'], 403);
+        }
+        $days = max(1, min(3650, (int) $request->query('days', 365)));
+        $since = Carbon::now()->subDays($days);
+        $base = fn () => Quote::where('is_test', false)->where('created_at', '>=', $since);
+
+        return response()->json([
+            'days'   => $days,
+            'stages' => [
+                ['key' => 'created',  'label' => 'Created',  'count' => $base()->count()],
+                ['key' => 'priced',   'label' => 'Priced',   'count' => $base()->where('price', '>', 0)->count()],
+                ['key' => 'approved', 'label' => 'Approved', 'count' => $base()->where('price_approved', true)->count()],
+                ['key' => 'won',      'label' => 'Won',      'count' => $base()->where('status', 'Done')->count()],
+            ],
+        ]);
+    }
+
     // GET /api/team — the transparency page: who is carrying what, right now (T15)
     public function team(Request $request): JsonResponse
     {

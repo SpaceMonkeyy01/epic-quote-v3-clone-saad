@@ -71,6 +71,7 @@ Route::middleware(['auth:sanctum', 'readonly.guard'])->group(function () {
     Route::get('/dashboard', [App\Http\Controllers\Api\DashboardController::class, 'index']);
     Route::get('/reports/sales-reps', [App\Http\Controllers\Api\DashboardController::class, 'salesReps']);
     Route::get('/reports/monthly', [App\Http\Controllers\Api\DashboardController::class, 'monthly']);
+    Route::get('/reports/funnel', [App\Http\Controllers\Api\DashboardController::class, 'funnel']);
     Route::get('/team', [App\Http\Controllers\Api\DashboardController::class, 'team']);
     Route::get('/activity', [App\Http\Controllers\Api\DashboardController::class, 'activity']);
 
