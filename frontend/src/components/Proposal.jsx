@@ -1449,9 +1449,12 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                   </div>
                 </>}
               </div>
-              {(paymentLink && /^https?:\/\//i.test(paymentLink))   // only real web links render as a button (never javascript:/data:)
-                ? <a data-pay-link href={paymentLink} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 14, background: '#f5a623', padding: 14, textAlign: 'center', fontSize: 15, fontWeight: 800, letterSpacing: 0.5, color: '#111', textDecoration: 'none' }}>CLICK HERE TO MAKE PAYMENT</a>
-                : E('pay', { marginTop: 14, background: '#f5a623', padding: 14, textAlign: 'center', fontSize: 15, fontWeight: 800, letterSpacing: 0.5 })}
+              {/* The pay CTA appears ONLY once a real payment link exists — never a placeholder
+                  before one is created, and it simply re-points when a link is re-created. No
+                  link → nothing renders (a dead "Click here to make payment" misleads the customer). */}
+              {(paymentLink && /^https?:\/\//i.test(paymentLink)) && (
+                <a data-pay-link href={paymentLink} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 14, background: '#f5a623', padding: 14, textAlign: 'center', fontSize: 15, fontWeight: 800, letterSpacing: 0.5, color: '#111', textDecoration: 'none' }}>CLICK HERE TO MAKE PAYMENT</a>
+              )}
             </div>
             )}
           </div>

@@ -7,43 +7,54 @@ use App\Services\ShopifyService;
 use Illuminate\Console\Command;
 
 /**
- * Rebuild existing payment-link URLs to PRODUCT-PAGE links (/products/{handle}), so the customer
- * lands on the sign's preview instead of being forwarded straight to checkout. Fetches each
- * product's handle from Shopify by its stored product id. Idempotent — a link that already points
- * at /products/ is skipped. Needs Shopify configured (best-effort; unreachable rows are left as-is).
+ * Rewrite existing payment-link URLs to CART PERMALINKS (/cart/{variant}:1). Product-page links
+ * accumulate: the Shopify cart is shared per customer session, so a customer who opened several
+ * deposit links piled them into one cart and got billed the SUM ("$18k instead of $6k"). A cart
+ * permalink empties the cart and adds only that one item, so each link bills exactly its own amount.
  *
+ * Uses the variant id stored on the link; falls back to fetching it from Shopify by product id.
+ * Idempotent (a link already pointing at /cart/ is skipped). --dry-run reports without writing.
+ *
+ *   php artisan payments:fix-links --dry-run
  *   php artisan payments:fix-links
  */
 class FixPaymentLinkUrls extends Command
 {
-    protected $signature = 'payments:fix-links';
+    protected $signature = 'payments:fix-links {--dry-run}';
 
-    protected $description = 'Rebuild payment-link URLs to product-page links';
+    protected $description = 'Rewrite payment-link URLs to cart permalinks so links never accumulate in one cart';
 
     public function handle(): int
     {
         if (!ShopifyService::configured()) {
-            $this->error('Shopify is not configured — cannot look up product handles.');
+            $this->error('Shopify is not configured — cannot resolve variant ids.');
             return self::FAILURE;
         }
+        $dry = (bool) $this->option('dry-run');
         $host = ShopifyService::storefrontHost();
         $fixed = 0;
         $skipped = 0;
         $failed = 0;
         foreach (PaymentLink::whereNotNull('shopify_product_id')->get() as $link) {
-            if (str_contains((string) $link->url, '/products/')) {
+            if (str_contains((string) $link->url, '/cart/')) {
                 $skipped++;
                 continue;
             }
-            $handle = ShopifyService::productHandle((string) $link->shopify_product_id);
-            if (!$handle) {
+            $variantId = (string) ($link->shopify_variant_id ?? '')
+                ?: (string) (ShopifyService::productVariantId((string) $link->shopify_product_id) ?? '');
+            if ($variantId === '') {
                 $failed++;
                 continue;
             }
-            $link->update(['url' => "https://{$host}/products/{$handle}"]);
+            $url = ShopifyService::checkoutUrl($host, $variantId);
+            $this->line(($dry ? '[dry] ' : '')."{$link->id}: {$link->url} → {$url}");
+            if (!$dry) {
+                $link->update(['url' => $url, 'shopify_variant_id' => $variantId]);
+            }
             $fixed++;
         }
-        $this->info("fixed: {$fixed}, already-product-links: {$skipped}, could-not-resolve: {$failed}");
+        $verb = $dry ? 'would fix' : 'fixed';
+        $this->info("{$verb}: {$fixed}, already-cart-links: {$skipped}, could-not-resolve: {$failed}");
         return self::SUCCESS;
     }
 }

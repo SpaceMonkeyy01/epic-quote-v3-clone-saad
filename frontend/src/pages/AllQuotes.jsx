@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useQuotes, useConstants, useUpdateQuote, useUpdateStatus, useUpdateTags, useDeleteQuote } from '../hooks'
@@ -18,6 +18,30 @@ function ViewProposalImage({ quote }) {
   const [img, setImg] = useState(null)
   const [gd, setGd] = useState(null)
   const [page, setPage] = useState(0)
+  // Fit-to-viewport (#2): the proposal renders at its natural 816px width (~1056px+ tall). To show
+  // the WHOLE page in one go — no inner scrollbar — we measure the rendered height and scale the
+  // page down so it fits inside the modal viewport. Height is the constraint; width always fits.
+  const contentRef = useRef(null)
+  const [fit, setFit] = useState(1)
+  const [contentH, setContentH] = useState(0)
+  useLayoutEffect(() => {
+    const el = contentRef.current
+    if (!el) return
+    const measure = () => {
+      const h = el.scrollHeight
+      if (!h) return
+      // modal viewport (90vh) minus the modal chrome: padding, the "Quote …" heading, the
+      // page-carousel bar, and margins. Conservative so the whole thing never scrolls.
+      const availH = window.innerHeight * 0.9 - 150
+      setContentH(h)
+      setFit(Math.min(1, availH / h))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    window.addEventListener('resize', measure)
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure) }
+  }, [gd, page])
   useEffect(() => {
     let alive = true
     setImg(null); setGd(null); setPage(0)
@@ -68,9 +92,11 @@ function ViewProposalImage({ quote }) {
             <button className="ghost sm" disabled={i === parts.length - 1} onClick={() => setPage(i + 1)}>Next ›</button>
           </div>
         )}
-        {/* The COMPLETE page, not a 460px scroll window (#4): the wide View modal has the room,
-            so show the whole proposal. pointerEvents:none keeps it read-only. */}
-        <div style={{ pointerEvents: 'none', borderRadius: 8, border: '1px solid var(--border)' }}>
+        {/* The COMPLETE page in one go, scaled to fit the modal viewport (#2) — no inner slider.
+            The outer box reserves the scaled height; the inner 816px page is scaled by `fit`.
+            pointerEvents:none keeps it read-only. */}
+        <div style={{ height: contentH ? contentH * fit : undefined, display: 'flex', justifyContent: 'center', overflow: 'hidden' }}>
+          <div ref={contentRef} style={{ width: 816, transform: `scale(${fit})`, transformOrigin: 'top center', pointerEvents: 'none', borderRadius: 8, border: '1px solid var(--border)' }}>
           <Proposal
             key={i}
             readOnly
@@ -89,6 +115,7 @@ function ViewProposalImage({ quote }) {
             isLast={i === parts.length - 1}
             quoteTotal={multi ? total : null}
           />
+          </div>
         </div>
       </div>
     )

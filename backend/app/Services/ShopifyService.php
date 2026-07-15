@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Quote;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Creates the exact "unlisted product" the team makes by hand in Shopify, from a quote.
@@ -314,16 +315,50 @@ class ShopifyService
             'title'             => $v['title'] ?? $v['option1'] ?? '',
             'price'             => $v['price'] ?? '',
         ])->all();
+        $variantId = (string) ($variants[0]['id'] ?? '');
         return [
             'ok'         => true,
             'product_id' => (string) $p['id'],
             'handle'     => $p['handle'] ?? '',
-            // PRODUCT PAGE: the customer lands on the sign's preview (image + specs) and pays from
-            // there — NOT a cart permalink (/cart/…:1 forwarded straight to checkout, skipping the
-            // preview). Each link is its own single-variant product, so nothing accumulates.
-            'url'        => 'https://'.self::storefrontHost().'/products/'.($p['handle'] ?? ''),
+            // CART PERMALINK, not the product page. A cart permalink (/cart/{variant}:1) makes
+            // Shopify EMPTY the current cart and add only THIS one item, then go to checkout — so
+            // each link bills exactly its own amount. Product-page links did the opposite: the cart
+            // is shared per customer session, so a customer who opened several deposit links piled
+            // them all into one cart and got billed the SUM (the "$18k instead of $6k" bug). If a
+            // variant id is somehow missing, fall back to the product page (payable, just not
+            // cart-clearing) rather than emit a broken /cart/:1 link.
+            'url'        => $variantId !== ''
+                ? self::checkoutUrl(self::storefrontHost(), $variantId)
+                : 'https://'.self::storefrontHost().'/products/'.($p['handle'] ?? ''),
             'variants'   => $variants,
         ];
+    }
+
+    /** Cart-permalink checkout URL for a single variant, qty 1. Shopify replaces the cart with
+     *  just this item and forwards to checkout, so payment links can never accumulate. */
+    public static function checkoutUrl(?string $host, string $variantId): string
+    {
+        return 'https://'.$host.'/cart/'.$variantId.':1';
+    }
+
+    /** Fetch a product's first variant id by product id (for rebuilding an existing link's
+     *  cart permalink when the variant id wasn't stored). Null on any failure. */
+    public static function productVariantId(string $productId): ?string
+    {
+        if (!self::configured() || $productId === '') {
+            return null;
+        }
+        try {
+            $domain  = self::domain();
+            $version = config('services.shopify.version', '2025-01');
+            $resp = Http::timeout(15)->withHeaders(['X-Shopify-Access-Token' => config('services.shopify.token')])
+                ->get("https://{$domain}/admin/api/{$version}/products/{$productId}.json", ['fields' => 'variants']);
+            $id = $resp->successful() ? ($resp->json('product.variants.0.id') ?? null) : null;
+            return $id ? (string) $id : null;
+        } catch (\Throwable $e) {
+            Log::warning("Shopify productVariantId {$productId}: ".$e->getMessage());
+            return null;
+        }
     }
 
     /** Lightweight connection check (GET shop.json) — used by /api/shopify/status. */

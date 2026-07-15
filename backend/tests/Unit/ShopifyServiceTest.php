@@ -47,3 +47,22 @@ it('labels the payment kind for the title', function () {
     expect(ShopifyService::kindLabel('deposit'))->toBe('50% Deposit');
     expect(ShopifyService::kindLabel('balance'))->toBe('Remaining Balance (50%)');
 });
+
+// A payment link must be a CART PERMALINK for its own single variant — never a product page.
+// Product-page links share the customer's cart, so multiple deposit links accumulated and billed
+// the SUM ("$18k instead of $6k"). A /cart/{variant}:1 permalink empties the cart and bills one.
+it('builds a cart permalink that isolates each link to its own variant', function () {
+    $url = ShopifyService::checkoutUrl('epiccraftings.com', '44551234567890');
+    expect($url)->toBe('https://epiccraftings.com/cart/44551234567890:1');
+    expect($url)->not->toContain('/products/');   // product pages accumulate — must not be used
+});
+
+it('gives each payment kind its own variant so one link bills one amount', function () {
+    // full and deposit are DIFFERENT single-variant products; each cart permalink checks out only
+    // its own variant, so opening several links can never sum them.
+    $full = ShopifyService::variantsFor(6000.0, 'full')[0]['price'];
+    $dep  = ShopifyService::variantsFor(6000.0, 'deposit')[0]['price'];
+    expect($full)->toBe('6000.00');
+    expect($dep)->toBe('3000.00');
+    expect(ShopifyService::variantsFor(6000.0, 'full'))->toHaveCount(1);
+});
