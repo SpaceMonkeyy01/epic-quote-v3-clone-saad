@@ -83,18 +83,50 @@ Reuse the SPA rewrite + security headers from the live static site (see `render.
 Env: `VITE_API_URL` = the **beta** API url from Step 2. (This is the only wiring that points
 the beta UI at the beta backend.)
 
-## Step 4 — beta DB = a copy of prod
+## Step 4 — beta DB = a copy of prod (SQLite on disk)
 
-**CONFIRM FIRST what prod actually uses** — the copy method depends on it:
-- If prod backend is **SQLite on the Render disk** (the `render.yaml` default): copy the
-  `/var/data/database.sqlite` file to the beta service's disk (Render Shell, or a one-off
-  export/import command). Beta then runs the same SQLite file, isolated.
-- If prod backend is an **external MySQL**: `mysqldump` prod → import into a **new** beta MySQL
-  database, then point beta's `DB_*` at it. Never point beta at the live DB.
+Prod runs **SQLite at `/var/data/database.sqlite`** on the Render disk. It's a single file, so the
+"copy" is just: move that file onto beta's disk. Render disks aren't shared between services and
+there's no file-download button, so the file travels through a one-time transit. Render **Shell**
+(available on the Starter plan, under each service's dashboard) is how you run these.
 
-Either way the copy is **read-only against prod** (a dump/file-read), so it can't harm live data.
-Re-run the copy whenever you want fresh beta data. After copying, reset beta admin creds
-(the copy carries live users) via `SEED_ADMIN_PASSWORD` + a re-seed, or a password reset.
+The copy only **reads** the prod file, so it can't harm live data. Do it whenever you want fresh
+beta data.
+
+### 4a. Export from PROD (prod service → Shell)
+
+```
+gzip -c /var/data/database.sqlite > /tmp/db.sqlite.gz
+```
+
+Then upload `/tmp/db.sqlite.gz` to a transit beta can reach. **This file contains real customer
+PII** — prefer a private transit and delete it right after:
+- **Private (preferred):** a short-lived pre-signed S3/GCS URL, or a private Cloudinary *raw*
+  upload — whatever you already control. Get back a download URL.
+- **Quick but public:** `curl --upload-file /tmp/db.sqlite.gz https://transfer.sh/db.sqlite.gz`
+  → returns a URL. The URL is unguessable and expires, but the object is public while it lives —
+  acceptable only for a one-time small DB, and **delete it immediately after import.**
+
+### 4b. Import into BETA (beta service → Shell)
+
+```
+curl -o /var/data/database.sqlite.gz "<the-transit-url>"
+gunzip -f /var/data/database.sqlite.gz         # → /var/data/database.sqlite
+php artisan migrate --force                     # bring schema current (idempotent)
+php artisan db:seed --force                      # resets beta admin from SEED_ADMIN_PASSWORD
+```
+
+Then **Manual Deploy → Restart** the beta service so it opens the new file. Delete the transit
+object now.
+
+> The copied DB carries live users (with live password hashes) and live `payment_links` rows. With
+> Shopify off in beta (Step 2) those rows are inert. `db:seed` re-asserts the beta admin so you can
+> log in with `SEED_ADMIN_PASSWORD`; other users keep their prod hashes (unusable in beta, which is
+> fine).
+
+> **Optional upgrade:** if you'll re-copy often, I can add an idempotent `db:export-sqlite` /
+> `db:import-sqlite` artisan pair (private transit, admin reset, row-count report, `--dry-run`) so
+> this becomes two commands instead of Shell steps. Say the word.
 
 ## Step 5 — verify isolation before trusting it
 
