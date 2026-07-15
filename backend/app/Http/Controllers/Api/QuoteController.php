@@ -668,6 +668,53 @@ class QuoteController extends Controller
         return response()->json(['checkpoints' => $checkpoints, 'pending' => $pending]);
     }
 
+    // GET /api/quotes/{quote}/artworks — EVERY artwork the quote has ever carried: the live art on
+    // each sign, PLUS older uploads that were later replaced. Re-uploading overwrites a part's
+    // artwork_path (the old file is orphaned on Cloudinary), so "all artworks uploaded so far" only
+    // survives in the version snapshots — we mine those here. Deduped; live art first, then history.
+    public function artworks(Request $request, Quote $quote): JsonResponse
+    {
+        $this->assertAccess($request, $quote);
+        $seen = [];
+        $out = [];
+        $add = function (?string $path, string $label) use (&$seen, &$out) {
+            $path = is_string($path) ? trim($path) : '';
+            if ($path === '' || isset($seen[$path])) {
+                return;
+            }
+            $seen[$path] = true;
+            $out[] = ['label' => $label, 'url' => $path];
+        };
+        $harvest = function ($gd, string $suffix) use ($add) {
+            if (!is_array($gd)) {
+                return;
+            }
+            $parts = (isset($gd['parts']) && is_array($gd['parts']) && $gd['parts'] !== []) ? $gd['parts'] : [$gd];
+            $multi = count($parts) > 1;
+            foreach ($parts as $i => $p) {
+                if (is_array($p)) {
+                    $add($p['artwork_path'] ?? null, 'Artwork'.($multi ? ' '.chr(65 + $i) : '').$suffix);
+                }
+            }
+            $add($gd['artwork_path'] ?? null, 'Artwork'.$suffix);
+        };
+
+        // live artworks (current state) first
+        $harvest($quote->generated_data ?? [], '');
+        // then every artwork the quote ever had, recovered from version snapshots (older uploads)
+        foreach (\App\Models\QuoteRevision::where('quote_id', $quote->id)->orderByDesc('id')->limit(1000)->get() as $rev) {
+            $snap = is_array($rev->snapshot) ? $rev->snapshot : (is_string($rev->snapshot) ? json_decode($rev->snapshot, true) : null);
+            if (is_array($snap)) {
+                $harvest($snap['generated_data'] ?? null, ' (older)');
+            }
+        }
+        // customer file + crunched art (stored as bare names → resolve to /storage paths)
+        $add(Quote::fileRef($quote->customer_pdf, 'pdfs'), 'Customer file');
+        $add(Quote::fileRef($quote->crunched_artwork, 'artwork'), 'Crunched artwork');
+
+        return response()->json(['artworks' => $out]);
+    }
+
     // POST /api/quotes/{quote}/checkpoints — manual "Save checkpoint" button. Mints {quote_id}-rev{n},
     // folds in every pending change, and (optionally) stores the rendered proposal image.
     public function createCheckpoint(Request $request, Quote $quote): JsonResponse

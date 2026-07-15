@@ -176,29 +176,20 @@ function StatusManager({ statuses, onClose, onSaved }) {
   )
 }
 
-// Files carousel (#15): ALL of a quote's images — every sign's artwork, the customer file, the
-// crunched artwork — paged with ‹ ›. PDFs show as an open-in-tab card (they can't render in <img>).
+// Files carousel (#15): EVERY artwork the quote has ever had — the live art on each sign PLUS
+// older uploads that were later replaced (the backend mines version snapshots for those), the
+// customer file and the crunched artwork — paged with ‹ ›. PDFs show as an open-in-tab card.
 function ArtCarousel({ quote, onClose }) {
   const [files, setFiles] = useState(null)
   const [i, setI] = useState(0)
   useEffect(() => {
     let alive = true
-    getGenerated(quote.quote_id).then((g) => {
+    client.get(`/quotes/${quote.quote_id}/artworks`).then(({ data }) => {
       if (!alive) return
-      const parts = (Array.isArray(g?.parts) && g.parts.length) ? g.parts : [g || {}]
-      const list = []
-      const seen = new Set()
-      const add = (label, path) => {
-        if (!path || seen.has(path)) return
-        seen.add(path)
-        list.push({ label, url: fileUrl(path), isPdf: /\.pdf($|\?)/i.test(path) })
-      }
-      parts.forEach((p, idx) => add(parts.length > 1 ? `Artwork ${String.fromCharCode(65 + idx)}` : 'Artwork', p.artwork_path))
-      add('Customer file', quote.customer_pdf)
-      add('Crunched artwork', quote.crunched_artwork)
+      const list = (data?.artworks || []).map((a) => ({ label: a.label, url: fileUrl(a.url), isPdf: /\.pdf($|\?)/i.test(a.url) }))
       setFiles(list)
     }).catch(() => {
-      // no generated data — fall back to the quote row's own files
+      // endpoint unreachable — fall back to whatever the quote row already carries
       const list = []
       if (quote.artwork_url) list.push({ label: 'Artwork', url: fileUrl(quote.artwork_url), isPdf: false })
       if (quote.customer_pdf) list.push({ label: 'Customer file', url: fileUrl(quote.customer_pdf), isPdf: /\.pdf($|\?)/i.test(quote.customer_pdf) })

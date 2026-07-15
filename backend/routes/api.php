@@ -39,6 +39,7 @@ Route::middleware(['auth:sanctum', 'readonly.guard'])->group(function () {
     Route::post('quotes/{quote}/artwork', [App\Http\Controllers\Api\QuoteController::class, 'uploadArtwork']);
     Route::post('quotes/{quote}/crunched-artwork', [App\Http\Controllers\Api\QuoteController::class, 'uploadCrunchedArtwork']);
     Route::get('quotes/{quote}/generated', [App\Http\Controllers\Api\QuoteController::class, 'getGenerated']);
+    Route::get('quotes/{quote}/artworks', [App\Http\Controllers\Api\QuoteController::class, 'artworks']);
     Route::put('quotes/{quote}/generated', [App\Http\Controllers\Api\QuoteController::class, 'putGenerated']);
     Route::get('quotes/{quote}/revisions', [App\Http\Controllers\Api\QuoteController::class, 'revisions']);
     Route::post('quotes/{quote}/revisions/snapshot-image', [App\Http\Controllers\Api\QuoteController::class, 'snapshotImage']);
