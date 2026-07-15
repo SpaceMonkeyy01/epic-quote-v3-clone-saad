@@ -34,6 +34,37 @@ class SettingsController extends Controller
         return response()->json(['logo' => "/storage/logos/{$filename}"]);
     }
 
+    // PUT /api/settings/statuses — admin-managed quote-status list (#16). Renames/removals do
+    // NOT touch existing quotes (they keep their old status string); the list only controls what
+    // can be PICKED from here on. "Done" drives reports (won/conversion), so it can't be removed.
+    public function setStatuses(Request $request): JsonResponse
+    {
+        if (!$request->user()->isAdmin()) {
+            return response()->json(['error' => 'Only admins can manage statuses.'], 403);
+        }
+        $in = $request->input('statuses');
+        if (!is_array($in) || $in === [] || count($in) > 30) {
+            return response()->json(['error' => 'Send 1–30 statuses.'], 422);
+        }
+        $clean = [];
+        foreach ($in as $s) {
+            $s = trim((string) $s);
+            if ($s === '' || mb_strlen($s) > 40) {
+                return response()->json(['error' => 'Each status must be 1–40 characters.'], 422);
+            }
+            if (in_array($s, $clean, true)) {
+                return response()->json(['error' => "Duplicate status \"{$s}\"."], 422);
+            }
+            $clean[] = $s;
+        }
+        if (!in_array('Done', $clean, true)) {
+            return response()->json(['error' => '"Done" cannot be removed — reports and conversion metrics key off it.'], 422);
+        }
+        Setting::put('status_options', json_encode($clean));
+
+        return response()->json(['statuses' => $clean]);
+    }
+
     // GET /api/side-views — stored side-view images (#125)
     public function sideViews(): JsonResponse
     {

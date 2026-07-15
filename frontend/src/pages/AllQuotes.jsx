@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useQuotes, useConstants, useUpdateQuote, useUpdateStatus, useUpdateTags, useDeleteQuote } from '../hooks'
 import useAuthStore from '../store/authStore'
-import { fileUrl } from '../api/client'
+import client, { fileUrl } from '../api/client'
 import { getRevisions, getGenerated } from '../api/quotes'
 import Proposal from '../components/Proposal'
 import { T } from '../generator/catalog'
@@ -30,6 +31,19 @@ function ViewProposalImage({ quote }) {
     return () => { alive = false }
   }, [quote.quote_id])
 
+  // ‹ › arrow keys page through a multi-sign quote — the rep expects the keyboard to work, not
+  // only the on-screen buttons (Sami's golden principle: one task, every natural way to do it).
+  useEffect(() => {
+    const parts = (Array.isArray(gd?.parts) && gd.parts.length) ? gd.parts : (gd ? [gd] : [])
+    if (parts.length <= 1) return
+    const onKey = (e) => {
+      if (e.key === 'ArrowLeft') setPage((p) => Math.max(0, p - 1))
+      else if (e.key === 'ArrowRight') setPage((p) => Math.min(parts.length - 1, p + 1))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [gd])
+
   if (gd) {
     // IMAGES ONLY (#12): the proposal itself, one page at a time — a multi-sign quote pages
     // through A/B/… with ‹ › (a "multi-page wizard"), read-only.
@@ -54,9 +68,12 @@ function ViewProposalImage({ quote }) {
             <button className="ghost sm" disabled={i === parts.length - 1} onClick={() => setPage(i + 1)}>Next ›</button>
           </div>
         )}
-        <div style={{ pointerEvents: 'none', maxHeight: 460, overflow: 'auto', borderRadius: 8, border: '1px solid var(--border)' }}>
+        {/* The COMPLETE page, not a 460px scroll window (#4): the wide View modal has the room,
+            so show the whole proposal. pointerEvents:none keeps it read-only. */}
+        <div style={{ pointerEvents: 'none', borderRadius: 8, border: '1px solid var(--border)' }}>
           <Proposal
             key={i}
+            readOnly
             mode={p.quote_type || gd.quote_type || 'custom'}
             tpl={T.find((t) => t.n === p.tpl_name) || (p.tpl_name ? { n: p.tpl_name, st: 'SIGN TYPE: ' + p.tpl_name, mono: 1, colors: [] } : null)}
             answers={p.answers || {}}
@@ -80,6 +97,127 @@ function ViewProposalImage({ quote }) {
     <img src={img} alt="Latest proposal" style={{ width: '100%', maxHeight: 460, objectFit: 'contain', objectPosition: 'top', background: '#fff', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 12 }} />
   )
   return null
+}
+
+// Admin status manager (#16): add / rename / remove / reorder the pickable quote statuses.
+// Existing quotes keep whatever status string they already carry; "Done" is protected server-side.
+function StatusManager({ statuses, onClose, onSaved }) {
+  const [list, setList] = useState(statuses)
+  const [err, setErr] = useState('')
+  const [saving, setSaving] = useState(false)
+  const move = (i, d) => setList((l) => {
+    const n = [...l]; const j = i + d
+    if (j < 0 || j >= n.length) return l
+    ;[n[i], n[j]] = [n[j], n[i]]
+    return n
+  })
+  const save = async () => {
+    setSaving(true); setErr('')
+    try {
+      await client.put('/settings/statuses', { statuses: list.map((s) => s.trim()).filter(Boolean) })
+      onSaved()
+      onClose()
+    } catch (e) { setErr(e?.response?.data?.error || 'Could not save statuses.') }
+    finally { setSaving(false) }
+  }
+  return (
+    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ width: 460 }}>
+        <h2 style={{ marginTop: 0 }}>Manage statuses</h2>
+        <p className="muted" style={{ fontSize: 12.5 }}>Renames/removals never touch existing quotes — they keep their current status. “Done” can’t be removed (reports key off it).</p>
+        {err && <p className="err">{err}</p>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '50vh', overflowY: 'auto' }}>
+          {list.map((s, i) => (
+            <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input value={s} onChange={(e) => setList((l) => l.map((x, j) => (j === i ? e.target.value : x)))} style={{ flex: 1 }} />
+              <button className="ghost sm" title="Move up" disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
+              <button className="ghost sm" title="Move down" disabled={i === list.length - 1} onClick={() => move(i, +1)}>↓</button>
+              <button className="ghost sm" title={s === 'Done' ? '"Done" cannot be removed' : 'Remove'} disabled={s === 'Done'}
+                style={{ color: '#e05661' }} onClick={() => setList((l) => l.filter((_, j) => j !== i))}>×</button>
+            </div>
+          ))}
+        </div>
+        <button className="ghost sm" style={{ marginTop: 8 }} onClick={() => setList((l) => [...l, ''])}>+ Add status</button>
+        <div className="foot" style={{ marginTop: 14 }}>
+          <button className="ghost" onClick={onClose}>Cancel</button>
+          <button disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save statuses'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Files carousel (#15): ALL of a quote's images — every sign's artwork, the customer file, the
+// crunched artwork — paged with ‹ ›. PDFs show as an open-in-tab card (they can't render in <img>).
+function ArtCarousel({ quote, onClose }) {
+  const [files, setFiles] = useState(null)
+  const [i, setI] = useState(0)
+  useEffect(() => {
+    let alive = true
+    getGenerated(quote.quote_id).then((g) => {
+      if (!alive) return
+      const parts = (Array.isArray(g?.parts) && g.parts.length) ? g.parts : [g || {}]
+      const list = []
+      const seen = new Set()
+      const add = (label, path) => {
+        if (!path || seen.has(path)) return
+        seen.add(path)
+        list.push({ label, url: fileUrl(path), isPdf: /\.pdf($|\?)/i.test(path) })
+      }
+      parts.forEach((p, idx) => add(parts.length > 1 ? `Artwork ${String.fromCharCode(65 + idx)}` : 'Artwork', p.artwork_path))
+      add('Customer file', quote.customer_pdf)
+      add('Crunched artwork', quote.crunched_artwork)
+      setFiles(list)
+    }).catch(() => {
+      // no generated data — fall back to the quote row's own files
+      const list = []
+      if (quote.artwork_url) list.push({ label: 'Artwork', url: fileUrl(quote.artwork_url), isPdf: false })
+      if (quote.customer_pdf) list.push({ label: 'Customer file', url: fileUrl(quote.customer_pdf), isPdf: /\.pdf($|\?)/i.test(quote.customer_pdf) })
+      setFiles(list)
+    })
+    return () => { alive = false }
+  }, [quote])
+
+  // ‹ › arrow keys page the files too (same golden-principle nav as the proposal carousel).
+  useEffect(() => {
+    if (!files || files.length <= 1) return
+    const onKey = (e) => {
+      if (e.key === 'ArrowLeft') setI((n) => Math.max(0, n - 1))
+      else if (e.key === 'ArrowRight') setI((n) => Math.min(files.length - 1, n + 1))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [files])
+
+  const f = files && files[Math.min(i, files.length - 1)]
+  return (
+    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ width: 720, maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <h2 style={{ margin: 0 }}>Files — {quote.quote_id}</h2>
+          <button className="ghost sm" onClick={onClose}>Close</button>
+        </div>
+        {!files && <div className="center" style={{ padding: 30 }}>Loading files…</div>}
+        {files && files.length === 0 && <div className="muted" style={{ padding: 20 }}>No files on this quote.</div>}
+        {f && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 8 }}>
+              <button className="ghost sm" disabled={i === 0} onClick={() => setI(i - 1)}>‹ Prev</button>
+              <b style={{ fontSize: 13 }}>{f.label} — {i + 1} of {files.length}</b>
+              <button className="ghost sm" disabled={i === files.length - 1} onClick={() => setI(i + 1)}>Next ›</button>
+            </div>
+            {f.isPdf
+              ? <div className="center" style={{ padding: 40, border: '1px dashed var(--border)', borderRadius: 8 }}>
+                  <a href={f.url} target="_blank" rel="noreferrer">📄 Open {f.label} (PDF)</a>
+                </div>
+              : <img src={f.url} alt={f.label}
+                  style={{ width: '100%', maxHeight: '62vh', objectFit: 'contain', background: '#fff', borderRadius: 8, border: '1px solid var(--border)' }} />}
+            <a className="muted" style={{ fontSize: 12, marginTop: 8 }} href={f.url} target="_blank" rel="noreferrer">Open original in a new tab ↗</a>
+          </>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // clean a currency entry to a plain numeric string (digits + one dot)
@@ -131,6 +269,7 @@ function EditCell({ value, onCommit, type = 'text', width = 120, col, row, onPas
 
 export default function AllQuotes() {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const { isAdmin, isViewer } = useAuthStore()
   const { data: constants } = useConstants()
   const update = useUpdateQuote()
@@ -144,7 +283,8 @@ export default function AllQuotes() {
   const [rushOnly, setRushOnly] = useState(false)
   const [sourceF, setSourceF] = useState('')
   const [viewing, setViewing] = useState(null)
-  const [viewDetails, setViewDetails] = useState(false)   // #12 — text details collapsed by default
+  const [artFor, setArtFor] = useState(null)              // #15 — quote whose files carousel is open
+  const [managingStatuses, setManagingStatuses] = useState(false)   // #16 — admin status manager open
   const [selected, setSelected] = useState(() => new Set())   // quote_ids ticked for bulk actions
   // the dashboard's "+ New quote" button arrives with state.openNew → open the modal straight away
   const location = useLocation()
@@ -270,6 +410,7 @@ export default function AllQuotes() {
         </label>
         <button className="ghost sm" title="Download the current view (or just the ticked rows) as a spreadsheet file" onClick={exportCsv}>⬇ CSV</button>
         <button className="ghost sm" title="Copy the current view (or just the ticked rows) — paste into Excel/Google Sheets" onClick={copyRows}>⧉ Copy</button>
+        {admin && <button className="ghost sm" title="Add, rename, reorder or remove the pickable quote statuses" onClick={() => setManagingStatuses(true)}>⚙ Statuses</button>}
         <ColumnPicker columns={columns} />
       </div>
 
@@ -388,7 +529,11 @@ export default function AllQuotes() {
                   </td>
                   {columns.has('files') && <td style={{ whiteSpace: 'nowrap' }}>
                     {q.customer_pdf && <a href={fileUrl(q.customer_pdf)} target="_blank" rel="noreferrer">PDF</a>}{' '}
-                    {q.artwork_url && <a href={fileUrl(q.artwork_url)} target="_blank" rel="noreferrer">Art</a>}{' '}
+                    {/* Art opens a carousel of ALL the quote's images (every sign's artwork +
+                        customer file + crunched), not just the first one (#15) */}
+                    {(q.artwork_url || q.customer_pdf || q.crunched_artwork) && (
+                      <button className="ghost sm" style={{ padding: '1px 7px' }} onClick={() => setArtFor(q)}>Art</button>
+                    )}{' '}
                     {q.crunched_artwork && <a href={fileUrl(q.crunched_artwork)} target="_blank" rel="noreferrer">Crunch</a>}
                   </td>}
                   <td style={{ whiteSpace: 'nowrap' }}>
@@ -409,48 +554,12 @@ export default function AllQuotes() {
 
       {viewing && (
         <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && setViewing(null)}>
-          <div className="modal">
+          {/* View = the proposal document, full size, nothing else (#3/#4). The details dump and
+              the note lanes were removed by decision (2026-07-15): notes are edited in the Edit
+              wizard now. modal-view is the wide variant so the 816px page shows at full scale. */}
+          <div className="modal modal-view">
             <h2>Quote {viewing.quote_id}</h2>
-            {/* IMAGES ONLY (#12): the proposal pages front and centre; the text details live
-                behind the Details toggle (kept — notes editing + internals still reachable). */}
             <ViewProposalImage quote={viewing} />
-            <button className="ghost sm" style={{ marginBottom: 10 }} onClick={() => setViewDetails((v) => !v)}>
-              {viewDetails ? 'Hide details' : 'Details & notes ▾'}
-            </button>
-            {viewDetails && <>
-            {[
-              ['Company', viewing.company_name], ['Client', viewing.client_name],
-              ['Phone', viewing.contact], ['Email', viewing.email], ['Address', viewing.address],
-              ['Job', viewing.job_name],
-              ['Price', viewing.price ? `$${Number(viewing.price).toLocaleString()}` : '—'],
-              ['Breakeven (production + shipping)', (viewing.breakeven_production != null || viewing.breakeven_shipping != null) ? `$${Number(viewing.breakeven_production || 0).toLocaleString()} + $${Number(viewing.breakeven_shipping || 0).toLocaleString()}` : '—'],
-              ['Profit (internal)', viewing.profit != null ? `$${Number(viewing.profit).toLocaleString()} (${viewing.profit_pct}%)` : '—'],
-              ['Price Approval', viewing.price_approved ? `Approved by ${viewing.approved_by}${viewing.approved_at ? ' on ' + new Date(viewing.approved_at).toLocaleString() : ''}` : (viewing.approval_locked ? 'LOCKED — awaiting approval' : 'Not approved')],
-              ['Follow-up', `${viewing.followup_sent ? 'Sent' : 'Not sent'}${viewing.followup_notes ? ' — ' + viewing.followup_notes : ''}`],
-              ['Quote Source', viewing.quote_source],
-              ['Order', viewing.order_confirmed ? `Placed${viewing.order_placed_at ? ' on ' + new Date(viewing.order_placed_at).toLocaleString() : ''}` : 'Not placed yet'],
-              ['Time to Done', viewing.days_to_done != null ? `${viewing.days_to_done} day${viewing.days_to_done === 1 ? '' : 's'} (finished ${new Date(viewing.done_at).toLocaleDateString()})` : 'Not done yet'], ['Sales Rep', viewing.sales_rep],
-              ['Status', viewing.status], ['Assigned To', viewing.assigned_to],
-              ['Special Requirements', viewing.special_requirements],
-              ['Created By', viewing.added_by], ['Finalized By', viewing.created_by_name],
-            ].map(([k, v]) => (
-              <div key={k} className="line" style={{ marginBottom: 6 }}><span className="muted">{k}:</span> {v || '—'}</div>
-            ))}
-            {/* the three note lanes — editable right here, saved when you click away */}
-            {[['revision_notes', 'Revision notes', 'What the client asked to change'],
-              ['important_notes', 'Important notes', 'Things the team must not miss'],
-              ['internal_notes', 'Internal notes', 'Internal-only — never shown to the client']].map(([field, label, hint]) => (
-              <div key={field} className="field" style={{ marginTop: 8 }}>
-                <label title={hint}>{label}</label>
-                <textarea
-                  defaultValue={viewing[field] || ''}
-                  rows={2}
-                  placeholder={hint + '… (saved when you click away)'}
-                  onBlur={(e) => { if (e.target.value !== (viewing[field] || '')) { patch(viewing.quote_id, field, e.target.value); setViewing({ ...viewing, [field]: e.target.value }) } }}
-                />
-              </div>
-            ))}
-            </>}
             <div className="foot"><button onClick={() => setViewing(null)}>Close</button></div>
           </div>
         </div>
@@ -458,6 +567,9 @@ export default function AllQuotes() {
 
       {showAdd && <AddQuoteModal onClose={() => setShowAdd(false)} />}
       {historyFor && <RevisionHistory quoteId={historyFor} onClose={() => setHistoryFor(null)} />}
+      {artFor && <ArtCarousel quote={artFor} onClose={() => setArtFor(null)} />}
+      {managingStatuses && <StatusManager statuses={statuses} onClose={() => setManagingStatuses(false)}
+        onSaved={() => qc.invalidateQueries({ queryKey: ['constants'] })} />}
     </div>
   )
 }

@@ -59,7 +59,7 @@ class AuthController extends Controller
     public function constants(): JsonResponse
     {
         return response()->json([
-            'statuses'      => AppConstants::STATUS_OPTIONS,
+            'statuses'      => \App\Models\Setting::statusOptions(),
             'sales_reps'    => AppConstants::SALES_REPS,
             'quote_sources' => AppConstants::QUOTE_SOURCES,
             'roles'         => AppConstants::ROLES,

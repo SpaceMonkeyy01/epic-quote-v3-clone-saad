@@ -221,6 +221,8 @@ td input:focus, td select:focus { background: var(--navy-900); }
 .overlay { position: fixed; inset: 0; background: rgba(5, 9, 18, 0.72); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
 .modal { background: var(--navy-700); border: 1px solid var(--border); border-radius: 14px; padding: 26px; width: 580px; max-width: 100%; max-height: 90vh; overflow: auto; box-shadow: var(--shadow-lg); }
 .modal-quote { width: 620px; }
+/* View-proposal modal: wide enough for the 816px proposal page to breathe (#3). */
+.modal-view { width: min(1120px, 96vw); }
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .seg-btn { background: var(--navy-800); color: var(--text-dim); border: none; padding: 8px 14px; font: inherit; font-size: 13px; cursor: pointer; }
 .seg-btn + .seg-btn { border-left: 1px solid var(--border); }

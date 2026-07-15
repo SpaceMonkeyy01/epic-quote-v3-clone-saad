@@ -76,6 +76,7 @@ Route::middleware(['auth:sanctum', 'readonly.guard'])->group(function () {
 
     // Settings
     Route::get('/settings/logo', [App\Http\Controllers\Api\SettingsController::class, 'getLogo']);
+    Route::put('/settings/statuses', [App\Http\Controllers\Api\SettingsController::class, 'setStatuses']);
     Route::post('/settings/logo', [App\Http\Controllers\Api\SettingsController::class, 'setLogo']);
     Route::get('/side-views', [App\Http\Controllers\Api\SettingsController::class, 'sideViews']);
 });

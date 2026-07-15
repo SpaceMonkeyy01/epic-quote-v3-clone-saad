@@ -46,7 +46,7 @@ const PACKAGE_SETS = {
     { label: 'POWER SUPPLY', img: '/package/power-supply.png' },
   ] },
   hardware: { label: 'Adaptor + Dimmer + Hardware', items: [
-    { label: 'ADAPTOR · DIMMER · HARDWARE', img: '/package/hardware-set.png' },
+    { label: 'ADAPTOR · DIMMER · HARDWARE', img: '/package/Adaptor_Dimmer_Hardware.png' },
   ] },
 }
 // tile width so a set fits the 240px column (1 wide image, or 2 squares).
@@ -492,7 +492,10 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   // captureAll: async () => dataURL of the WHOLE stacked multi-page proposal (for the version image).
   // capturePages: async () => [{url,w,h},…] — every sign page at HD, supplied by the parent on the
   //   LAST page so Download PDF (one page per sign) / PNG (stitched) cover the whole quote.
-  partLabel = null, multi = false, isLast = true, quoteTotal = null, collectImages = null, linkTitle = null, captureAll = null, capturePages = null }, fwdRef) {
+  // readOnly: rendered inside the All Quotes "View" modal — the doc is shown, not edited (the
+  //   wrapper already kills pointer events). We use it only to hide the "click any text to edit"
+  //   hint, which is a lie in that context. Editing still happens in the Generator wizard.
+  partLabel = null, multi = false, isLast = true, quoteTotal = null, collectImages = null, linkTitle = null, captureAll = null, capturePages = null, readOnly = false }, fwdRef) {
   // approval lock: while the quote is locked and the price unapproved, nothing goes out
   const exportBlocked = !!(approval?.locked && !approval?.approved)
   const pageRef = useRef(null)
@@ -604,8 +607,11 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     setSwatches((s) => {
       const row = s.find((x) => x.id === 'face') || s[0]
       const rightX = s.reduce((m, x) => Math.max(m, x.x + x.w), row ? row.x : 96)
+      // A new chip copies the CURRENT size of the reference chip, not the SW_W/SW_H defaults —
+      // if the rep widened their swatches, the next one matches instead of snapping back to 96×20.
+      const w = row?.w ?? SW_W, h = row?.h ?? SW_H
       // keep:true → a hand-added chip stays visible even while empty (it used to vanish on deselect)
-      const next = [...s, { id, name: '', color: '', keep: true, x: row ? rightX + 16 : 96, y: row ? row.y : 640, w: SW_W, h: SW_H }]
+      const next = [...s, { id, name: '', color: '', keep: true, x: row ? rightX + 16 : 96, y: row ? row.y : 640, w, h }]
       return resolveOverlap(next, id)
     })
     setSelId('swatch-' + id)
@@ -1253,9 +1259,11 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
 
   return (
     <div>
-      <div className="edit-hint" style={{ marginBottom: 10, fontSize: 13, color: 'var(--muted, #8a94a6)' }}>
-        ✏️ Click any text to edit it. Edits and layout save automatically. Click an image for resize corners + crop edges.
-      </div>
+      {!readOnly && (
+        <div className="edit-hint" style={{ marginBottom: 10, fontSize: 13, color: 'var(--muted, #8a94a6)' }}>
+          ✏️ Click any text to edit it. Edits and layout save automatically. Click an image for resize corners + crop edges.
+        </div>
+      )}
       {pickFor && (
         <div style={{ position: 'fixed', top: 12, left: '50%', transform: 'translateX(-50%)', background: '#8b5cf6', color: '#fff', padding: '8px 16px', borderRadius: 6, zIndex: 200, fontSize: 13, fontWeight: 600, boxShadow: '0 4px 14px rgba(0,0,0,0.25)' }}>
           🎨 Click the highlighted artwork to grab its color · press Esc to cancel

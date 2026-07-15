@@ -30,8 +30,8 @@ class DashboardController extends Controller
             ->get();
         $allQuotes = $base()->get();
 
-        // status counts seeded with all 10 statuses (#39 clickable cards)
-        $statusCounts = array_fill_keys(AppConstants::STATUS_OPTIONS, 0);
+        // status counts seeded with every configured status (#39 clickable cards)
+        $statusCounts = array_fill_keys(\App\Models\Setting::statusOptions(), 0);
         foreach ($allQuotes as $q) {
             if (array_key_exists($q->status, $statusCounts)) {
                 $statusCounts[$q->status]++;

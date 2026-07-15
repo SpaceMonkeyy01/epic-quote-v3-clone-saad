@@ -481,7 +481,7 @@ class QuoteController extends Controller
     {
         $this->assertAccess($request, $quote);
         $status = $request->input('status');
-        if (!in_array($status, AppConstants::STATUS_OPTIONS, true)) {
+        if (!in_array($status, Setting::statusOptions(), true)) {
             return response()->json(['error' => 'invalid status'], 400);
         }
 
@@ -503,7 +503,7 @@ class QuoteController extends Controller
     {
         $this->assertAccess($request, $quote);
         $tags = $request->input('tags', []);
-        if (!is_array($tags) || array_diff($tags, AppConstants::STATUS_OPTIONS)) {
+        if (!is_array($tags) || array_diff($tags, Setting::statusOptions())) {
             return response()->json(['error' => 'invalid tags'], 400);
         }
         $quote->update(['tags' => array_values($tags)]);
