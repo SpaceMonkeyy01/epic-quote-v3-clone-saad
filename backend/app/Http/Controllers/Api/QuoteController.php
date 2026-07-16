@@ -98,10 +98,14 @@ class QuoteController extends Controller
                     ->filter(fn ($c) => $c['client_name'] !== '' || $c['contact'] !== '' || $c['email'] !== '')
                     ->unique(fn ($c) => mb_strtolower($c['client_name'].'|'.$c['email']))
                     ->values();
-                // The rep who handled this company's most recent quote — the intake pre-picks
-                // them (#5). (A true client→rep mapping comes later from Sami's Airtable export.)
-                $lastRep = (string) (\App\Models\Quote::whereRaw('LOWER(company_name) = ?', [mb_strtolower($c->name)])
-                    ->where('sales_rep', '!=', '')->latest('created_at')->value('sales_rep') ?? '');
+                // The company's TRUE account manager from the client→rep mapping (companies:assign-reps,
+                // matched by email) is the pre-pick. If this company has no mapped rep yet, fall back to
+                // whoever handled its most recent quote (#5). Blank when neither exists (rep picks N/A).
+                $lastRep = (string) ($c->rep ?? '');
+                if ($lastRep === '') {
+                    $lastRep = (string) (\App\Models\Quote::whereRaw('LOWER(company_name) = ?', [mb_strtolower($c->name)])
+                        ->where('sales_rep', '!=', '')->latest('created_at')->value('sales_rep') ?? '');
+                }
                 return [
                     'name'          => $c->name,
                     'address'       => (string) ($c->address ?? ''),
