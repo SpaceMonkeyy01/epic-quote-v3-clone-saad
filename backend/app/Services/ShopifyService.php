@@ -334,11 +334,48 @@ class ShopifyService
         ];
     }
 
-    /** Cart-permalink checkout URL for a single variant, qty 1. Shopify replaces the cart with
-     *  just this item and forwards to checkout, so payment links can never accumulate. */
+    /** Cart-permalink checkout URL for a single variant. SUPERSEDED by createDraftOrder(): on the
+     *  live store, opening several cart links still ACCUMULATED into one cart (a customer got billed
+     *  the SUM of every deposit link they opened). The cart is shared per session, so no cart-based
+     *  URL is safe. Kept only for the fix-links migration to detect old links. */
     public static function checkoutUrl(?string $host, string $variantId): string
     {
         return 'https://'.$host.'/cart/'.$variantId.':1';
+    }
+
+    /** Create a Shopify DRAFT ORDER for a single variant and return its standalone checkout link
+     *  (invoice_url). This is the ONLY safe payment link: an invoice checkout contains ONLY this
+     *  draft order's line item — it uses NO cart, so two links can never combine (the accumulation
+     *  bug that billed a customer the sum of every link they opened). When the invoice is paid,
+     *  Shopify creates an order carrying the variant's product_id, so the orders/paid webhook still
+     *  matches the payment link by product_id — paid-tracking is unchanged. */
+    public static function createDraftOrder(string $variantId, ?string $email = null): array
+    {
+        if (!self::configured() || $variantId === '') {
+            return ['ok' => false, 'reason' => 'not_configured'];
+        }
+        try {
+            $domain  = self::domain();
+            $version = config('services.shopify.version', '2025-01');
+            $body = ['draft_order' => ['line_items' => [['variant_id' => (int) $variantId, 'quantity' => 1]]]];
+            if ($email) {
+                $body['draft_order']['email'] = $email;
+            }
+            $resp = Http::timeout(20)->withHeaders(['X-Shopify-Access-Token' => config('services.shopify.token')])
+                ->post("https://{$domain}/admin/api/{$version}/draft_orders.json", $body);
+            if (!$resp->successful()) {
+                return ['ok' => false, 'reason' => 'api', 'message' => is_string($resp->json('errors')) ? $resp->json('errors') : $resp->body()];
+            }
+            $do = $resp->json('draft_order') ?: [];
+            $invoice = $do['invoice_url'] ?? null;
+            if (!$invoice) {
+                return ['ok' => false, 'reason' => 'no_invoice_url'];
+            }
+            return ['ok' => true, 'id' => (string) ($do['id'] ?? ''), 'invoice_url' => (string) $invoice];
+        } catch (\Throwable $e) {
+            Log::warning('Shopify createDraftOrder: '.$e->getMessage());
+            return ['ok' => false, 'reason' => 'exception', 'message' => $e->getMessage()];
+        }
     }
 
     /** Fetch a product's first variant id by product id (for rebuilding an existing link's

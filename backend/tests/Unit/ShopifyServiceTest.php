@@ -48,21 +48,16 @@ it('labels the payment kind for the title', function () {
     expect(ShopifyService::kindLabel('balance'))->toBe('Remaining Balance (50%)');
 });
 
-// A payment link must be a CART PERMALINK for its own single variant — never a product page.
-// Product-page links share the customer's cart, so multiple deposit links accumulated and billed
-// the SUM ("$18k instead of $6k"). A /cart/{variant}:1 permalink empties the cart and bills one.
-it('builds a cart permalink that isolates each link to its own variant', function () {
-    $url = ShopifyService::checkoutUrl('epiccraftings.com', '44551234567890');
-    expect($url)->toBe('https://epiccraftings.com/cart/44551234567890:1');
-    expect($url)->not->toContain('/products/');   // product pages accumulate — must not be used
-});
-
-it('gives each payment kind its own variant so one link bills one amount', function () {
-    // full and deposit are DIFFERENT single-variant products; each cart permalink checks out only
-    // its own variant, so opening several links can never sum them.
-    $full = ShopifyService::variantsFor(6000.0, 'full')[0]['price'];
-    $dep  = ShopifyService::variantsFor(6000.0, 'deposit')[0]['price'];
-    expect($full)->toBe('6000.00');
-    expect($dep)->toBe('3000.00');
-    expect(ShopifyService::variantsFor(6000.0, 'full'))->toHaveCount(1);
+// Each payment link is a Shopify DRAFT-ORDER invoice for its own single variant — a standalone
+// checkout with no cart. Cart/product links piled multiple links into one shared cart and billed
+// the SUM ("$39,470 instead of one item"); a draft-order invoice holds only its own line item.
+// The draft order itself is created via the live API (createDraftOrder), so what's unit-testable
+// here is the pricing invariant: each kind is ONE variant at ONE amount, so one link = one charge.
+it('gives each payment kind its own single-amount variant so one link bills one amount', function () {
+    $full = ShopifyService::variantsFor(6000.0, 'full');
+    $dep  = ShopifyService::variantsFor(6000.0, 'deposit');
+    expect($full)->toHaveCount(1);
+    expect($dep)->toHaveCount(1);
+    expect($full[0]['price'])->toBe('6000.00');
+    expect($dep[0]['price'])->toBe('3000.00');
 });

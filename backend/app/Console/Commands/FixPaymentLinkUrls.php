@@ -7,13 +7,13 @@ use App\Services\ShopifyService;
 use Illuminate\Console\Command;
 
 /**
- * Rewrite existing payment-link URLs to CART PERMALINKS (/cart/{variant}:1). Product-page links
- * accumulate: the Shopify cart is shared per customer session, so a customer who opened several
- * deposit links piled them into one cart and got billed the SUM ("$18k instead of $6k"). A cart
- * permalink empties the cart and adds only that one item, so each link bills exactly its own amount.
+ * Regenerate existing UNPAID payment-link URLs as Shopify DRAFT-ORDER invoice links (standalone
+ * checkouts). The old links were cart/product URLs that piled into one shared cart — a customer who
+ * opened several deposit links was billed the SUM ("$39,470 instead of one item"). A draft-order
+ * invoice contains only its own line item, so accumulation is impossible.
  *
- * Uses the variant id stored on the link; falls back to fetching it from Shopify by product id.
- * Idempotent (a link already pointing at /cart/ is skipped). --dry-run reports without writing.
+ * Only touches UNPAID links (a paid link is done; a void link stays void). Idempotent: a link that
+ * already points at an invoice is skipped. --dry-run reports without writing.
  *
  *   php artisan payments:fix-links --dry-run
  *   php artisan payments:fix-links
@@ -22,39 +22,47 @@ class FixPaymentLinkUrls extends Command
 {
     protected $signature = 'payments:fix-links {--dry-run}';
 
-    protected $description = 'Rewrite payment-link URLs to cart permalinks so links never accumulate in one cart';
+    protected $description = 'Regenerate unpaid payment-link URLs as draft-order invoices (no shared cart)';
 
     public function handle(): int
     {
         if (!ShopifyService::configured()) {
-            $this->error('Shopify is not configured — cannot resolve variant ids.');
+            $this->error('Shopify is not configured — cannot create draft orders.');
             return self::FAILURE;
         }
         $dry = (bool) $this->option('dry-run');
-        $host = ShopifyService::storefrontHost();
         $fixed = 0;
         $skipped = 0;
         $failed = 0;
-        foreach (PaymentLink::whereNotNull('shopify_product_id')->get() as $link) {
-            if (str_contains((string) $link->url, '/cart/')) {
+        foreach (PaymentLink::where('status', 'unpaid')->whereNotNull('shopify_product_id')->get() as $link) {
+            if (str_contains((string) $link->url, '/invoices/')) {
                 $skipped++;
                 continue;
             }
             $variantId = (string) ($link->shopify_variant_id ?? '')
                 ?: (string) (ShopifyService::productVariantId((string) $link->shopify_product_id) ?? '');
             if ($variantId === '') {
+                $this->warn("{$link->id}: no variant id — skipped");
                 $failed++;
                 continue;
             }
-            $url = ShopifyService::checkoutUrl($host, $variantId);
-            $this->line(($dry ? '[dry] ' : '')."{$link->id}: {$link->url} → {$url}");
-            if (!$dry) {
-                $link->update(['url' => $url, 'shopify_variant_id' => $variantId]);
+            if ($dry) {
+                $this->line("[dry] {$link->id}: {$link->url} → (new draft-order invoice)");
+                $fixed++;
+                continue;
             }
+            $draft = ShopifyService::createDraftOrder($variantId, is_string($link->email) ? $link->email : null);
+            if (!($draft['ok'] ?? false)) {
+                $this->warn("{$link->id}: draft order failed — ".($draft['message'] ?? $draft['reason'] ?? 'unknown'));
+                $failed++;
+                continue;
+            }
+            $link->update(['url' => $draft['invoice_url']]);
+            $this->line("{$link->id}: → {$draft['invoice_url']}");
             $fixed++;
         }
-        $verb = $dry ? 'would fix' : 'fixed';
-        $this->info("{$verb}: {$fixed}, already-cart-links: {$skipped}, could-not-resolve: {$failed}");
+        $verb = $dry ? 'would regenerate' : 'regenerated';
+        $this->info("{$verb}: {$fixed}, already-invoice: {$skipped}, could-not-resolve: {$failed}");
         return self::SUCCESS;
     }
 }
