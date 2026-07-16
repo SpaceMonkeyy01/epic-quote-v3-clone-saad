@@ -37,18 +37,22 @@ const headCell = { ...cell, background: HEAD, fontWeight: 700, borderTop: 'none'
 // Section header bar inside the single-framed specs/package box — border only on the bottom; the outer
 // box + the left column's right edge supply the frame, so the divider stays one continuous line.
 const secHead = { background: HEAD, fontWeight: 700, fontSize: 11, padding: '5px 8px', borderBottom: '1px solid #777' }
-// PACKAGE INCLUDES is a SET — the rep picks ONE of two on the proposal (#11):
-//  • standard: Installation Template + Power Supply (the approved default)
-//  • hardware: one combined image of the Adaptor / Dimmer / Hardware set (labels baked in)
+// PACKAGE INCLUDES is a SET — the rep picks ONE of the four standard packages the sheet
+// assigns per sign type (Package Includes column = A/B/C/D):
+//  • A: Installation Template + Power Supply      • C: Adaptor + Dimmer + Mounting Kit
+//  • B: Installation Template                     • D: Adaptor + Dimmer + Hanging Chain
+// `baked:1` — each artwork ALREADY has its item labels drawn in, so we render the image on
+// its own and skip the text captions underneath (they'd duplicate the artwork).
 const PACKAGE_SETS = {
-  standard: { label: 'Installation Template + Power Supply', items: [
-    { label: 'INSTALLATION TEMPLATE', img: '/package/installation-template.png' },
-    { label: 'POWER SUPPLY', img: '/package/power-supply.png' },
-  ] },
-  hardware: { label: 'Adaptor + Dimmer + Hardware', items: [
-    { label: 'ADAPTOR · DIMMER · HARDWARE', img: '/package/Adaptor_Dimmer_Hardware.png' },
-  ] },
+  A: { label: 'A · Installation Template + Power Supply', baked: 1, items: [{ label: 'PACKAGE A', img: '/package/A.png' }] },
+  B: { label: 'B · Installation Template',                baked: 1, items: [{ label: 'PACKAGE B', img: '/package/B.png' }] },
+  C: { label: 'C · Adaptor + Dimmer + Mounting Kit',      baked: 1, items: [{ label: 'PACKAGE C', img: '/package/C.png' }] },
+  D: { label: 'D · Adaptor + Dimmer + Hanging Chain',     baked: 1, items: [{ label: 'PACKAGE D', img: '/package/D.png' }] },
 }
+// Quotes saved before the A–D sets stored the old two-set keys — map them onto the closest
+// letter so every existing proposal still renders (standard == A's contents; hardware ≈ C).
+const PKG_ALIAS = { standard: 'A', hardware: 'C' }
+const resolvePkgSet = (k) => (k && PACKAGE_SETS[k] ? k : (k && PACKAGE_SETS[PKG_ALIAS[k]] ? PKG_ALIAS[k] : null))
 // tile width so a set fits the 240px column (1 wide image, or 2 squares).
 const pkgTileW = (n) => Math.max(56, Math.min(150, Math.floor((240 - (n + 1) * 10) / n)))
 const pkgDefX = (i, n, w) => Math.round(((240 - n * w) / (n + 1)) * (i + 1) + w * i)
@@ -628,7 +632,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   // matching grey instead of clashing white. Persisted with the proposal state.
   const [artBg, setArtBg] = useState(savedState?.__artBg || '#ffffff')
   const [hideNotes, setHideNotes] = useState(!!savedState?.__hideNotes)   // #6 — Additional Notes removable
-  const [pkgSet, setPkgSet] = useState(savedState?.__pkgSet && PACKAGE_SETS[savedState.__pkgSet] ? savedState.__pkgSet : 'standard')   // #11 — chosen package set
+  // #11 — chosen package set. Precedence: what the rep saved (old keys mapped via PKG_ALIAS)
+  // > the letter this sign type is assigned in the sheet (tpl.pkg) > A.
+  const [pkgSet, setPkgSet] = useState(resolvePkgSet(savedState?.__pkgSet) || resolvePkgSet(tpl?.pkg) || 'A')
   const [pkgPicking, setPkgPicking] = useState(false)   // #8 — image dropdown open
   const packageItems = PACKAGE_SETS[pkgSet].items
   const pkgW = pkgTileW(packageItems.length)
@@ -1391,8 +1397,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                   // remounts with fresh default positions.
                   <AdjImg key={`${pkgSet}-${p.label}`} {...adjProps(`pkg-${pkgSet}-${p.label}`, { x: pkgDefX(i, packageItems.length, pkgW), y: 6, w: pkgW, h: pkgW })} src={p.img} alt={p.label} lockAspect fitCenterH={116} bounds={{ w: 238, h: 114 }} />
                 ))}
-                {/* captions from the set's item labels (plain — switch cleanly with the set) */}
-                {packageItems.map((p, i) => {
+                {/* captions from the set's item labels. `baked` sets (A–D) already carry their
+                    labels inside the artwork, so drawing them again would double them up. */}
+                {!PACKAGE_SETS[pkgSet].baked && packageItems.map((p, i) => {
                   const t = layout[`pkg-${pkgSet}-${p.label}`]
                   return (
                     <div key={`cap-${pkgSet}-${p.label}`} style={{

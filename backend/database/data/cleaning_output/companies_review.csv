@@ -17,36 +17,37 @@ possible_duplicate_company,88,Signarama Nanuet,"Signarama Nanuet, NY",Jessica Ho
 company_name_is_person;no_contact_method,89,,Rod Muffett,Rod Muffett,,,
 company_name_is_person,93,,Mustangsigns,MUSTANG SIGNS,(509) 735-4607,lauran@mustangsigns.com,":Mustang Signs 10379 W Clearwater AvenueSte 110 Kennewick, WA 99336, Lauran Wang"
 company_name_is_person;possible_duplicate_company,95,Stark Design Plus,Stark Designs,Stark Designs,,jake@starkdesignplus.com,"1215 S 10th Ave, Pasco, WA, Jake Evans"
-possible_duplicate_company,99,"Signarama Great Neck, NY",Signarama Great Neck,Keith Groshans,(516) 773-7300,keith@signarama-greatneck.com,"+15167737300, Keith Groshans, 1143 Northern Blvd, Manhasset, NY 11030"
+possible_duplicate_company,99,"Signarama Great Neck, NY",Signarama Great Neck,Keith Groshans,+15167737300,keith@signarama-greatneck.com,"+15167737300, Keith Groshans, 1143 Northern Blvd, Manhasset, NY 11030"
 no_contact_method,100,,Fast Signs Lynnwood,Fast Signs,,,"2921 Alderwood Mall Blvd, Suite 104, Lynnwood, WA 98036"
 email_shared_across_companies,101,,FASTSIGNS of Clackamas,Fastsigns Clackamas,(503) 777-2300,fastsigns.154@fastsigns.com,"10309-C 82nd Ave, Happy Valley, OR 97086, Fastsigns Clackamas"
 possible_duplicate_company,107,Signarama Redmond,"Signarama Redmond, WA",Rod Muffet,(425) 861-9341,sharonkhoo@signarama-redmond.com,"8531 154th Ave. NE, STE. 130"
 possible_duplicate_company,109,Sign Craft Yakima,Yakimasigncraft,Jacob Lewis,,jacob@yakimasigncraft.com,
 possible_duplicate_company,110,Sign Craft Yakima,Jacob Lewis,Sign Craft Yakima.,,jacob@yakimasigncraft.com,"1015 E Lincoln Ave #108, Yakima, WA 98901, United States"
 email_shared_across_companies,112,,FASTSIGNS of Clackamas,Fastsigns Clackamas,(503) 777-2300,fastsigns.154@fastsigns.com,"10309-C 82nd Ave, Happy Valley, OR 97086, Fastsigns Clackamas"
-possible_duplicate_company,113,Meyer Sign and Advertising,Meyersign,Paul LaChapelle,,paul@meyersign.com,"Meyer Sign and Advertising Co. 2608 Old Hwy 99 S Mount Vernon, WA 98273 Phone Number 360-424-1325."
-possible_duplicate_company,115,Meyer Sign and Advertising,Meyersign,Lisa A,,lisa@meyersign.com,"Meyer Sign and Advertising Co. 2608 Old Hwy 99 S Mount Vernon, WA 98273 Phone Number 360-424-1325."
+possible_duplicate_company,113,Meyer Sign and Advertising,Meyersign,Paul LaChapelle,,paul@meyersign.com,"Meyer Sign and Advertising Co. 2608 Old Hwy 99 S Mount Vernon, WA 98273 360-424-1325."
+possible_duplicate_company,115,Meyer Sign and Advertising,Meyersign,Lisa A,,lisa@meyersign.com,"Meyer Sign and Advertising Co. 2608 Old Hwy 99 S Mount Vernon, WA 98273 360-424-1325."
 email_shared_across_companies,117,,Fast Signs Lynnwood,Fastsigns Lynnwood,,fastsigns.443@fastsigns.com,"2921 Alderwood Mall Blvd, Suite 104, Lynnwood, WA 98036"
 possible_duplicate_company,121,Esco Pacific Signs,esco-pacific,Seth Taylor,,seth@esco-pacific.com,"Travis SelinProject Manager Phone: 360-748-6461Fax: 360-748-4299Travis Selin ESCO PACIFIC SIGNS627 NW Middle StreetChehalis, WA 98532"
 email_shared_across_companies,125,,Fastsigns Everett,Duane Steig,,duane.steig@fastsigns.com,"2812 RUCKER AVEEVERETT,, WA 98201, 425-438-9350 Main Desk425-252-0112 Direct Line"
-email_shared_across_companies,126,,FASTSIGNS of Lynnwood,Jenny,,fastsigns.443@fastsigns.com,"2921 Alderwood Mall Blvd, Ste 104 | Lynnwood, WA 98036, Phone: (425) 775-9709, www.fastsigns.com/443"
+email_shared_across_companies,126,,FASTSIGNS of Lynnwood,Jenny,,fastsigns.443@fastsigns.com,"2921 Alderwood Mall Blvd, Ste 104 | Lynnwood, WA 98036, Phone: (425) 775-9709"
 possible_duplicate_company,127,Mountain Dog Sign Co.,Dog Sign Co,Mercedes,,mercedes@mtdogco.com,1620 N Mamer RD Suite D100 S 99216
 email_shared_across_companies,129,,Signarama Lancaster,Duane Steig,(717) 397-3173,duane.steig@fastsigns.com,"218 W Orange St,, Lancaster, PA 17603"
 possible_duplicate_company,130,SignsNow Medford,Greg,Signs Now,,signsnow@signsnowmedford.com,"607 S Riverside Ave,, Medford, OR 97501, 541-608-6800"
 possible_duplicate_company,140,Signarama Wasatch Back,Signarama Wb,Spencer,,spencer@signarama-wb.com,
-email_shared_across_companies,142,,FASTSIGNS of Clackamas,503.777.2300 | Fax: 503.774.3622,,154@fastsigns.com,"10309-C 82nd Ave, Happy Valley, OR 97086, Fastsigns Clackamas"
+contact_name_missing;email_shared_across_companies,142,,FASTSIGNS of Clackamas,,503.777.2300 | Fax: 503.774.3622 (fax),154@fastsigns.com,"10309-C 82nd Ave, Happy Valley, OR 97086, Fastsigns Clackamas"
 role_or_junk_company_name;possible_duplicate_company,145,Meyer Sign and Advertising,Sales & Marketing,Mike Anderson,,mike@meyersign.com,"2608 Old Hwy 99 S, Mount Vernon, WA 98273, +1 360-424-1325"
 possible_duplicate_company,147,Meyer Sign and Advertising,"Meyer Sign & Advertising CO., INC.",Mike Anderson,(360) 661-0792,mike@meyersign.com,"2608 Hwy 99 S., Mount Vernon, WA 98273, 360.661.0792 cell, Sales & Marketing"
 email_shared_across_companies,148,,"Midtown Signs and Graphics, Inc. dba Fastsigns",Ed Weikle,,ed.weikle@fastsigns.com,"528 Plasters Avenue NE, Atlanta, GA 30324, Ed Weikle"
 email_shared_across_companies,149,,Fastsigns Everett,Krystina Weatherson,,krystina.weatherson@fastsigns.com,"2812 RUCKER AVEEVERETT,, WA 98201, 425-438-9350 Main Desk425-252-0112 Direct Line"
 possible_duplicate_company,150,Stark Design Plus,Stark Designs,Devin Nielsen,,devin@starkdesignplus.com,"1215 S 10th Ave, Pasco, WA, Jake Evans"
-email_shared_across_companies,156,,Maire McCarthy,Office Manager,(415) 999-7080,graphixlabsf@gmail.com,"Office Manager, www.Graphixlab.co, 173 S Spruce Ave, South San Francisco, CA, 94080"
-possible_duplicate_company,158,Meyer Sign and Advertising,Meyersign,Mike Anderson,,mike@meyersign.com,"Meyer Sign and Advertising Co. 2608 Old Hwy 99 S Mount Vernon, WA 98273 Phone Number 360-424-1325."
+email_shared_across_companies,156,,Maire McCarthy,Office Manager,(415) 999-7080,graphixlabsf@gmail.com,"Office Manager, 173 S Spruce Ave, South San Francisco, CA, 94080"
+possible_duplicate_company,158,Meyer Sign and Advertising,Meyersign,Mike Anderson,,mike@meyersign.com,"Meyer Sign and Advertising Co. 2608 Old Hwy 99 S Mount Vernon, WA 98273 360-424-1325."
 company_name_is_person;possible_duplicate_company,160,ION Signs Group,Ionsigngroup,Ion Sign Group,,michaelt@ionsigngroup.com,"11302 Steele St S Suite A, Lakewood, WA 98499, Michael Tilton"
 possible_duplicate_company,165,Signpros,Signs Pros,Rippen Thind,(425) 885-3204,rippen.thind@signpros.net,17425 NE 70TH ST O
 possible_duplicate_company,166,Meyer Sign and Advertising,Meyer Sign & Advertising,Paul Lachapelle c,(360) 399-1624,paul@meyersign.com,"2608 Hwy 99 South, Mount Vernon, WA 98273"
 possible_duplicate_company,168,Berry Signs,Berrysign,Warren Wissmer,,warren@berrysign.com,"Warren Wissmer , cell # 253.740.1308 I Office # 253 830 3600 x 153, 9402 39th Ave Ct SW Lakewood WA 98499"
 bare_franchise_name;email_shared_across_companies,170,,Fastsigns,Craig LaMantain,,craig.lamantain@fastsigns.com,FS Buckhead (previous client different sales person) Rosa de Lugo 404.668.2879 528 Plasters Ave NE Atlanta GA 30324
+contact_name_missing,172,,Signarama DanburyPhone,,(203) 792-4091,,"35 Eagle Road, Danbury, CT 06810"
 possible_duplicate_company,175,Signarama Redmond,Caitlin Shipley,Signarama Redmond,,cshipley@signarama-redmond.com,"8531 154th Ave NE, Building K Suite #130"
 possible_duplicate_company,177,National Sign Team,Nation Sales Team,Dan Morelli,,dan@nationalsignteam.com,"748 Moorland Lane, Palm Harbor, FL 34683"
 possible_duplicate_company,179,Berry Signs,Elisa Jacoby,Berry Sign,,elisa@berrysign.com,"9402 39th Ave Ct SW,, Lakewood WA 98499"
@@ -61,13 +62,14 @@ email_shared_across_companies,203,,Fastsigns Tigard,Randy Rasmussen,,randy.rasmu
 email_shared_across_companies,205,,"Fast Signs Everett, WA",Krystina Weatherson,,krystina.weatherson@fastsigns.com,"2902 Rucker Avenue, Everett, WA 98201, 425-438-9350"
 possible_duplicate_company,209,Signsoveramerica,"Signarama Evansville, IN",Cindy Lewis,(812) 477-7763,cindy@signsoveramerica.com,"1300 N. Royal Ave. Evansville, IN 47715"
 possible_duplicate_company,210,Signs Tech,Signs Tec,Signs Tec,,info@signs.today,"111 N Vista Road, Ste 4C, Spokane, Valley, WA 99212"
+contact_name_missing,212,,Signarama Redmond,,Office (425) 861 9341 / Direct (425) 600 4486 (office),alexfong@signarama-redmond.com,Signarama
 email_shared_across_companies,214,,Speed Pro St Petersburg,Michael McKenny,,mmckenny@speedpro.com,"+17275922931, 2748 25th Street North, St. Petersburg , FL , US , 33713"
 possible_duplicate_company,215,Meyer Sign and Advertising,Lisa Corp,Art Director,(360) 424-1325,lisa@meyersign.com,"Meyer Sign & Advertising, 2608 Old Hwy 99 S Mount Vernon, WA 98273, 360-424-1325"
 email_shared_across_companies,216,,Alexandria Roland,FASTSIGNS of Beaverton,(503) 526-0216,alexandria.roland@fastsigns.com,"12700 SW Canyon Rd., Beaverton OR 97005"
-email_shared_across_companies,217,,FASTSIGNS of Tigard,(971) 865-6756 - Office: (503) 244-8813,,randy.rasmussen@fastsigns.com,"Our Hours are 8:30AM-5PM, Monday-Friday"
-possible_duplicate_company,222,SignsNow Medford,Signs Now,Greg,,signsnow@signsnowmedford.com,"607 S Riverside Ave,, Medford, OR 97501, 541-608-6800, www.signsnowmedford.com"
+contact_name_missing;email_shared_across_companies,217,,FASTSIGNS of Tigard,,(971) 865-6756 - Office: (503) 244-8813 (office),randy.rasmussen@fastsigns.com,"Our Hours are 8:30AM-5PM, Monday-Friday"
+possible_duplicate_company,222,SignsNow Medford,Signs Now,Greg,,signsnow@signsnowmedford.com,"607 S Riverside Ave,, Medford, OR 97501, 541-608-6800"
 email_shared_across_companies,223,,Fastsigns BUCKHEAD,Ed Weikle,,ed.weikle@fastsigns.com,"528 Plasters Avenue NE Atlanta, GA 30324"
-company_name_is_person,224,,Kingsofneon,Kings of Neon,61466567767,steve@kingsofneon.com.au,"Sydney, New South Wales, Australia AU , 111"
+company_name_is_person,224,,Kingsofneon,Kings of Neon,+61466567767,steve@kingsofneon.com.au,"Sydney, New South Wales, Australia AU , 111"
 email_shared_across_companies,226,,FASTSIGNS of Beaverton,Alex Roland,,alexandria.roland@fastsigns.com,"12700 SW Canyon Rd., Beaverton OR 97005 MAP IT, Our Hours are 8:30 AM - 5 PM, Monday-Friday, 0."
 possible_duplicate_company,230,National Sign Team,Nation Signs Team,Dan Morelli(old),,dan@nationalsignteam.com,"748 Moorland Lane, Palm Harbor, FL 34683"
 email_shared_across_companies,234,,Fastsigns Kent South Center,Gina,,fastsigns.157@fastsigns.com,"7825 South 180th Street, Kent, WA 98032"
@@ -77,14 +79,14 @@ no_contact_method,240,,Signarama Sioux Falls,Mark VanMeveren,,,"1705 W 12th St, 
 email_shared_across_companies,242,,Fastsigns Beaverton,Craig Lamantain,,craig.lamantain@fastsigns.com,"12700 SW Canyon Rd, Beaverton, OR 97005, 503-415-9009"
 possible_duplicate_company,245,Signmenonline,Sign Men,Chad Miltenberger,,chad@signmenonline.com,"803 SW Court Ave Pendelton,OR 97801, 541-276-5227"
 bare_franchise_name;possible_duplicate_company,248,Signarama Denton,Signarama,Glen Smith,,glen@signarama-denton.com,"Clay Curtis, PMPSignarama Puyallup 5722 112th Street EastPuyallup, WA, 98373 253-279-6527 (Office)615-405-2894 (Cell)Clay Curtis"
-possible_duplicate_company,250,Signsoveramerica,Signarama Evansville,Sherri B. Hill,,sherri@signsoveramerica.com,"812.477.7763 / 1300 N. Royal Ave. (at Vogel) Evansville, IN 47715"
+possible_duplicate_company,250,Signsoveramerica,Signarama Evansville,Sherri B. Hill,,sherri@signsoveramerica.com,"812.477.7763 / 1300 N. Royal Ave. (at Vogel) • Evansville, IN 47715"
 bare_franchise_name;email_shared_across_companies,255,,Fastsigns,Sharnae Rosenthal,,sharnae.rosenthal@fastsigns.com,FS Buckhead (previous client different sales person) Rosa de Lugo 404.668.2879 528 Plasters Ave NE Atlanta GA 30324
 possible_duplicate_company,256,Esco Pacific Signs,esco-pacific,Travis Selin,(360) 748-6461,travis@esco-pacific.com,"Travis SelinProject Manager Phone: 360-748-6461Fax: 360-748-4299Travis Selin ESCO PACIFIC SIGNS627 NW Middle StreetChehalis, WA 98532"
 bare_franchise_name;email_shared_across_companies,257,,Fastsigns,Rob,,fastsigns.154@fastsigns.com,FS Buckhead (previous client different sales person) Rosa de Lugo 404.668.2879 528 Plasters Ave NE Atlanta GA 30324
 email_shared_across_companies,258,,Fastsigns Lewiston,Alex McDonough,,alex.mcdonough@fastsigns.com,"826 21st Street, Lewiston , ID 83501"
 possible_duplicate_company,260,Signarama Downtown,Signarama Louisville,Keith Watkins,,keith@signaramadowntown.com,"1430 Mellwood Avenue Louisville, KY 40206, 502.585.4099"
 possible_duplicate_company,262,Meyer Sign and Advertising,Meyer Sign & Advertising,Lisa Corp,,lisa@meyersign.com,"2608 Hwy 99 South, Mount Vernon, WA 98273"
-possible_duplicate_company,265,Neon Mfg,Dan,neonmfg.com,,dan@neonmfg.com,
+contact_name_missing;possible_duplicate_company,265,Neon Mfg,Dan,,,dan@neonmfg.com,
 possible_duplicate_company,270,Berry Signs,Brandon Wissmer,Sales & Marketing,(253) 830-3600,brandon@berrysign.com,"BERRY SIGN I berrysign.com, 9402 39th Ave Ct SW Lakewood WA 98498"
 possible_duplicate_company,271,Signarama Ankeny,"Kyle Meadows, Account Executive",Kyle,(515) 216-1240 (business),sales@signarama-ankeny.com,"6990 NE 14th St., Ankeny, IA 50023 (PLEASE NOTE OUR NEW ADDRESS)"
 possible_duplicate_company,275,Neon Mfg,Graeme Gulick,Dan Defilla,,dan@neonmfg.com,"2821 Fairview Avenue E, Unit 1, Seattle, Washington 98102, United States, 4259226266"
@@ -100,6 +102,7 @@ possible_duplicate_company,291,Signarama-Lynnwood,Rajesh Bansal,Owner,,rajesh@si
 email_shared_across_companies,293,,Fastsigns Clackamas,Fastsigns Clackamas,,fastsigns.154@fastsigns.com,"Fastsigns of Clackamas, 10309-C 82nd Ave, Happy Valley, OR 97086"
 possible_duplicate_company,295,Zebra VisualsZebra Visuals,Zerba Visuals,Paul Luszcz,,paul@zebravisuals.com,"9 Aldrin Road, Suite 10Plymouth, MA 02369"
 possible_duplicate_company,298,Neon Mfg,Dan Defilla,Managing Director,,dan@neonmfg.com,"Russell Jones Mfg. Inc., 604 906 0091, Neon Mfg., neonmfg.com"
+contact_name_missing,299,,Mustnagsigns,,,josh@mustnagsigns.com,"Mustang Signs 10379 W. Clearwater Ave Ste 110, Kennewick, WA 00336"
 possible_duplicate_company,301,Sign Visions,Signvisionsatl,Cornelius Shelton,,cornelius@signvisionsatl.com,"+17707566694, 180 Walter Way Fayetteville , GA , US , 30214, Sign Visions"
 possible_duplicate_company,302,Awning & Signs,Sean Kluckow,Central Oregon Signs & Awnings Unlimited,(541) 241-6526,sean@centraloregonsigns.com,"61886 Teal Rd, Bend Oregon 97702, United States,, 541-241-6526 / 541-389-1619"
 email_shared_across_companies,303,,Kevin O'Donnell,Signarama Schertz,(210) 655-6300,signaramaschertz@yahoo.com,"17361 Bell North Dr., Ste. 105, Schertz, TX 78154"
@@ -108,24 +111,24 @@ possible_duplicate_company,305,Sr Signs,Signarama Santa Rose,Bret Gave,,bret@sr-
 possible_duplicate_company,308,Sr Signs,"Signarama Santa Rosa, CA",Ulises Vasquez,(707) 474-3313,ulises@sr-signs.com,"915 Piner Rd., STE C, Santa Rosa, CA 95403, 707-474-3313"
 possible_duplicate_company,309,"Signarama Ann Arbor, MI",Signarama Ann Arbor,Firas Zeidan,,info@signarama-annarbor.com,"4655 Washtenaw Ave, Ann Arbor, MI 48108, +17342215141"
 possible_duplicate_company,312,beartooth signs,"Beartooth Signs, LLC",Karin Stiles,,info@beartoothsigns.com,"2887 Jackrabbit Ln, Bozeman, MT 59718, Info Beartooth Signs"
-possible_duplicate_company,313,Signpros,Don J. Morgan,Graphic Designer,,donj@signprosnj.com,"Phone 856.939.1099, Fax 856.939.2099, 1215 N Black Horse Pike, Glendora, NJ 08029, www.SignProsNJ.com"
-possible_duplicate_company,315,Go2pip,Beth Fischer,go2pip.com,(309) 691-6500 x2010,beth@go2pip.com,"8325 N Allen Rd | Peoria, IL 61615"
+possible_duplicate_company,313,Signpros,Don J. Morgan,Graphic Designer,,donj@signprosnj.com,"Phone 856.939.1099, Fax 856.939.2099, 1215 N Black Horse Pike, Glendora, NJ 08029"
+contact_name_missing;possible_duplicate_company,315,Go2pip,Beth Fischer,,(309) 691-6500 x2010,beth@go2pip.com,"8325 N Allen Rd | Peoria, IL 61615"
 email_shared_across_companies,316,,FASTSIGNS of Tacoma,Matt Jordan,,matt.jordan@fastsigns.com,"2528 S 38th Street, Tacoma , WA , US , 98409, +12534746607"
 email_shared_across_companies,319,,Signarama of Schertz,Signarama Schertz,(210) 655-6300,signaramaschertz@yahoo.com,"17361 Bell North Dr., Ste. 105, Schertz, TX 78154"
 company_name_is_person,324,,Sinya Takeb,Sinya Takeb,,sinya.takebe@gmail.com,
 company_name_is_person,329,,Azka Hassan,Azka Hassan,,azka.w.hassan@gmail.com,
-email_shared_across_companies,331,,FASTSIGNS of Lynnwood,p: 425-775-9709 m: 425-628-1646,,lisa.stone@fastsigns.com,"2921 Alderwood Mall Blvd, Ste 104 | Lynnwood, WA 98036, Phone: (425) 775-9709, www.fastsigns.com/443"
-possible_duplicate_company,332,Sr Signs,Jon Hicks,Project Manager,,jon@sr-signs.com,"915 Piner Rd., STE C, Santa Rosa, CA 95403, 707-523-0606 x102, www.sr-signs.com, www.facebook.com/signaramasr, CA Lic. #726900"
+email_shared_across_companies,331,,FASTSIGNS of Lynnwood,p: 425-775-9709 m: 425-628-1646,,lisa.stone@fastsigns.com,"2921 Alderwood Mall Blvd, Ste 104 | Lynnwood, WA 98036, Phone: (425) 775-9709"
+possible_duplicate_company,332,Sr Signs,Jon Hicks,Project Manager,,jon@sr-signs.com,"915 Piner Rd., STE C, Santa Rosa, CA 95403, 707-523-0606 x102, CA Lic. #726900"
 possible_duplicate_company,335,President Spectrum Sign Co. Inc.,Spectrum Sign Co. Inc.,Michael Harbin Jr,,mike@spectrumsign.com,"301 West Main St, Auburn, WA 98001"
 possible_duplicate_company,337,Mountain Dog Sign Co.,Mtdogco,Aaron Kenda,,aaron@mtdogco.com,Team
 possible_duplicate_company,340,Signpros,Christine Wolfe,Graphic Designer | Project Coordinator,(425) 836-6072 x131,christine.wolfe@signpros.net,16300
-possible_duplicate_company,342,Sr Signs,Signarama Santa Rosa,Bret Gave,,bret@sr-signs.com,"Project Manager, 915 Piner Rd., STE C, Santa Rosa, CA 95403, 707-523-0606 x102, www.sr-signs.com, www.facebook.com/signaramasr, CA Lic. #726900"
+possible_duplicate_company,342,Sr Signs,Signarama Santa Rosa,Bret Gave,,bret@sr-signs.com,"Project Manager, 915 Piner Rd., STE C, Santa Rosa, CA 95403, 707-523-0606 x102, CA Lic. #726900"
 email_shared_across_companies,344,,FASTSIGNS of Beaverton,Sara Dumanske,,s.dumanske@fastsigns.com,"12700 SW Canyon Rd., Beaverton OR 97005 MAP IT, Our Hours are 8:30 AM - 5 PM, Monday-Friday, 0."
-possible_duplicate_company,346,Esco Pacific Signs,Seth Taylor,Project Manager,(360) 748-6461,seth@esco-pacific.com,"Esco Pacific Signs, 627 NW Middle Street, Chehalis, WA 98532, www.esco-pacific.com"
+possible_duplicate_company,346,Esco Pacific Signs,Seth Taylor,Project Manager,(360) 748-6461,seth@esco-pacific.com,"Esco Pacific Signs, 627 NW Middle Street, Chehalis, WA 98532"
 possible_duplicate_company,353,Sir Speedy Havertown////,Sir Speedy,Signs/Print/Marketing,(610) 789-2685,michael@sirspeedy7099.com,"443 West Chester Pike, Havertown, PA 19083-4595"
 possible_duplicate_company,354,"COSIGN NV, Venusstraat 5, 3290 Diest, Belgium",co sign modular sign system,"COSIGN NV, Industriepark 32B",,shane@cosign.be,"3290 Diest, Belgium"
-possible_duplicate_company,360,Sir Speedy Havertown////,Michael Brown,Sir Speedy,(610) 789-2685,michael@sirspeedy7099.com,"Signs/Print/Marketing, 443 West Chester Pike, Havertown, PA 19083-4595"
-possible_duplicate_company,361,Sr Signs,Signarama Santa Rosa,Aaron Friedman,,aaron@sr-signs.com,"Project Manager, 915 Piner Rd., STE C, Santa Rosa, CA 95403, 707-523-0606 x102, www.sr-signs.com, www.facebook.com/signaramasr, CA Lic. #726900"
+possible_duplicate_company,360,Sir Speedy Havertown////,Michael Brown,Sir Speedy,(610) 789-2685,michael@sirspeedy7099.com,"Marketing, 443 West Chester Pike, Havertown, PA 19083-4595"
+possible_duplicate_company,361,Sr Signs,Signarama Santa Rosa,Aaron Friedman,,aaron@sr-signs.com,"Project Manager, 915 Piner Rd., STE C, Santa Rosa, CA 95403, 707-523-0606 x102, CA Lic. #726900"
 possible_duplicate_company,363,Integrated Sign & Graphics,Integrated Sign and Graphic,Camille Watson,,camille@integratedsign.com,"5801 Kingpost Court, Lexington, KY 40509"
 company_name_is_person;possible_duplicate_company,364,Signarama Novi & Flint,Stephanie Watson,Stephanie Watson,,stephanie@signarama-flint.com,"4297 Miller Rd, Flint, MI 48507, 810-230-6445"
 possible_duplicate_company,366,Integrated Sign & Graphics,Beth Kasa,Project Coordinator,(859) 263-2800,bkasa@integratedsign.com,"5801 Kingpost Ct, Lexington, KY 40509"
@@ -143,13 +146,14 @@ bare_franchise_name,398,,Fastsigns,FASTSIGNS of Glen Carbon,(573) 864-1984,dave.
 possible_duplicate_company,399,EGX Graphics,EGX Group,Spencer Evans,(407) 615-1415,spencer@egxgroup.com,
 possible_duplicate_company,402,Signarama Denton,Glen Smith,President,,glen@signarama-denton.com,"Signarama Denton, 723 S Woodrow Lane, Denton, TX 76205, Office 940-382-8899"
 possible_duplicate_company,404,Integrated Sign & Graphics,Integratedsign,Doug Center,,doug@integratedsign.com,":Integrated Sign & Graphics5801 Kingpost CourtLexington, KY 40509Office: 859.263.2800"
-possible_duplicate_company,408,Signsanddecal,Mark Cicola | Project Manager,T: 718-486-6400 ext 214 | F: 718-388-3166 | W:,,mark.cicola@signsanddecal.com,"Signs+Decal Corp. | 410 Morgan Avenue, Brooklyn, NY"
-possible_duplicate_company,409,Signpros,Nick Kappatos,President/Owner,,nick@signprosnj.com,"Phone 856.939.1099 x12, Fax 856.939.2099, www.SignProsNJ.com, 1215 Black Horse Pike, Glendora, NJ 08029"
+company_has_person_prefix;possible_duplicate_company,408,Signsanddecal,Mark Cicola | Project Manager,T: 718-486-6400 ext 214 | F: 718-388-3166 | W:,,mark.cicola@signsanddecal.com,"Signs+Decal Corp. | 410 Morgan Avenue, Brooklyn, NY"
+possible_duplicate_company,409,Signpros,Nick Kappatos,President/Owner,,nick@signprosnj.com,"Phone 856.939.1099 x12, Fax 856.939.2099, 1215 Black Horse Pike, Glendora, NJ 08029"
 possible_duplicate_company,410,signarama-charleston,Andy Bonner,Owner,,andy@signarama-charleston.com,"Signarama of Charleston, 1340 Chuck Dawley Blvd., Mount Pleasant, SC 29464, 843.881.7881"
 possible_duplicate_company,412,Sign Visions,Signvisionsatl,Howard Johnson,,howard@signvisionsatl.com,"+17707566694, 180 Walter Way Fayetteville , GA , US , 30214, Sign Visions"
+contact_name_missing;company_has_person_prefix,413,,Francisco Rodriguez Villegas | Signarama Hollywood,,954-926-3380 cell: 863-356-7374 (cell),francisco@signarama-hollywoodfl.com,"6144 Hollywood Blvd, FL 33024, 954-926-3380 cell: 863-356-7374"
 bare_franchise_name;email_shared_across_companies,416,,Fastsigns,kevin wenck,,kevin.wenck@fastsigns.com,FS Buckhead (previous client different sales person) Rosa de Lugo 404.668.2879 528 Plasters Ave NE Atlanta GA 30324
 email_shared_across_companies,418,,Fastsigns of Allentown,Keith wenck,,keith.wenck@fastsigns.com,"4846952119, 396 schantz rd, Allentown, Pa 18104"
-possible_duplicate_company,420,Sign Visions,Cornelius Shelton,Sign Visions,(770) 756-6600,cornelius@signvisionsatl.com,"180 Walter Way, Fayetteville , GA , US , 30214, www.svatl.com"
+possible_duplicate_company,420,Sign Visions,Cornelius Shelton,Sign Visions,(770) 756-6600,cornelius@signvisionsatl.com,"180 Walter Way, Fayetteville , GA , US , 30214"
 possible_duplicate_company,421,Signarama Tampa Carrollwood,Name Raju Gupta,E-mail,,raju@signarama-carrollwood.com,"Phone 13343339285, Message I need a neon LED sign that says"
 email_shared_across_companies,422,,Fastsigns of Allentown,Kevin Wenck,(610) 434-7353,kevin.wenck@fastsigns.com,"4846952119, 396 schantz rd, Allentown, Pa 18104"
 possible_duplicate_company,423,Signarama Denton,Glen Smith,President,,info@signarama-denton.com,"Signarama Denton, 723 S Woodrow Lane, Denton, TX 76205, Office 940-382-8899"
@@ -161,33 +165,33 @@ possible_duplicate_company,431,Signarama-Puyallup,Chelsie Lemberg,Manager,(253) 
 email_shared_across_companies,435,,FastSigns Allentown,Keith Wenck,(610) 434-7353,keith.wenck@fastsigns.com,"396 Schantz Rd. Allentown, PA 18104"
 bare_franchise_name,436,,Fastsigns,Bill Wellen,,566@fastsigns.com,FS Buckhead (previous client different sales person) Rosa de Lugo 404.668.2879 528 Plasters Ave NE Atlanta GA 30324
 possible_duplicate_company,437,Signpros,Signprosnj,Anthony Kopa,(856) 939-1099 x24,anthonyk@signprosnj.com,"1215 Black Horse Pike, Glendora, NJ 08029, Anthony Kopa"
-possible_duplicate_company,439,Sr Signs,Signarama Santa Rosa,Jon Hicks,,jon@sr-signs.com,"Project Manager, 915 Piner Rd., STE C, Santa Rosa, CA 95403, 707-523-0606 x102, www.sr-signs.com, www.facebook.com/signaramasr, CA Lic. #726900"
+possible_duplicate_company,439,Sr Signs,Signarama Santa Rosa,Jon Hicks,,jon@sr-signs.com,"Project Manager, 915 Piner Rd., STE C, Santa Rosa, CA 95403, 707-523-0606 x102, CA Lic. #726900"
 possible_duplicate_company,441,Rolloutconstruction,Any Installation,Giancarlo Lavini,,glavini@rolloutconstruction.com,"245 S Knowles Ave, New Richmond, WI 54017"
 possible_duplicate_company,443,Rolloutconstruction,Quote Approval Needed,Giancarlo Lavini,,glavini@rolloutconstruction.com,
 email_shared_across_companies,444,,Signarama of Egg Harbor Township,David Finch,,signseht@gmail.com,"+16094071781, 6677 Black Horse Pike, Egg Harbor Twp , Nj , US , 08234"
 possible_duplicate_company,447,Signarama Dixie,Jason Brown,"Signarama Dixie Louisville, KY",,jb@signaramadixie.com,"4436 Dixie Hwy, Louisville, KY 40216, United States"
 possible_duplicate_company,448,Mountain Dog Sign Co.,Mtdogco,Becky Henselen,,becky@mtdogco.com,Team
 possible_duplicate_company,449,"COSIGN NV, Venusstraat 5, 3290 Diest, Belgium",Cosign,Marco Giagnacovo,,marco@cosign.be,
-possible_duplicate_company,451,Signarama Deptford,Sharon Rempfer,Deptford Signarama,,sharon.rempfer@signarama-deptford.com,"856-853-8099 - office, 609-330-7648 cell, 1320 Delsea Dr Ste L, Deptford, NJ 08096, www.signarama-deptford.com"
+possible_duplicate_company,451,Signarama Deptford,Sharon Rempfer,Deptford Signarama,,sharon.rempfer@signarama-deptford.com,"856-853-8099 - office, 609-330-7648 – cell, 1320 Delsea Dr Ste L, Deptford, NJ 08096"
 possible_duplicate_company,452,The Store Decor Co.,The Store Decor,David Esh,,david.esh@thestoredecor.com,"5050Boyd Blvd, Rowlett, TX 75088"
 possible_duplicate_company,453,Signarama Redmond,"Caitlin Shipley, Brand Consultant","Signarama Redmond, WA",,cshipley@signarama-redmond.com,"_________________________________________________________________________, 8531 154th Ave NE, Ste 130"
 possible_duplicate_company,458,Burr Signs,Burr Sign,Drew Serbin,,drew@burrsigns.com,"2 Karen Drive Westbrook, ME 04092, Drew Serbin"
 possible_duplicate_company,459,"Signarama Oak Creek, WI",Signarama Oakcreek,Ehab Abdullah,,ehab@signarama-oakcreek.com,"145 W. Ryan Road Suite B, Oak Creek, WI 53154"
-possible_duplicate_company,460,Signsoveramerica,Signarama Evansville,Scott Hamrick,,scott@signsoveramerica.com,"812.477.7763 / 1300 N. Royal Ave. (at Vogel) Evansville, IN 47715"
+possible_duplicate_company,460,Signsoveramerica,Signarama Evansville,Scott Hamrick,,scott@signsoveramerica.com,"812.477.7763 / 1300 N. Royal Ave. (at Vogel) • Evansville, IN 47715"
 possible_duplicate_company,461,Signarama Philadelphia (Center City),Signarama Center City,Dave Crispin,,dave@signaramaccphila.com,"238 Market Street, Philadelphia, PA 19106"
-possible_duplicate_company,463,Signarama Tampa Carrollwood,Raju Gupta,Owner | Signarama Carrollwood,(813) 252-9833,raju@signarama-carrollwood.com,"www.signarama-carrollwood.com, 8405 N Himes Ave, STE 103, Tampa FL 33618"
+possible_duplicate_company,463,Signarama Tampa Carrollwood,Raju Gupta,Owner | Signarama Carrollwood,(813) 252-9833,raju@signarama-carrollwood.com,"8405 N Himes Ave, STE 103, Tampa FL 33618"
 email_shared_across_companies,464,,Cascade Sign,SCOTT ROBERTS,(509) 972-8099,scott.cascade@gmail.com,"108 W Mead Ave, Yakima WA"
 email_shared_across_companies,465,,Cascade Signs and Fabrications,Scott Roberts,,scott.cascade@gmail.com,"108 West Mead Ave., Yakima, WA 98902, 509-972-8099"
-no_contact_method,466,,Francisco Rodriguez Villegas | Signarama Hollywood,954-926-3380 cell: 863-356-7374,,,"6144 Hollywood Blvd, FL 33024, 954-926-3380 cell: 863-356-7374"
+contact_name_missing;company_has_person_prefix,466,,Francisco Rodriguez Villegas | Signarama Hollywood,,954-926-3380 cell: 863-356-7374 (cell),,"6144 Hollywood Blvd, FL 33024, 954-926-3380 cell: 863-356-7374"
 email_shared_across_companies,467,,Cascade Sign and Fabrication,Scott Roberts,(509) 972-8099,scott.cascade@gmail.com,"108 W. Mead AVe, Yakima, WA 98901"
 possible_duplicate_company,468,Integrated Sign & Graphics,Integratedsign,Beth Kasa,,bkasa@integratedsign.com,":Integrated Sign & Graphics5801 Kingpost CourtLexington, KY 40509Office: 859.263.2800"
 role_or_junk_company_name;possible_duplicate_company,473,signarama-charleston,Owner,Signarama of Charleston,,andy@signarama-charleston.com,"1340 Chuck Dawley Blvd, Mount Pleasant, SC 29464, 843.881.7881"
 email_shared_across_companies,474,,Signarama-Puyallup,Clay Curtis,(253) 279-6527 (office),clay.curtis@signarama.com,"5722 112th Street East, Puyallup, WA, 98373, 615-405-2894"
-possible_duplicate_company,476,Signaramadeerfield,Susan Bogen,Signarama Deerfield,,randyb@signaramadeerfield.com,"State Licensed Electrical Sign Contractor, ES12002560, 4716 N Powerline Road, Deerfield Beach, FL 33073, www.signaramadeerfield.com"
+possible_duplicate_company,476,Signaramadeerfield,Susan Bogen,Signarama Deerfield,,randyb@signaramadeerfield.com,"State Licensed Electrical Sign Contractor, ES12002560, 4716 N Powerline Road, Deerfield Beach, FL 33073"
 possible_duplicate_company,480,Signarama Philadelphia (Center City),Signaramaccphila,Rob Stein,,rob@signaramaccphila.com,
 possible_duplicate_company,482,Mountain Dog Sign Co.,Mtdogco,Rico Rodriguez,,rico@mtdogco.com,Team
-possible_duplicate_company,488,Francisco Rodriguez Villegas | Signarama Hollywood,Francisco,Francisco Rodriguez Villegas | Signarama Hollywood,,francisco@signarama-hollywoodfl.com,"6144 Hollywood Blvd, FL 33024, 954-926-3380 cell: 863-356-7374, www.signarama-hollywoodfl.com"
-possible_duplicate_company,490,Signaramadeerfield,Susan Bogen,Owner,(954) 428-7446,susanb@signaramadeerfield.com,"State Licensed Electrical Sign Contractor, ES12002560, 4716 N Powerline Road, Deerfield Beach, FL 33073, www.signaramadeerfield.com"
+possible_duplicate_company,488,Francisco Rodriguez Villegas | Signarama Hollywood,Francisco,Francisco Rodriguez Villegas | Signarama Hollywood,,francisco@signarama-hollywoodfl.com,"6144 Hollywood Blvd, FL 33024, 954-926-3380 cell: 863-356-7374"
+possible_duplicate_company,490,Signaramadeerfield,Susan Bogen,Owner,(954) 428-7446,susanb@signaramadeerfield.com,"State Licensed Electrical Sign Contractor, ES12002560, 4716 N Powerline Road, Deerfield Beach, FL 33073"
 possible_duplicate_company,492,Sign Craft Yakima,Sign Craft,Jacob Mack/Lewis,,jacob@yakimasigncraft.com,"1015 E Lincoln Ave #108, Yakima, WA 98901"
 email_shared_across_companies,493,,PMP,Clay Curtis,,clay.curtis@signarama.com,"5722 112th Street East, Puyallup, WA, 98373"
 possible_duplicate_company,495,Events + Digital Media,Fred Mitchell,Project Manager,(404) 539-5277,fmitchell@scoreatl.com,Score Atlanta
@@ -198,11 +202,12 @@ possible_duplicate_company,505,Signaramaphilly,Sami Qureshi,Signarama,,sami@sign
 possible_duplicate_company,510,Signarama Foresthills,Shabbir arif,signarama-foresthills,,shabbir@signarama-foresthills.com,
 email_shared_across_companies,518,,"Clay Curtis, PMP",Signarama Puyallup,(253) 279-6527 (office),clay.curtis@signarama.com,"5722 112th Street East, Puyallup, WA, 98373, Clay Curtis"
 possible_duplicate_company,519,Signarama Downtown,Signarama Louisville / Signarama Downtown,Keith Watkins,,keith@signaramadowntown.com,"1430 Mellwood Avenue, Louisville, KY 40206"
-possible_duplicate_company,521,Signarama - Lubbock (West),"Signarama Lubbock, Texas",,,kenny@signarama-lubbockwest.com,"8807 County Rd 6820, Lubbock, TX 79407"
+contact_name_missing;possible_duplicate_company,521,Signarama - Lubbock (West),"Signarama Lubbock, Texas",,,kenny@signarama-lubbockwest.com,"8807 County Rd 6820, Lubbock, TX 79407"
 email_shared_across_companies,523,,Premier Sign Company,Clay Curtis,(615) 405-2894,clay.curtis@signarama.com,"1720 Ed Temple Blvd, Nashville, Tn, 37208"
-possible_duplicate_company,526,Signarama Norristown,Madison Lojeski | Sales Manager,Madison Lojeski,,madison@signarama-norristown.com,240 New York Dr Suite 3
+company_has_person_prefix;possible_duplicate_company,526,Signarama Norristown,Madison Lojeski | Sales Manager,Madison Lojeski,,madison@signarama-norristown.com,240 New York Dr Suite 3
 possible_duplicate_company,527,Signarama Norristown,Signarama Fort Washington,Madison Lojeski,(267) 575-3182,madison@signarama-norristown.com,"240 New York Dr Suite 3Fort Washington, PA 1903, 4267-575-3182, Madison Lojeski"
 email_shared_across_companies,529,,Signarama of Egg Harbor Township NJ,David Finch,,signseht@gmail.com,"+16094071781, 6677 Black Horse Pike, Egg Harbor Twp , Nj , US , 08234"
+contact_name_missing;company_has_person_prefix,530,,Francisco Rodriguez Villegas | Signarama Hollywood,,,info@signarama-hollywoodfl.com,"6144 Hollywood Blvd, FL 33024, 954-926-3380 cell: 863-356-7374"
 bare_franchise_name;email_shared_across_companies,531,,Fastsigns,Andrea Riley,,fastsigns.2473@fastsigns.com,FS Buckhead (previous client different sales person) Rosa de Lugo 404.668.2879 528 Plasters Ave NE Atlanta GA 30324
 possible_duplicate_company,532,beartooth signs,Info Beartooth Signs,"Beartooth Signs, LLC",,info@beartoothsigns.com,"2887 Jackrabbit Ln Bozeman, MT 59718"
 email_shared_across_companies,533,,Signarama Lancaster,Lynsey Washington,(717) 397-3173,lynsey.washington@signarama.com,"218 W Orange St,, Lancaster, PA 17603"
@@ -210,11 +215,12 @@ company_name_is_person;possible_duplicate_company,535,Signarama Conroe,Craig Bow
 email_shared_across_companies,536,,Signarama Lancaster,Emily Grimes,(717) 397-3173,emily.grimes@signarama.com,"218 W Orange St,, Lancaster, PA 17603"
 possible_duplicate_company,537,Signarama-Hallandale,Carina Carnavale,Signarama-Hallandale,(954) 374-8221,sales@signarama-hallandale.com,"601 N Federal Hwy, Suite 301 Hallandale Beach, FL 33009"
 email_shared_across_companies,538,,Randy Rasmussen - Project Manager,FASTSIGNS of Tigard,,randy.rasmussen@fastsigns.com,
-possible_duplicate_company,539,Francisco Rodriguez Villegas | Signarama Hollywood,Signarama Hollywood,954-926-3380 cell: 863-356-7374,,francisco@signarama-hollywoodfl.com,"Hallandale, Florida, United States, America/New_York, 99.162.252.90"
-possible_duplicate_company,540,Francisco Rodriguez Villegas | Signarama Hollywood,Signarama Hollywood,Signarama Hollywood,(954) 926-3380,sales@signarama-hollywoodfl.com,"Hallandale, Florida, United States, America/New_York, 99.162.252.90"
+contact_name_missing;possible_duplicate_company,539,Francisco Rodriguez Villegas | Signarama Hollywood,Signarama Hollywood,,954-926-3380 cell: 863-356-7374 (cell),francisco@signarama-hollywoodfl.com,"Hallandale, Florida, United States"
+possible_duplicate_company,540,Francisco Rodriguez Villegas | Signarama Hollywood,Signarama Hollywood,Signarama Hollywood,(954) 926-3380,sales@signarama-hollywoodfl.com,"Hallandale, Florida, United States"
 possible_duplicate_company,542,Signarama-Hallandale,Dawn,Signarama-Hallandale,(954) 374-8221,info@signarama-hallandale.com,"601 N Federal Hwy, Suite 301, Hallandale Beach, FL 33009"
 role_or_junk_company_name;possible_duplicate_company,543,Signarama Norristown,Office Manager,Maria Fabro,(610) 277-9860,maria@signarama-norristown.com,"310 West Johnson Highway, Suite 102, Norristown, PA 19401"
 email_shared_across_companies,544,,www.Graphixlab.co,Maire McCarthy,,graphixlabsf@gmail.com,"173 S Spruce Ave, South San Francisco, CA, 94080"
+contact_name_missing,546,,Jones Sign,,(480) 270-9800,bohlau@jonessign.com,"711 Scheuring Road, De Pere, Wisconsin, 54115, United States"
 email_shared_across_companies,547,,Signarama of Kenilworth,Kamal Assad,,kamal.assad@signarama.com,
 bare_franchise_name;email_shared_across_companies,555,,Fastsigns,Fastsigns of Allentown,,tim.stahley@fastsigns.com,FS Buckhead (previous client different sales person) Rosa de Lugo 404.668.2879 528 Plasters Ave NE Atlanta GA 30324
 email_shared_across_companies,556,,"Signarama Sunnyvale, CA",Enrique Ruiz,(408) 743-5014,enrique.ruiz@signarama.com,"1190 Miraloma Way, Ste. Q, Sunnyvale, CA | Office: (408) 743-5014"
@@ -228,14 +234,14 @@ bare_franchise_name;email_shared_across_companies,569,,Signarama,Signarama of Ke
 bare_franchise_name;email_shared_across_companies,570,,Fastsigns,Randy Rasmussen,,randy.rasmussen@fastsigns.com,FS Buckhead (previous client different sales person) Rosa de Lugo 404.668.2879 528 Plasters Ave NE Atlanta GA 30324
 possible_duplicate_company,571,D10 Signs and Graphics,D 10,Greg Bereiter,,greg@d-10.com,"D10 Signs and Graphics 11410 NE 124th St Suite 612Kirkland, WA 98034Greg Bereiter , 425-828-0177 x 700"
 bare_franchise_name;possible_duplicate_company,572,Sr Signs,Signarama,Gary Clements,,gary@sr-signs.com,"Clay Curtis, PMPSignarama Puyallup 5722 112th Street EastPuyallup, WA, 98373 253-279-6527 (Office)615-405-2894 (Cell)Clay Curtis"
-possible_duplicate_company,573,Signarama Greenfield,signarama.com/locations/in-greenfield,fullypromoted.com/locations/greenfield-in,,nathan@signarama-greenfield.com,"fullypromoted.com/locations/greenfield-in, 1302 W Main St. Greenfield IN 46140"
+contact_name_missing;possible_duplicate_company,573,Signarama Greenfield,signarama.com/locations/in-greenfield,,,nathan@signarama-greenfield.com,"fullypromoted./greenfield-in, 1302 W Main St. Greenfield IN 46140"
 possible_duplicate_company,578,NH Signs,x305,Chris Forsythe,(603) 437-1200,chris.forsythe@nhsigns.com,"66 Gold Ledge Avenue, Auburn, NH 03032, Project Manager"
 possible_duplicate_company,580,Spotlight Sign Company,Spotlight Sign Co.,Leif Clem,,leif@spotlightsignco.com,"3867 37th Ave SE, Salem, OR 97317"
 possible_duplicate_company,581,Signarama Brunswickga,Joanne C Blake,Signarama Brunswick,(912) 265-6463,joanne@signarama-brunswickga.com,
 company_name_is_person;possible_duplicate_company,583,goodland signs,Paul Strickland,Paul Strickland,(805) 683-4600,paul@goodlandsigns.com,375 Pine Ave #20 Goleta CA 93117
-company_name_is_person;possible_duplicate_company,584,Signarama Nanuet,Rachel Galatt,Rachel Galatt,(917) 566-4640,rachel@signarama-nanuet.com,
+company_name_is_person;possible_duplicate_company,584,Signarama Nanuet,Rachel Galatt,Rachel Galatt,+19175664640,rachel@signarama-nanuet.com,
 possible_duplicate_company,587,Scs Graphics.,Alex Pickering,SCS Grapics,,scs@scsgraphics.net,"+19037854050, c3317 NE Loop 286, Paris, TX 75460, United States"
-email_shared_across_companies,589,,Sharon Rempfer,Deptford Signarama,,sharon.rempfer@signarama.com,"856-853-8099 - office, 609-330-7648 cell, 1320 Delsea Dr Ste L, Deptford, NJ 08096, www.signarama-deptford.com"
+email_shared_across_companies,589,,Sharon Rempfer,Deptford Signarama,,sharon.rempfer@signarama.com,"856-853-8099 - office, 609-330-7648 – cell, 1320 Delsea Dr Ste L, Deptford, NJ 08096"
 possible_duplicate_company,590,Mountain Dog Sign Co.,Mtdogco,Jason Nichols,,jason@mtdogco.com,Team
 email_shared_across_companies,593,,Signarama Houston Heights Team,Huzeifa Patwa,(281) 501-3129,huzeifa.patwa@signarama.com,"4808 Dacoma St, Ste B Houston, TX 77092"
 company_name_is_person,594,,FactoryFight,FactoryFight,,noreply@factoryfight.net,
@@ -243,13 +249,13 @@ possible_duplicate_company,595,Signarama Tomsriver,Sales_New,Warren,,sales@signa
 possible_duplicate_company,596,Spotlight Sign Company,Team,Spotlight Sign Company,,leif@spotlightsignco.com,"3867 37th Ave SE, Salem, Or 97317, Leif Clem"
 email_shared_across_companies,598,,Ed Weikle,Senior Account Executive,,ed.weikle@fastsigns.com,"Midtown Signs and Graphics, Inc. dba Fastsigns, 528 Plasters Avenue NE, Atlanta, GA 30324, Ed Weikle"
 bare_franchise_name;email_shared_across_companies,600,,Signarama,Lynsey Washington,,lynsey.washington@signarama.com,"Clay Curtis, PMPSignarama Puyallup 5722 112th Street EastPuyallup, WA, 98373 253-279-6527 (Office)615-405-2894 (Cell)Clay Curtis"
-possible_duplicate_company,601,"Signarama Baldwin, NY",Victor Michlig | Art Department,SIGNARAMA Baldwin/Oceanside,,victormart@sarocean.net,"Ph. 516.536.7280 | F. 516.536.1687, 540 Merrick Rd., Baldwin, NY 11510"
+company_has_person_prefix;possible_duplicate_company,601,"Signarama Baldwin, NY",Victor Michlig | Art Department,SIGNARAMA Baldwin/Oceanside,,victormart@sarocean.net,"Ph. 516.536.7280 | F. 516.536.1687, 540 Merrick Rd., Baldwin, NY 11510"
 bare_franchise_name;email_shared_across_companies,602,,Signarama,Emily Grimes,,emily.grimes@signarama.com,"Clay Curtis, PMPSignarama Puyallup 5722 112th Street EastPuyallup, WA, 98373 253-279-6527 (Office)615-405-2894 (Cell)Clay Curtis"
 bare_franchise_name;email_shared_across_companies,605,,Fastsigns,Alex McDonough,,alex.mcdonough@fastsigns.com,FS Buckhead (previous client different sales person) Rosa de Lugo 404.668.2879 528 Plasters Ave NE Atlanta GA 30324
-possible_duplicate_company,609,Signarama Philadelphia (Center City),Signarama Philadelphia,mobile 215-582-5858,,dave@signaramaccphila.com,"238 Market Street, Philadelphia, PA 19106, office 215-238-9050"
+contact_name_missing;possible_duplicate_company,609,Signarama Philadelphia (Center City),Signarama Philadelphia,,(215) 582-5858 (mobile),dave@signaramaccphila.com,"238 Market Street, Philadelphia, PA 19106, office 215-238-9050"
 possible_duplicate_company,610,Signarama Norristown,Signarama Fort Washington,Mason Quinn,,info@signarama-norristown.com,"240 New York Dr Suite 3Fort Washington, PA 1903, 4267-575-3182, Madison Lojeski"
-possible_duplicate_company,611,Trademark Sign LLC,Jason Turok,ESTIMATOR,(844) 423-1170,j.turok@trademarksignllc.com,"TRADEMARK SIGN LLC., Deerfield Beach, FL 33442, Wall Township, NJ 07727, www.trademarksignllc.com"
-possible_duplicate_company,612,Zebra VisualsZebra Visuals,Zebra Visuals,508 746 9200 | Direct: 774 404 8220,,paul@zebravisuals.com,"9 Aldrin Road, Suite 10, Plymouth, MA 02360"
+possible_duplicate_company,611,Trademark Sign LLC,Jason Turok,ESTIMATOR,(844) 423-1170,j.turok@trademarksignllc.com,"TRADEMARK SIGN LLC., Deerfield Beach, FL 33442, Wall Township, NJ 07727"
+contact_name_missing;possible_duplicate_company,612,Zebra VisualsZebra Visuals,Zebra Visuals,,508 746 9200 | Direct: 774 404 8220 (direct),paul@zebravisuals.com,"9 Aldrin Road, Suite 10, Plymouth, MA 02360"
 bare_franchise_name,616,,Signarama,Tushar Patel,,signaramact.design@signarama.com,"Clay Curtis, PMPSignarama Puyallup 5722 112th Street EastPuyallup, WA, 98373 253-279-6527 (Office)615-405-2894 (Cell)Clay Curtis"
 possible_duplicate_company,617,Premier Sign Company,"Clay Curtis, CE, PMP",PREMIER SIGN COMPANY,(615) 405-2894,ccurtis@tristartransport.com,"1720 Ed Temple Blvd Nashville, Tn, 37208, Clay Curtis"
 company_name_is_person,619,,Samantha Nappi,Samantha Nappi,,estimates@patriotprintsinc.com,"+13156522900, 5785 Route 80 Tully New York 13159 Tully , New York , US , 13159"
@@ -265,38 +271,40 @@ possible_duplicate_company,639,Westside Signarama,Westsidesigns,Debi,(623) 979-5
 possible_duplicate_company,641,AGI,Sarah Wozniel,Associate Director,(757) 409-4029,swozniel@agi.net,"Signage Solutions, AGI, 2820 Crusader Circle, Virginia Beach, VA 23452, O 800.877.7868 ext. 2172"
 company_name_is_person;possible_duplicate_company,643,Stark Design Plus,Troy Reimer,Troy Reimer,(509) 521-9772,troy@starkdesignplus.com,"6001 W Deschutes Ave, Suite 616, Kennewick, WA 99336"
 possible_duplicate_company,644,Signarama Downtown,Signarama Downtown Louisville,For Gabe Chandler,,gabe@signaramadowntown.com,"1430 Mellwood Ave, Louisville, KY 40206"
-possible_duplicate_company,645,Dbmsignage,Full Name Ted Neelands,Ted Neelands,,ted@dbmsignage.com,"Phone Number 5404291351, Email Address"
+possible_duplicate_company,645,Dbmsignage,Full Name Ted Neelands,Ted Neelands,(540) 429-1351,ted@dbmsignage.com,
 possible_duplicate_company,646,Stark Design Plus,Jake Evans,SALES,(509) 491-0021,jake@starkdesignplus.com,"STARKDESIGNPLUS.COM, 1215 S 10th Ave, Pasco, WA"
 company_name_is_person,649,,Jake Munday,Jake Munday,(888) 262-4851,jake@customneon.com,"0422743177, 6600 Sunset Blvd #218 Los Angeles, CA 90028 United States"
 possible_duplicate_company,650,Mountain Dog Sign Co.,Becky Henselen,Mountain Dog Sign Co.,,becky@mtdogco.com,"1620 N Mamer Rd Suite 100 Spokane Valley, WA 99216"
-possible_duplicate_company,653,Francisco Rodriguez Villegas | Signarama Hollywood,Dawn Grayson,Signarama-Hollywood,(954) 926-3380,info@signarama-hollywoodfl.com,"6144 Hollywood Blvd. Hollywood, FL 33024, www.signarama-hollywoodfl.com"
+possible_duplicate_company,653,Francisco Rodriguez Villegas | Signarama Hollywood,Dawn Grayson,Signarama-Hollywood,(954) 926-3380,info@signarama-hollywoodfl.com,"6144 Hollywood Blvd. Hollywood, FL 33024"
 email_shared_across_companies,654,,Ventura Thomas,Signarama Mint Hill,,ventura.thomas@signarama.com,"(360) 970 7121 Cell, (704) 443 0092 Main Office, 3601 Matthews Mint Hill Rd, Suite 2, Mint Hill, NC 28105"
 email_shared_across_companies,655,,Team,Fastsigns Lynnwood,,lisa.stone@fastsigns.com,"3867 37th Ave SE, Salem, Or 97317, Leif Clem"
-possible_duplicate_company,657,Trademark Sign LLC,Allie Inberg,TRADEMARK SIGN LLC.,(844) 423-1170,a.inberg@trademarksignllc.com,"Deerfield Beach, FL 33442, Wall Township, NJ 07727, www.trademarksignllc.com"
-possible_duplicate_company,659,Dbmsignage,Ted Neelands,Owner / Sales,,ted@dbmsignage.com,"? 833-727-4467 Ext.0 Office, 540-429-1351 Cell, ? , ?? dbmsignage.com, 3712 Ringgold Rd. #306 Chattanooga, TN 37412"
+possible_duplicate_company,657,Trademark Sign LLC,Allie Inberg,TRADEMARK SIGN LLC.,(844) 423-1170,a.inberg@trademarksignllc.com,"Deerfield Beach, FL 33442, Wall Township, NJ 07727"
+possible_duplicate_company,659,Dbmsignage,Ted Neelands,Owner / Sales,,ted@dbmsignage.com,"833-727-4467 Ext.0 Office, 540-429-1351 Cell, , dbmsignage.com, 3712 Ringgold Rd. #306 Chattanooga, TN 37412"
 possible_duplicate_company,660,beartooth signs,Karin Stiles,Office Administrator -,,info@beartoothsigns.com,"Beartooth Sign & Design, Bozeman, MT 59718"
 email_shared_across_companies,663,,Clay Curtis,PMP Signarama Puyallup,(253) 279-6527 (office),clay.curtis@signarama.com,"5722 112th Street EastPuyallup, WA, 98373"
 possible_duplicate_company,664,"Signarama Oak Creek, WI",Ehab Abdullah,"Signarama of Oak Creek, WI.",(414) 260-5040,ehab@signarama-oakcreek.com,"145 W Ryan Rd Oak Creek, WI 53154 Suite: B"
-possible_duplicate_company,666,Signarama Greenfield,Nathan Link,"Project Manager, Signarama / Fully Promoted Greenfield, IN",,nathan@signarama-greenfield.com,"signarama.com/locations/in-greenfield, fullypromoted.com/locations/greenfield-in, 1302 W Main St. Greenfield IN 46140, Thanks"
-possible_duplicate_company,667,D10 Signs and Graphics,Greg Bereiter,,(425) 828-0177 x700,greg@d-10.com,"Estimating/Field Manager, D10 SIGNS + GRAPHICS, www.d-10.com, 11410 NE 124th St, Kirkland, WA 98034"
+possible_duplicate_company,666,Signarama Greenfield,Nathan Link,"Project Manager, Signarama / Fully Promoted Greenfield, IN",,nathan@signarama-greenfield.com,"signarama./in-greenfield, fullypromoted./greenfield-in, 1302 W Main St. Greenfield IN 46140, Thanks"
+contact_name_missing;possible_duplicate_company,667,D10 Signs and Graphics,Greg Bereiter,,(425) 828-0177 x700,greg@d-10.com,"Manager, D10 SIGNS + GRAPHICS, 11410 NE 124th St, Kirkland, WA 98034"
 company_name_is_person;email_shared_across_companies,668,,Andrea Riley,Andrea Riley,,fastsigns.2473@fastsigns.com,"+18563521800, 198 Fries Mill Road Turnersville , New Jersey , US , 08012"
 possible_duplicate_company,670,Signsoveramerica,"Signarama Evansville, IN",Sherri B. Hill,(812) 477-7763,sherri@signsoveramerica.com,"1300 N. Royal Ave. Evansville, IN 47715"
-email_shared_across_companies,671,,Shaya Herzl,signarama.com/locations/ny-congers,(845) 507-0101,shaya.herzl@signarama.com,24 Burts Road Congers New York 10920
+contact_name_missing;email_shared_across_companies,671,,Shaya Herzl,,(845) 507-0101,shaya.herzl@signarama.com,24 Burts Road Congers New York 10920
+company_has_person_prefix,673,,Daniela Vielma| Production Manager.,Davie | Plantation | Downtown Miami,(954) 370-7201,daniela.vielma@fastsigns.com,
 email_shared_across_companies,675,,Signarama Deptford,Sharon Rempfer,,sharon.rempfer@signarama.com,"1320 DELSEA DR STE L, DEPTFORD, NJ 08096, Sharon"
 email_shared_across_companies,676,,Signarama Mint Hill,Matthews,,ventura.thomas@signarama.com,"3601 Matthews Mint Hill Rd, Suite 2Mint, Hill, NC"
-email_shared_across_companies,677,,Kodi Peek | Project Manager,"CMD Sign & Electric, Inc",,kodi.cmdsign@gmail.com,"PO BOX 69, Montesano WA 98563, 360-580-8954 (Office)"
-email_shared_across_companies,679,,Jenny,FASTSIGNS of Lynnwood,,fastsigns.443@fastsigns.com,"2921 Alderwood Mall Blvd, Ste 104 | Lynnwood, WA 98036, | (425) 775-9709, www.fastsigns.com/443"
+company_has_person_prefix;email_shared_across_companies,677,,Kodi Peek | Project Manager,"CMD Sign & Electric, Inc",,kodi.cmdsign@gmail.com,"PO BOX 69, Montesano WA 98563, 360-580-8954 (Office)"
+email_shared_across_companies,679,,Jenny,FASTSIGNS of Lynnwood,,fastsigns.443@fastsigns.com,"2921 Alderwood Mall Blvd, Ste 104 | Lynnwood, WA 98036, | (425) 775-9709"
 bare_franchise_name;email_shared_across_companies,680,,Signarama,Hannah Cunningham,,hannah.cunningham@signarama.com,"Clay Curtis, PMPSignarama Puyallup 5722 112th Street EastPuyallup, WA, 98373 253-279-6527 (Office)615-405-2894 (Cell)Clay Curtis"
 bare_franchise_name;email_shared_across_companies,681,,Signarama,Namita Patel,,olivettemo@signarama.com,"Clay Curtis, PMPSignarama Puyallup 5722 112th Street EastPuyallup, WA, 98373 253-279-6527 (Office)615-405-2894 (Cell)Clay Curtis"
 bare_franchise_name,686,,Signarama,Vinnie Gatti,,vinnie.gatti@signarama.com,"Clay Curtis, PMPSignarama Puyallup 5722 112th Street EastPuyallup, WA, 98373 253-279-6527 (Office)615-405-2894 (Cell)Clay Curtis"
 company_name_is_person,688,,Ahmed Alrahimee,Ahmed Alrahimee,,sales@xclusivesigns.com,"429 E. March Ln, STE B, Stockton, CA 95207"
+contact_name_missing,690,,Nationalsign,,,info@nationalsign.com,.
 email_shared_across_companies,693,,Moe Ibrahim,Operations Manager,+16109771777,goldenfoxsign2@gmail.com,"GOLDEN FOX SIGN, Signcompanyphiladelphia.net, 3327 B Street, Philadelphia, PA 19134, 10804 Bustleton Ave, Philadelphia, PA 19116"
 possible_duplicate_company,694,Mountain Dog Sign Co.,Rico Rodriguez,Mountain Dog Sign Co.,,rico@mtdogco.com,"1620 Mamer Rd Suite D100, Spokane Valley, WA 99216, Rico Rodriguez"
 bare_franchise_name,695,,Fastsigns,Andrew Lauchner,,andrew.launchner@fastsigns.com,FS Buckhead (previous client different sales person) Rosa de Lugo 404.668.2879 528 Plasters Ave NE Atlanta GA 30324
 bare_franchise_name,698,,Fastsigns,Randall Bloomquist,,randall.bloomquist@fastsigns.com,FS Buckhead (previous client different sales person) Rosa de Lugo 404.668.2879 528 Plasters Ave NE Atlanta GA 30324
 email_shared_across_companies,699,,FASTSIGNS of Beaverton,Madison,(503) 526-0216,fastsigns.46@fastsigns.com,"12700 SW Canyon Rd., Beaverton OR 97005 MAP IT, Our Hours are 8:30 AM - 5 PM, Monday-Friday, 0."
 company_name_is_person;possible_duplicate_company,700,Signarama Lawrenceburg,Kevin McCord,KEVIN MCCORD,(513) 260-0844,kevin@signarama-lawrenceburg.com,"1090 WEST EADS PARKWAY, LAWRENCEBURG IN 47025"
-possible_duplicate_company,703,Signarama Concord,Full Name KENDRA PRICE,KENDRA PRICE,,kprice@signarama-concord.com,"Phone Number 6032254081, Email Address"
+possible_duplicate_company,703,Signarama Concord,Full Name KENDRA PRICE,KENDRA PRICE,(603) 225-4081,kprice@signarama-concord.com,
 email_shared_across_companies,704,,Fully Promoted & Signarama of Schertz,Justin O'Donnell,(210) 655-6300,signaramaschertz@yahoo.com,"17361 Bell North Dr., Ste. 105, Schertz, TX 78154"
 possible_duplicate_company,707,Signarama Redmond,Sharon Khoo,(Signarama Redmond),,sharonkhoo@signarama-redmond.com,"8531 154th Ave NE, Building K Suite #130"
 bare_franchise_name,708,,Fastsigns,Fastsigns Tucker,,174@fastsigns.com,FS Buckhead (previous client different sales person) Rosa de Lugo 404.668.2879 528 Plasters Ave NE Atlanta GA 30324
@@ -312,14 +320,15 @@ email_shared_across_companies,719,,Signarama Magnolia,Krystal Villanueva,(832) 8
 bare_franchise_name,720,,Fastsigns,Lisa Thamert,,lisa.thamert@fastsigns.com,FS Buckhead (previous client different sales person) Rosa de Lugo 404.668.2879 528 Plasters Ave NE Atlanta GA 30324
 company_name_is_person,721,,Brij Mair,Brij Mair,,brij.mair@signarama.com,"+17033761880, 14100 Sullyfield Cir Suite 250, Chantilly, VA 20151, United States, Signarama Chantilly1"
 possible_duplicate_company,723,Next Day Signs,Next Day Sign,Dory Seburg,,service@nextdaysignstampa.com,"2413 Country Trails Dr Safety Harbor, FL 34695"
-possible_duplicate_company,726,"Signarama Novi, MI",Full Name Beth Powers,Beth Powers,,beth@signarama-novi.com,"Phone Number 12484727620, Email Address , 49677 Grand River Ave, Wixom, MI 48393"
+possible_duplicate_company,726,"Signarama Novi, MI",Full Name Beth Powers,Beth Powers,,beth@signarama-novi.com,"12484727620, , 49677 Grand River Ave, Wixom, MI 48393"
 email_shared_across_companies,727,,Signarama Olivette,"Signarama Olivette, MO",,olivettemo@signarama.com,"9715 Olive Blvd, suite B, Olivette, MO 63132"
 company_name_is_person,729,,Marisol Maxfield,Marisol Maxfield,,miamilakesfl@signarama.com,"13059477731, Sales, Signarama Miami Lakes 6157 N.W. 167th Street Unit F-25, Miami Lakes, Fl 33015"
-email_shared_across_companies,730,,Dawn Grayson,Signarama-Hollywood,(954) 926-3380,hollywoodfl@signarama.com,"6144 Hollywood Blvd. Hollywood, FL 33024, www.signarama-hollywoodfl.com"
+email_shared_across_companies,730,,Dawn Grayson,Signarama-Hollywood,(954) 926-3380,hollywoodfl@signarama.com,"6144 Hollywood Blvd. Hollywood, FL 33024"
 bare_franchise_name,736,,Signarama,Joanne Blake,,joanne.blake@signarama.com,"Clay Curtis, PMPSignarama Puyallup 5722 112th Street EastPuyallup, WA, 98373 253-279-6527 (Office)615-405-2894 (Cell)Clay Curtis"
+contact_name_missing,737,,Oscar Valle,,(817) 883-0676,oscar@jebsign.com,7100 S. Cooper St Arlington TX 76001
 bare_franchise_name;email_shared_across_companies,738,,Signarama,Enrique Ruiz,,enrique.ruiz@signarama.com,"Clay Curtis, PMPSignarama Puyallup 5722 112th Street EastPuyallup, WA, 98373 253-279-6527 (Office)615-405-2894 (Cell)Clay Curtis"
 bare_franchise_name,739,,Signarama,Kenny Samaniego,,kenny.samaniego@signarama.com,"Clay Curtis, PMPSignarama Puyallup 5722 112th Street EastPuyallup, WA, 98373 253-279-6527 (Office)615-405-2894 (Cell)Clay Curtis"
-role_or_junk_company_name;possible_duplicate_company,740,Signaramaphilly,Office Manager | Project Manager,Signarama Philadelphia,,resources@signaramaphilly.com,"101 E Luzerne St, Ste. B Philadelphia, PA 19124, P - 215.333.3337"
+role_or_junk_company_name;company_has_person_prefix;possible_duplicate_company,740,Signaramaphilly,Office Manager | Project Manager,Signarama Philadelphia,,resources@signaramaphilly.com,"101 E Luzerne St, Ste. B Philadelphia, PA 19124, P - 215.333.3337"
 bare_franchise_name,744,,Fastsigns,Andrew Lauchner,,andrew.lauchner@fastsigns.com,FS Buckhead (previous client different sales person) Rosa de Lugo 404.668.2879 528 Plasters Ave NE Atlanta GA 30324
 possible_duplicate_company,745,SIGNARAMA Louisville EAST,Lloyd Graves,"signarama, Louisville, Kentucky east",,lloyd@signslouisville.com,"5024544321, 9824 Bluegrass Pkwy, Louisville, KY 40299"
 email_shared_across_companies,746,,Brady Stumpf,Sales Representative,(281) 402-9563,brady.stumpf@signarama.com,"8259 FM 1488, Suite B, Magnolia, TX 77354"
@@ -327,14 +336,14 @@ email_shared_across_companies,749,,Tracy Ripa,"Owner, Managing Partner | Signara
 possible_duplicate_company,750,Premier Sign Company,"Clay Curtis, CE",PMP PREMIER SIGN COMPANY,(615) 405-2894,ccurtis@tristartransport.com,"1720 Ed Temple Blvd Nashville, Tn, 37208, Clay Curtis"
 possible_duplicate_company,752,Stark Design Plus,Stark Designs,Jake Evans,,jake@starkdesignplus.com,"1215 S 10th Ave, Pasco, WA, Jake Evans"
 email_shared_across_companies,753,,Justin Rempfer,Owner,(856) 332-7234,justin.rempfer@signarama.com,"Deptford Signarama, 1320 DELSEA DRIVE, DEPTFORD, NJ 08096, Justin"
-email_shared_across_companies,755,,Karina Z.,www.Graphixlab.co,(415) 999-7080,graphixlabsf@gmail.com,"www.Graphixlab.co, 173 S Spruce Ave, South San Francisco,, CA, 94080"
+contact_name_missing;email_shared_across_companies,755,,Karina Z.,,(415) 999-7080,graphixlabsf@gmail.com,"173 S Spruce Ave, South San Francisco,, CA, 94080"
 email_shared_across_companies,757,,Fastsign of Allentown,.,,tim.stahley@fastsigns.com,"396 Schantz Rd. Allentown, PA 18104, im Stahley"
 possible_duplicate_company,758,Signarama Philadelphia (Center City),Dave Crispin,Greater Philadelphia Area,,dave@signaramaccphila.com,"A customer won't care how much you know, until they know how much you care!, Signarama Philadelphia, 238 Market Street, Philadelphia, PA 19106, mobile 215-582-5858, office 215-238-9050"
-possible_duplicate_company,760,Francisco Rodriguez Villegas | Signarama Hollywood,Full Name Signarama Hollywood,Signarama of Hollywood,,sales@signarama-hollywoodfl.com,"Phone Number 9549263380, Email Address , 6144 Hollywood Blvd., Hollywood, FL 33024."
+possible_duplicate_company,760,Francisco Rodriguez Villegas | Signarama Hollywood,Full Name Signarama Hollywood,Signarama of Hollywood,,sales@signarama-hollywoodfl.com,"9549263380, , 6144 Hollywood Blvd., Hollywood, FL 33024."
 email_shared_across_companies,761,,Ventura Thomas Signarama Mint Hill,Ventura Thomas,(360) 970-7121,ventura.thomas@signarama.com,
 email_shared_across_companies,762,,Signarama Deptford,Justin Rempfer,,justin.rempfer@signarama.com,"1320 DELSEA DR STE L, DEPTFORD, NJ 08096, Sharon"
-email_shared_across_companies,763,,Gady Ginzburg | Owner,"Signarama North Kingstown, RI",,gady.ginzburg@signarama.com,"Cell (401) 450-4959, Office (401) 886-5000, 6855 Post Rd. North Kingstown, RI 02852"
-possible_duplicate_company,765,Signarama North Dallas,Full Name Roger Robinson,Phone Number 972-361-0700,,roger@signaramadallas.com,"Email Address , 14430 Midway Rd, Dallas, TX 75244"
+company_has_person_prefix;email_shared_across_companies,763,,Gady Ginzburg | Owner,"Signarama North Kingstown, RI",,gady.ginzburg@signarama.com,"Cell (401) 450-4959, Office (401) 886-5000, 6855 Post Rd. North Kingstown, RI 02852"
+contact_name_missing;possible_duplicate_company,765,Signarama North Dallas,Full Name Roger Robinson,,(972) 361-0700,roger@signaramadallas.com,"14430 Midway Rd, Dallas, TX 75244"
 email_shared_across_companies,766,,Enri Ruiz de Luzuriaga,Owner,,enrique.ruiz@signarama.com,"Signarama Sunnyvale, CA, 1190 Miraloma Way # Q, Sunnyvale, CA 94085, United States"
 bare_franchise_name,767,,Fastsigns,Brian Matura,,brian.matura@fastsigns.com,FS Buckhead (previous client different sales person) Rosa de Lugo 404.668.2879 528 Plasters Ave NE Atlanta GA 30324
 email_shared_across_companies,768,,Fastsign of Claclamas\,Rob,,fastsigns.154@fastsigns.com,"10309-C SE 82nd AvenueHappy Valley, OR 97086"
@@ -350,14 +359,14 @@ bare_franchise_name;email_shared_across_companies,783,,Signarama,Tracy Ripa,,tra
 company_name_is_person,784,,Charles King,Charles King,,197@fastsigns.com,"FASTSIGNS 120907, +19082310306, Raritan , New Jersey , US , 08869"
 possible_duplicate_company,786,Mountain Dog Sign Co.,Mountain Dog Sign Company,Becky Henselen,,becky@mtdogco.com,"1620 N Mamer Road, Spokane Valley, WA 99216"
 possible_duplicate_company,787,Signarama Norristown,Signarama NorristownEthan Polto,Ethan Polto,,ethan@signarama-norristown.com,
-possible_duplicate_company,789,Mountain Dog Sign Co.,Mtdogco,,,steven@mtdogco.com,Team
+contact_name_missing;possible_duplicate_company,789,Mountain Dog Sign Co.,Mtdogco,,,steven@mtdogco.com,Team
 possible_duplicate_company,790,Baldwin Signs,Joel Baldwin,Baldwin Signs,,joel@baldwinsigns.com,"6809 Pittsburg, Spokane, WA, 99217"
 email_shared_across_companies,791,,Fastsigns 2054,ANGELO CARIOSCIA,(540) 656-0976,angelo.carioscia@fastsigns.com,"2710 E HIGHWAY 34, SUITE D NEWNAN GA 3026"
 possible_duplicate_company,792,Signarama Norristown,"Signarama Fort Washington, PA",Ethan Polto,,ethan@signarama-norristown.com,240 New York Dr Suite 3
-email_shared_across_companies,793,,Signarama Hollywood,Dawn Grayson,(954) 926-3380,hollywoodfl@signarama.com,"Hallandale, Florida, United States, America/New_York, 99.162.252.90"
+email_shared_across_companies,793,,Signarama Hollywood,Dawn Grayson,(954) 926-3380,hollywoodfl@signarama.com,"Hallandale, Florida, United States"
 bare_franchise_name,795,,Signarama,Randy Florendo,,randy.florendo@signarama.com,"Clay Curtis, PMPSignarama Puyallup 5722 112th Street EastPuyallup, WA, 98373 253-279-6527 (Office)615-405-2894 (Cell)Clay Curtis"
 bare_franchise_name;email_shared_across_companies,796,,Signarama,Tushar Patel,,tushar.patel@signarama.com,"Clay Curtis, PMPSignarama Puyallup 5722 112th Street EastPuyallup, WA, 98373 253-279-6527 (Office)615-405-2894 (Cell)Clay Curtis"
-possible_duplicate_company,797,Mountain Dog Sign Co.,Mountain Dog Sign Company,,,steven@mtdogco.com,"1620 N Mamer Road, Spokane Valley, WA 99216"
+contact_name_missing;possible_duplicate_company,797,Mountain Dog Sign Co.,Mountain Dog Sign Company,,,steven@mtdogco.com,"1620 N Mamer Road, Spokane Valley, WA 99216"
 email_shared_across_companies,799,,Fastsigns South Center,Gina Gerking Spiller,,fastsigns.157@fastsigns.com,"7825 S 180th St aka, 7825 SW 43rd St"
-possible_duplicate_company,800,Sr Signs,www.sr-signs.com,www.facebook.com/signaramasr,,ulises@sr-signs.com,"915 Piner Rd., STE C Santa Rosa, CA 95403, 707-523-0606 x113"
+contact_name_missing;possible_duplicate_company,800,Sr Signs,www.sr-signs.com,,,ulises@sr-signs.com,"915 Piner Rd., STE C Santa Rosa, CA 95403, 707-523-0606 x113"
 bare_franchise_name,801,,Signarama,John Luke,,john.luke@signarama.com,"Clay Curtis, PMPSignarama Puyallup 5722 112th Street EastPuyallup, WA, 98373 253-279-6527 (Office)615-405-2894 (Cell)Clay Curtis"
