@@ -48,11 +48,10 @@ it('labels the payment kind for the title', function () {
     expect(ShopifyService::kindLabel('balance'))->toBe('Remaining Balance (50%)');
 });
 
-// Each payment link is a Shopify DRAFT-ORDER invoice for its own single variant — a standalone
-// checkout with no cart. Cart/product links piled multiple links into one shared cart and billed
-// the SUM ("$39,470 instead of one item"); a draft-order invoice holds only its own line item.
-// The draft order itself is created via the live API (createDraftOrder), so what's unit-testable
-// here is the pricing invariant: each kind is ONE variant at ONE amount, so one link = one charge.
+// Each payment link is its own single-variant product priced at exactly the amount for that kind
+// (full = full, deposit/balance = half). One link = one product = one amount. (A customer opening
+// several of their OWN links in the same browser can still stack them in Shopify's shared cart —
+// an accepted edge case; the normal one-link flow bills exactly this.)
 it('gives each payment kind its own single-amount variant so one link bills one amount', function () {
     $full = ShopifyService::variantsFor(6000.0, 'full');
     $dep  = ShopifyService::variantsFor(6000.0, 'deposit');

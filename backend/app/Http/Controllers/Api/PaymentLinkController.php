@@ -94,18 +94,6 @@ class PaymentLinkController extends Controller
         // Flip Active → Unlisted (#1): sellable via the link, hidden from the catalog. Best-effort.
         ShopifyService::setUnlisted($result['product_id']);
 
-        // The payment link is a DRAFT-ORDER invoice, NOT a cart/product link. An invoice checkout
-        // holds ONLY this line item, so links can never pile into one shared cart (the accumulation
-        // bug that billed a customer the SUM of every link they opened). If the draft order can't be
-        // made, we do NOT fall back to a cart link — we fail, so a dangerous link is never created.
-        $email = $request->input('email', $quote->email);
-        $draft = ShopifyService::createDraftOrder($variant['id'] ?? '', is_string($email) ? $email : null);
-        if (!($draft['ok'] ?? false)) {
-            return response()->json([
-                'error' => 'Shopify couldn’t create the checkout — '.($draft['message'] ?? $draft['reason'] ?? 'unknown error').'.',
-            ], 502);
-        }
-
         $gd = $quote->generated_data ?: [];
         $link = PaymentLink::create([
             'quote_id'           => $quote->id,
@@ -121,7 +109,7 @@ class PaymentLinkController extends Controller
             'kind'               => $kind,
             'shopify_product_id' => $result['product_id'],
             'shopify_variant_id' => $variant['id'] ?? null,
-            'url'                => $draft['invoice_url'],
+            'url'                => $result['url'],
             'status'             => 'unpaid',
             'created_by'         => $user->id,
         ]);

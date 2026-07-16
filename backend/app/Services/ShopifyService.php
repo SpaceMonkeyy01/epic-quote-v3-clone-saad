@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Quote;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 /**
  * Creates the exact "unlisted product" the team makes by hand in Shopify, from a quote.
@@ -315,87 +314,19 @@ class ShopifyService
             'title'             => $v['title'] ?? $v['option1'] ?? '',
             'price'             => $v['price'] ?? '',
         ])->all();
-        $variantId = (string) ($variants[0]['id'] ?? '');
         return [
             'ok'         => true,
             'product_id' => (string) $p['id'],
             'handle'     => $p['handle'] ?? '',
-            // CART PERMALINK, not the product page. A cart permalink (/cart/{variant}:1) makes
-            // Shopify EMPTY the current cart and add only THIS one item, then go to checkout — so
-            // each link bills exactly its own amount. Product-page links did the opposite: the cart
-            // is shared per customer session, so a customer who opened several deposit links piled
-            // them all into one cart and got billed the SUM (the "$18k instead of $6k" bug). If a
-            // variant id is somehow missing, fall back to the product page (payable, just not
-            // cart-clearing) rather than emit a broken /cart/:1 link.
-            'url'        => $variantId !== ''
-                ? self::checkoutUrl(self::storefrontHost(), $variantId)
-                : 'https://'.self::storefrontHost().'/products/'.($p['handle'] ?? ''),
+            // PRODUCT-PAGE link: the customer lands on the sign's preview (image + specs) and pays
+            // from there. KNOWN edge case: Shopify's cart is shared per browser session, so a customer
+            // who opens SEVERAL of their own links in the SAME browser (e.g. deposit + balance) sees
+            // them add up in one cart. The normal flow — one link, one payment — is unaffected, and a
+            // fresh/incognito session always shows a single item. (Draft-order invoices remove even
+            // that edge case but need the write_draft_orders Shopify scope — deferred by decision.)
+            'url'        => 'https://'.self::storefrontHost().'/products/'.($p['handle'] ?? ''),
             'variants'   => $variants,
         ];
-    }
-
-    /** Cart-permalink checkout URL for a single variant. SUPERSEDED by createDraftOrder(): on the
-     *  live store, opening several cart links still ACCUMULATED into one cart (a customer got billed
-     *  the SUM of every deposit link they opened). The cart is shared per session, so no cart-based
-     *  URL is safe. Kept only for the fix-links migration to detect old links. */
-    public static function checkoutUrl(?string $host, string $variantId): string
-    {
-        return 'https://'.$host.'/cart/'.$variantId.':1';
-    }
-
-    /** Create a Shopify DRAFT ORDER for a single variant and return its standalone checkout link
-     *  (invoice_url). This is the ONLY safe payment link: an invoice checkout contains ONLY this
-     *  draft order's line item — it uses NO cart, so two links can never combine (the accumulation
-     *  bug that billed a customer the sum of every link they opened). When the invoice is paid,
-     *  Shopify creates an order carrying the variant's product_id, so the orders/paid webhook still
-     *  matches the payment link by product_id — paid-tracking is unchanged. */
-    public static function createDraftOrder(string $variantId, ?string $email = null): array
-    {
-        if (!self::configured() || $variantId === '') {
-            return ['ok' => false, 'reason' => 'not_configured'];
-        }
-        try {
-            $domain  = self::domain();
-            $version = config('services.shopify.version', '2025-01');
-            $body = ['draft_order' => ['line_items' => [['variant_id' => (int) $variantId, 'quantity' => 1]]]];
-            if ($email) {
-                $body['draft_order']['email'] = $email;
-            }
-            $resp = Http::timeout(20)->withHeaders(['X-Shopify-Access-Token' => config('services.shopify.token')])
-                ->post("https://{$domain}/admin/api/{$version}/draft_orders.json", $body);
-            if (!$resp->successful()) {
-                return ['ok' => false, 'reason' => 'api', 'message' => is_string($resp->json('errors')) ? $resp->json('errors') : $resp->body()];
-            }
-            $do = $resp->json('draft_order') ?: [];
-            $invoice = $do['invoice_url'] ?? null;
-            if (!$invoice) {
-                return ['ok' => false, 'reason' => 'no_invoice_url'];
-            }
-            return ['ok' => true, 'id' => (string) ($do['id'] ?? ''), 'invoice_url' => (string) $invoice];
-        } catch (\Throwable $e) {
-            Log::warning('Shopify createDraftOrder: '.$e->getMessage());
-            return ['ok' => false, 'reason' => 'exception', 'message' => $e->getMessage()];
-        }
-    }
-
-    /** Fetch a product's first variant id by product id (for rebuilding an existing link's
-     *  cart permalink when the variant id wasn't stored). Null on any failure. */
-    public static function productVariantId(string $productId): ?string
-    {
-        if (!self::configured() || $productId === '') {
-            return null;
-        }
-        try {
-            $domain  = self::domain();
-            $version = config('services.shopify.version', '2025-01');
-            $resp = Http::timeout(15)->withHeaders(['X-Shopify-Access-Token' => config('services.shopify.token')])
-                ->get("https://{$domain}/admin/api/{$version}/products/{$productId}.json", ['fields' => 'variants']);
-            $id = $resp->successful() ? ($resp->json('product.variants.0.id') ?? null) : null;
-            return $id ? (string) $id : null;
-        } catch (\Throwable $e) {
-            Log::warning("Shopify productVariantId {$productId}: ".$e->getMessage());
-            return null;
-        }
     }
 
     /** Lightweight connection check (GET shop.json) — used by /api/shopify/status. */
