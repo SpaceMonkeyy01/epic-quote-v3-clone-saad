@@ -4,6 +4,7 @@ import { MOUNT_OPTS, TRIM_OPTS, ILLUM_OPTS } from './catalog'
    `ai` is the optional AI spec result; its values become highlighted defaults. */
 export function buildQuestions(t, ai = {}) {
   ai = ai || {}
+  if (t.matrix) return buildMatrixQuestions(t, ai)
   const qs = []
 
   // Dimensions are 2D (Height × Width) for every standard sign — depth is NOT a dimension
@@ -70,6 +71,29 @@ export function buildQuestions(t, ai = {}) {
   qs.push({ key: 'application', q: 'Application?', type: 'chips', options: ['EXTERIOR', 'INTERIOR'], def: (ai.application === 'EXTERIOR' || ai.application === 'INTERIOR') ? ai.application : (t.app || 'EXTERIOR'), aiSet: !!ai.application })
   qs.push({ key: 'price', q: 'Enter the price (USD)', type: 'number', def: ai.price != null ? String(ai.price) : null, placeholder: 'e.g. 1200', aiSet: ai.price != null })
 
+  return qs
+}
+
+// MATRIX types (channel letters): mounting is the primary axis. The spec's returns/backer/
+// raceway lines are derived from the chosen mounting (proposal.js), so here we just ask the
+// mounting, the depth, the base colours, one optional structure colour, illumination + app.
+function buildMatrixQuestions(t, ai = {}) {
+  const qs = []
+  qs.push({ key: 'dimensions', type: 'dims', q: 'Overall dimensions (H × W)', parts: 2, def: ai.dimensions || null, aiSet: !!ai.dimensions })
+  qs.push({ key: 'mounting', q: 'Mounting?', type: 'chips', options: t.mountings, def: (ai.mounting && t.mountings.includes(ai.mounting)) ? ai.mounting : t.mountings[0], aiSet: !!ai.mounting })
+  qs.push({ key: 'returns', q: 'Returns / depth?', type: 'text', def: ai.returns || t.retDefault || '', placeholder: t.retDefault || 'e.g. 3"', aiSet: !!ai.returns })
+  ;(t.baseColors || []).forEach((c, i) => {
+    let aiCol = null
+    if (/FACE/.test(c.l) && ai.faceColor) aiCol = ai.faceColor
+    else if (/RETURN|TRIM/.test(c.l) && ai.returnColor) aiCol = ai.returnColor
+    qs.push({ key: 'color_' + i, q: 'Color Specs — ' + c.l + '?', type: 'color', options: ['BLACK', 'WHITE'], def: (aiCol === 'BLACK' || aiCol === 'WHITE') ? aiCol : null, aiSet: !!aiCol })
+  })
+  // one optional colour for the mounting's structure (raceway/backer). Blank keeps it off.
+  qs.push({ key: 'structcolor', q: 'Raceway / Backer color? (only for raceway/backer mountings)', type: 'text', def: null, placeholder: 'e.g. BLACK — leave empty if undecided' })
+  if (t.illum === 'led') qs.push({ key: 'illumination', q: 'Illumination?', type: 'chips', options: ILLUM_OPTS, def: (ai.illumination && ILLUM_OPTS.includes(ai.illumination)) ? ai.illumination : ILLUM_OPTS[0] })
+  qs.push({ key: 'font', q: 'Font (optional — if the customer specified one)?', type: 'text', def: ai.font || null, placeholder: 'e.g. HELVETICA BOLD', aiSet: !!ai.font })
+  qs.push({ key: 'application', q: 'Application?', type: 'chips', options: ['EXTERIOR', 'INTERIOR'], def: (ai.application === 'EXTERIOR' || ai.application === 'INTERIOR') ? ai.application : 'EXTERIOR', aiSet: !!ai.application })
+  qs.push({ key: 'price', q: 'Enter the price (USD)', type: 'number', def: ai.price != null ? String(ai.price) : null, placeholder: 'e.g. 1200', aiSet: ai.price != null })
   return qs
 }
 

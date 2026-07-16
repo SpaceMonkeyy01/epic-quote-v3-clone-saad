@@ -1008,7 +1008,7 @@ export default function Generator() {
                   <div className="sign-opt sel" onClick={() => pickSign(tpl)}>{tpl.n}  ✏️ your custom type</div>
                 )}
                 {SIGN_GROUP_ORDER.map((g) => {
-                  const count = T.filter((t) => signGroupOf(t.n) === g).length
+                  const count = T.filter((t) => signGroupOf(t.n) === g && !t.legacy).length
                   return count ? (
                     <div key={g} className="sign-opt" onClick={() => setSignGroup(g)} style={{ fontWeight: 700 }}>
                       {g} <span className="muted" style={{ fontWeight: 400 }}>· {count} types →</span>
@@ -1030,7 +1030,7 @@ export default function Generator() {
                   {tpl?.customType && (
                     <div className="sign-opt sel" onClick={() => pickSign(tpl)}>{tpl.n}  ✏️ your custom type</div>
                   )}
-                  {T.filter((t) => (signSearch.trim()
+                  {T.filter((t) => !t.legacy && (signSearch.trim()
                       ? t.n.toLowerCase().includes(signSearch.toLowerCase())
                       : signGroupOf(t.n) === signGroup)).map((t) => (
                     <div
@@ -1187,7 +1187,7 @@ export default function Generator() {
                     {typeGroup == null ? (
                       <div className="sign-list">
                         {SIGN_GROUP_ORDER.map((g) => {
-                          const c = T.filter((t) => signGroupOf(t.n) === g).length
+                          const c = T.filter((t) => signGroupOf(t.n) === g && !t.legacy).length
                           return c ? (
                             <div key={g} className="sign-opt" style={{ fontWeight: 700 }} onClick={() => setTypeGroup(g)}>
                               {g} <span className="muted" style={{ fontWeight: 400 }}>· {c} types →</span>
@@ -1210,7 +1210,7 @@ export default function Generator() {
                             ? signLib.map((s) => (
                                 <div key={'lib' + s.id} className={'sign-opt' + (customTypeSel === s.name ? ' sel' : '')} onClick={() => pickCustomType(s.name)}>{s.name} ✏️</div>
                               ))
-                            : T.filter((t) => signGroupOf(t.n) === typeGroup).map((t) => (
+                            : T.filter((t) => signGroupOf(t.n) === typeGroup && !t.legacy).map((t) => (
                                 <div key={t.n} className={'sign-opt' + (customTypeSel === t.n ? ' sel' : '')} onClick={() => pickCustomType(t.n)}>{t.n}</div>
                               ))}
                         </div>

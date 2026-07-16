@@ -1,0 +1,365 @@
+{
+  "version": "v1",
+  "mountings": [
+    {
+      "key": "flush",
+      "sheet": "Flush Mount",
+      "suffix": "",
+      "mount_line": null,
+      "structure": null,
+      "extra_color": null
+    },
+    {
+      "key": "raceway2",
+      "sheet": "Raceway Mount (2\")",
+      "suffix": " WITH RACEWAY",
+      "mount_line": "RACEWAY MOUNT",
+      "structure": "RACEWAY: 2\" DEEP, 6\" TALL ALUMINUM RACEWAY",
+      "extra_color": "RACEWAY COLOR"
+    },
+    {
+      "key": "backboard2",
+      "sheet": "Backboard Cabinet (2\")",
+      "suffix": " WITH BACKBOARD",
+      "mount_line": "BACKER MOUNT",
+      "structure": "BACKER: 2\" DEEP ALUMINUM BACKER",
+      "extra_color": "BACKER COLOR"
+    },
+    {
+      "key": "flat_al",
+      "sheet": "Flat Aluminum Backer (2.5 mm)",
+      "suffix": " WITH FLAT ALUMINUM BACKER",
+      "mount_line": "BACKER MOUNT",
+      "structure": "BACKER: 2.5MM FLAT ALUMINUM BACKER",
+      "extra_color": "BACKER COLOR"
+    },
+    {
+      "key": "flat_acm",
+      "sheet": "Flat ACM Backer (4mm)",
+      "suffix": " WITH ACM BACKER",
+      "mount_line": "BACKER MOUNT",
+      "structure": "BACKER: 4MM ACM BACKER",
+      "extra_color": "BACKER COLOR"
+    },
+    {
+      "key": "flat_acr",
+      "sheet": "Flat Acrylic Backer (8mm)",
+      "suffix": " WITH ACRYLIC BACKER",
+      "mount_line": "BACKER MOUNT",
+      "structure": "BACKER: 8MM ACRYLIC BACKER",
+      "extra_color": "BACKER COLOR"
+    }
+  ],
+  "base_types": [
+    "HALO LIT CHANNEL LETTERS",
+    "FACE LIT CHANNEL LETTERS"
+  ],
+  "combos": [
+    {
+      "group": "CHANNEL LETTERS",
+      "base_type": "HALO LIT CHANNEL LETTERS",
+      "mounting_key": "flush",
+      "mounting": "Flush Mount",
+      "sign_type": "HALO LIT CHANNEL LETTERS",
+      "package": "A",
+      "spec": [
+        "SIGN TYPE: HALO LIT CHANNEL LETTERS",
+        "FACE: SS/ALUMINUM FACE",
+        "OVERALL DIMENSIONS: [HEIGHT]\" X [WIDTH]\"",
+        "RETURNS: [DEPTH]\"",
+        "ILLUMINATED: 6500K LED MODULES (3 YEAR WARRANTY)",
+        "MOUNTING: STUD MOUNT",
+        "COLOR SPECS:",
+        "  • FACE & RETURN COLOR: [ASK REP]",
+        "FINISH: SATIN",
+        "APPLICATION: [APPLICATION]"
+      ]
+    },
+    {
+      "group": "CHANNEL LETTERS",
+      "base_type": "HALO LIT CHANNEL LETTERS",
+      "mounting_key": "raceway2",
+      "mounting": "Raceway Mount (2\")",
+      "sign_type": "HALO LIT CHANNEL LETTERS WITH RACEWAY",
+      "package": "A",
+      "spec": [
+        "SIGN TYPE: HALO LIT CHANNEL LETTERS WITH RACEWAY",
+        "FACE: SS/ALUMINUM FACE",
+        "OVERALL DIMENSIONS: [HEIGHT]\" X [WIDTH]\"",
+        "RETURNS: [DEPTH]\"",
+        "ILLUMINATED: 6500K LED MODULES (3 YEAR WARRANTY)",
+        "MOUNTING: RACEWAY MOUNT",
+        "RACEWAY: 2\" DEEP, 6\" TALL ALUMINUM RACEWAY",
+        "COLOR SPECS:",
+        "  • FACE & RETURN COLOR: [ASK REP]",
+        "  • RACEWAY COLOR: [ASK REP]",
+        "FINISH: SATIN",
+        "APPLICATION: [APPLICATION]"
+      ]
+    },
+    {
+      "group": "CHANNEL LETTERS",
+      "base_type": "HALO LIT CHANNEL LETTERS",
+      "mounting_key": "backboard2",
+      "mounting": "Backboard Cabinet (2\")",
+      "sign_type": "HALO LIT CHANNEL LETTERS WITH BACKBOARD",
+      "package": "A",
+      "spec": [
+        "SIGN TYPE: HALO LIT CHANNEL LETTERS WITH BACKBOARD",
+        "FACE: SS/ALUMINUM FACE",
+        "OVERALL DIMENSIONS: [HEIGHT]\" X [WIDTH]\"",
+        "RETURNS: [DEPTH]\"",
+        "ILLUMINATED: 6500K LED MODULES (3 YEAR WARRANTY)",
+        "MOUNTING: BACKER MOUNT",
+        "BACKER: 2\" DEEP ALUMINUM BACKER",
+        "COLOR SPECS:",
+        "  • FACE & RETURN COLOR: [ASK REP]",
+        "  • BACKER COLOR: [ASK REP]",
+        "FINISH: SATIN",
+        "APPLICATION: [APPLICATION]"
+      ]
+    },
+    {
+      "group": "CHANNEL LETTERS",
+      "base_type": "HALO LIT CHANNEL LETTERS",
+      "mounting_key": "flat_al",
+      "mounting": "Flat Aluminum Backer (2.5 mm)",
+      "sign_type": "HALO LIT CHANNEL LETTERS WITH FLAT ALUMINUM BACKER",
+      "package": "A",
+      "spec": [
+        "SIGN TYPE: HALO LIT CHANNEL LETTERS WITH FLAT ALUMINUM BACKER",
+        "FACE: SS/ALUMINUM FACE",
+        "OVERALL DIMENSIONS: [HEIGHT]\" X [WIDTH]\"",
+        "RETURNS: [DEPTH]\"",
+        "ILLUMINATED: 6500K LED MODULES (3 YEAR WARRANTY)",
+        "MOUNTING: BACKER MOUNT",
+        "BACKER: 2.5MM FLAT ALUMINUM BACKER",
+        "COLOR SPECS:",
+        "  • FACE & RETURN COLOR: [ASK REP]",
+        "  • BACKER COLOR: [ASK REP]",
+        "FINISH: SATIN",
+        "APPLICATION: [APPLICATION]"
+      ]
+    },
+    {
+      "group": "CHANNEL LETTERS",
+      "base_type": "HALO LIT CHANNEL LETTERS",
+      "mounting_key": "flat_acm",
+      "mounting": "Flat ACM Backer (4mm)",
+      "sign_type": "HALO LIT CHANNEL LETTERS WITH ACM BACKER",
+      "package": "A",
+      "spec": [
+        "SIGN TYPE: HALO LIT CHANNEL LETTERS WITH ACM BACKER",
+        "FACE: SS/ALUMINUM FACE",
+        "OVERALL DIMENSIONS: [HEIGHT]\" X [WIDTH]\"",
+        "RETURNS: [DEPTH]\"",
+        "ILLUMINATED: 6500K LED MODULES (3 YEAR WARRANTY)",
+        "MOUNTING: BACKER MOUNT",
+        "BACKER: 4MM ACM BACKER",
+        "COLOR SPECS:",
+        "  • FACE & RETURN COLOR: [ASK REP]",
+        "  • BACKER COLOR: [ASK REP]",
+        "FINISH: SATIN",
+        "APPLICATION: [APPLICATION]"
+      ]
+    },
+    {
+      "group": "CHANNEL LETTERS",
+      "base_type": "HALO LIT CHANNEL LETTERS",
+      "mounting_key": "flat_acr",
+      "mounting": "Flat Acrylic Backer (8mm)",
+      "sign_type": "HALO LIT CHANNEL LETTERS WITH ACRYLIC BACKER",
+      "package": "A",
+      "spec": [
+        "SIGN TYPE: HALO LIT CHANNEL LETTERS WITH ACRYLIC BACKER",
+        "FACE: SS/ALUMINUM FACE",
+        "OVERALL DIMENSIONS: [HEIGHT]\" X [WIDTH]\"",
+        "RETURNS: [DEPTH]\"",
+        "ILLUMINATED: 6500K LED MODULES (3 YEAR WARRANTY)",
+        "MOUNTING: BACKER MOUNT",
+        "BACKER: 8MM ACRYLIC BACKER",
+        "COLOR SPECS:",
+        "  • FACE & RETURN COLOR: [ASK REP]",
+        "  • BACKER COLOR: [ASK REP]",
+        "FINISH: SATIN",
+        "APPLICATION: [APPLICATION]"
+      ]
+    },
+    {
+      "group": "CHANNEL LETTERS",
+      "base_type": "FACE LIT CHANNEL LETTERS",
+      "mounting_key": "flush",
+      "mounting": "Flush Mount",
+      "sign_type": "FACE LIT CHANNEL LETTERS",
+      "package": "A",
+      "spec": [
+        "SIGN TYPE: FACE LIT CHANNEL LETTERS",
+        "FACE: ACRYLIC FACE WITH VINYL APPLICATION",
+        "OVERALL DIMENSIONS: [HEIGHT]\" X [WIDTH]\"",
+        "RETURNS: [DEPTH]\"",
+        "TRIM CAP: METALLIC/STANDARD TRIM CAP",
+        "ILLUMINATED: 6500K LED MODULES (3 YEAR WARRANTY)",
+        "MOUNTING: FLUSH MOUNT",
+        "COLOR SPECS:",
+        "  • FACE COLOR: [ASK REP]",
+        "  • RETURN & TRIM COLOR: [ASK REP]",
+        "FINISH: SATIN",
+        "APPLICATION: [APPLICATION]"
+      ]
+    },
+    {
+      "group": "CHANNEL LETTERS",
+      "base_type": "FACE LIT CHANNEL LETTERS",
+      "mounting_key": "raceway2",
+      "mounting": "Raceway Mount (2\")",
+      "sign_type": "FACE LIT CHANNEL LETTERS WITH RACEWAY",
+      "package": "A",
+      "spec": [
+        "SIGN TYPE: FACE LIT CHANNEL LETTERS WITH RACEWAY",
+        "FACE: ACRYLIC FACE WITH VINYL APPLICATION",
+        "OVERALL DIMENSIONS: [HEIGHT]\" X [WIDTH]\"",
+        "RETURNS: [DEPTH]\"",
+        "TRIM CAP: METALLIC/STANDARD TRIM CAP",
+        "ILLUMINATED: 6500K LED MODULES (3 YEAR WARRANTY)",
+        "MOUNTING: RACEWAY MOUNT",
+        "RACEWAY: 2\" DEEP, 6\" TALL ALUMINUM RACEWAY",
+        "COLOR SPECS:",
+        "  • FACE COLOR: [ASK REP]",
+        "  • RETURN & TRIM COLOR: [ASK REP]",
+        "  • RACEWAY COLOR: [ASK REP]",
+        "FINISH: SATIN",
+        "APPLICATION: [APPLICATION]"
+      ]
+    },
+    {
+      "group": "CHANNEL LETTERS",
+      "base_type": "FACE LIT CHANNEL LETTERS",
+      "mounting_key": "backboard2",
+      "mounting": "Backboard Cabinet (2\")",
+      "sign_type": "FACE LIT CHANNEL LETTERS WITH BACKBOARD",
+      "package": "A",
+      "spec": [
+        "SIGN TYPE: FACE LIT CHANNEL LETTERS WITH BACKBOARD",
+        "FACE: ACRYLIC FACE WITH VINYL APPLICATION",
+        "OVERALL DIMENSIONS: [HEIGHT]\" X [WIDTH]\"",
+        "RETURNS: [DEPTH]\"",
+        "TRIM CAP: METALLIC/STANDARD TRIM CAP",
+        "ILLUMINATED: 6500K LED MODULES (3 YEAR WARRANTY)",
+        "MOUNTING: BACKER MOUNT",
+        "BACKER: 2\" DEEP ALUMINUM BACKER",
+        "COLOR SPECS:",
+        "  • FACE COLOR: [ASK REP]",
+        "  • RETURN & TRIM COLOR: [ASK REP]",
+        "  • BACKER COLOR: [ASK REP]",
+        "FINISH: SATIN",
+        "APPLICATION: [APPLICATION]"
+      ]
+    },
+    {
+      "group": "CHANNEL LETTERS",
+      "base_type": "FACE LIT CHANNEL LETTERS",
+      "mounting_key": "flat_al",
+      "mounting": "Flat Aluminum Backer (2.5 mm)",
+      "sign_type": "FACE LIT CHANNEL LETTERS WITH FLAT ALUMINUM BACKER",
+      "package": "A",
+      "spec": [
+        "SIGN TYPE: FACE LIT CHANNEL LETTERS WITH FLAT ALUMINUM BACKER",
+        "FACE: ACRYLIC FACE WITH VINYL APPLICATION",
+        "OVERALL DIMENSIONS: [HEIGHT]\" X [WIDTH]\"",
+        "RETURNS: [DEPTH]\"",
+        "TRIM CAP: METALLIC/STANDARD TRIM CAP",
+        "ILLUMINATED: 6500K LED MODULES (3 YEAR WARRANTY)",
+        "MOUNTING: BACKER MOUNT",
+        "BACKER: 2.5MM FLAT ALUMINUM BACKER",
+        "COLOR SPECS:",
+        "  • FACE COLOR: [ASK REP]",
+        "  • RETURN & TRIM COLOR: [ASK REP]",
+        "  • BACKER COLOR: [ASK REP]",
+        "FINISH: SATIN",
+        "APPLICATION: [APPLICATION]"
+      ]
+    },
+    {
+      "group": "CHANNEL LETTERS",
+      "base_type": "FACE LIT CHANNEL LETTERS",
+      "mounting_key": "flat_acm",
+      "mounting": "Flat ACM Backer (4mm)",
+      "sign_type": "FACE LIT CHANNEL LETTERS WITH ACM BACKER",
+      "package": "A",
+      "spec": [
+        "SIGN TYPE: FACE LIT CHANNEL LETTERS WITH ACM BACKER",
+        "FACE: ACRYLIC FACE WITH VINYL APPLICATION",
+        "OVERALL DIMENSIONS: [HEIGHT]\" X [WIDTH]\"",
+        "RETURNS: [DEPTH]\"",
+        "TRIM CAP: METALLIC/STANDARD TRIM CAP",
+        "ILLUMINATED: 6500K LED MODULES (3 YEAR WARRANTY)",
+        "MOUNTING: BACKER MOUNT",
+        "BACKER: 4MM ACM BACKER",
+        "COLOR SPECS:",
+        "  • FACE COLOR: [ASK REP]",
+        "  • RETURN & TRIM COLOR: [ASK REP]",
+        "  • BACKER COLOR: [ASK REP]",
+        "FINISH: SATIN",
+        "APPLICATION: [APPLICATION]"
+      ]
+    },
+    {
+      "group": "CHANNEL LETTERS",
+      "base_type": "FACE LIT CHANNEL LETTERS",
+      "mounting_key": "flat_acr",
+      "mounting": "Flat Acrylic Backer (8mm)",
+      "sign_type": "FACE LIT CHANNEL LETTERS WITH ACRYLIC BACKER",
+      "package": "A",
+      "spec": [
+        "SIGN TYPE: FACE LIT CHANNEL LETTERS WITH ACRYLIC BACKER",
+        "FACE: ACRYLIC FACE WITH VINYL APPLICATION",
+        "OVERALL DIMENSIONS: [HEIGHT]\" X [WIDTH]\"",
+        "RETURNS: [DEPTH]\"",
+        "TRIM CAP: METALLIC/STANDARD TRIM CAP",
+        "ILLUMINATED: 6500K LED MODULES (3 YEAR WARRANTY)",
+        "MOUNTING: BACKER MOUNT",
+        "BACKER: 8MM ACRYLIC BACKER",
+        "COLOR SPECS:",
+        "  • FACE COLOR: [ASK REP]",
+        "  • RETURN & TRIM COLOR: [ASK REP]",
+        "  • BACKER COLOR: [ASK REP]",
+        "FINISH: SATIN",
+        "APPLICATION: [APPLICATION]"
+      ]
+    }
+  ],
+  "legacy_alias": {
+    "HALO LIT CHANNEL LETTERS": {
+      "base_type": "HALO LIT CHANNEL LETTERS",
+      "mounting_key": "flush"
+    },
+    "HALO LIT CHANNEL LETTERS WITH RACEWAY": {
+      "base_type": "HALO LIT CHANNEL LETTERS",
+      "mounting_key": "raceway2"
+    },
+    "HALO LIT CHANNEL LETTERS WITH BACKER": {
+      "base_type": "HALO LIT CHANNEL LETTERS",
+      "mounting_key": "backboard2"
+    },
+    "HALO LIT CHANNEL LETTERS WITH ACM BACKER": {
+      "base_type": "HALO LIT CHANNEL LETTERS",
+      "mounting_key": "flat_acm"
+    },
+    "FACE LIT CHANNEL LETTERS": {
+      "base_type": "FACE LIT CHANNEL LETTERS",
+      "mounting_key": "flush"
+    },
+    "FACE LIT CHANNEL LETTERS WITH RACEWAY": {
+      "base_type": "FACE LIT CHANNEL LETTERS",
+      "mounting_key": "raceway2"
+    },
+    "FACE LIT CHANNEL LETTERS WITH BACKER": {
+      "base_type": "FACE LIT CHANNEL LETTERS",
+      "mounting_key": "backboard2"
+    },
+    "FACE LIT CHANNEL LETTERS WITH ACM BACKER": {
+      "base_type": "FACE LIT CHANNEL LETTERS",
+      "mounting_key": "flat_acm"
+    }
+  }
+}

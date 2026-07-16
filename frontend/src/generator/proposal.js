@@ -2,8 +2,37 @@
    Generates the Specifications block from a sign-type template + captured answers. */
 
 import { parseDims, composeDims } from './questions'
+import { mountingByLabel } from './catalog'
 
 const ILLUM_DEFAULT = '6500K LED MODULES (3 YEAR WARRANTY)'
+
+// MATRIX types: build the normalized block from base fields + the chosen mounting's overlay.
+// Uniform by construction — labels, FINISH, and the backer/raceway colour can't drift.
+function buildMatrixSpecLines(t, a = {}) {
+  const m = mountingByLabel(a.mounting || (t.mountings && t.mountings[0]))
+  const L = []
+  L.push('SIGN TYPE: ' + (t.desc || t.n) + (m.suffix || ''))
+  L.push('FACE: ' + t.face)
+  L.push('OVERALL DIMENSIONS: ' + composeDims(parseDims(a.dimensions).l, parseDims(a.dimensions).w, ''))
+  L.push('RETURNS: ' + (a.returns || t.retDefault || ''))
+  if (t.trim) L.push('TRIM CAP: ' + t.trim)
+  L.push('ILLUMINATED: ' + (a.illumination || ILLUM_DEFAULT))
+  L.push('MOUNTING: ' + (m.mountLine || t.flushMount))
+  if (m.structure) L.push(m.structure)
+  L.push('COLOR SPECS:')
+  ;(t.baseColors || []).forEach((c, i) => {
+    const v = a['color_' + i] || ''
+    L.push('  • ' + c.l + ':' + (v ? ' ' + v : ''))
+  })
+  if (m.extraColor) {
+    const v = a.structcolor || ''
+    L.push('  • ' + m.extraColor + ':' + (v ? ' ' + v : ''))
+  }
+  if (a.font) L.push('FONT: ' + a.font)
+  L.push('FINISH: SATIN')
+  L.push('APPLICATION: ' + (a.application || 'EXTERIOR'))
+  return L
+}
 
 // Canonical dimensions string for the spec. Standard signs are 2D (H × W — depth lives in
 // RETURNS); only monuments keep 3 parts. Also normalizes older saved strings (l_w_h, l*w*h,
@@ -24,6 +53,7 @@ export function esc(s) {
 // Returns an array of spec lines for a generator-mode quote.
 export function buildSpecLines(t, a = {}, ai = null) {
   if (!t) return []
+  if (t.matrix) return buildMatrixSpecLines(t, a)
   // monuments are free-form: render the AI's full spec (or a minimal block) instead of templated lines
   if (t.mono) {
     // custom types: AI's full drawing reading > the team's saved spec template > minimal block
