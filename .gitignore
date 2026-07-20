@@ -13,6 +13,9 @@
 /backend/bootstrap/cache/*
 /backend/database/*.sqlite
 /backend/database/*.sqlite-journal
+# DB dumps are point-in-time snapshots (customer data, go stale fast) — transferred as a
+# file to the devs, never committed. The dumps/README explains how to (re)generate one.
+/backend/database/dumps/*.sql
 
 # keep the (otherwise-empty) runtime dirs so the Docker build / fresh clones have them
 !/backend/storage/logs/.gitkeep
