@@ -63,7 +63,7 @@ const pkgDefX = (i, n, w) => Math.round(((240 - n * w) / (n + 1)) * (i + 1) + w 
 //  • EDGE bars crop (shrink the visible window; the image itself stays put and is clipped)
 // Absolute-positioned, so changing one never reflows the page. Geometry (incl. the crop window
 // ix/iy/iw/ih) is reported up via onLay; selection chrome carries "adj-ui" so PDF capture hides it.
-function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, selected, onSelect, liveLay, fitCenterH, autoCrop, bounds }) {
+function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, selected, onSelect, liveLay, fitCenterH, reserveCaption = true, autoCrop, bounds }) {
   // bounds {w,h}: the image must stay INSIDE its section box, whole — an oversize frame is
   // shrunk to fit (aspect kept, crop window scaled along), and the position is clamped so no
   // gesture, saved layout, or auto-fit can ever push it out of view / over other sections.
@@ -179,8 +179,9 @@ function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors, scaleRef, sel
                 if (r > 0) {
                   const h = Math.max(20, Math.round(box.w / r))
                   // fitCenterH: vertically centre the fitted image inside its container (#5 — package
-                  // tiles hugged the top edge); 14px reserved for the caption below the image.
-                  const y = fitCenterH ? Math.max(2, Math.round((fitCenterH - h - 14) / 2)) : box.y
+                  // tiles hugged the top edge); reserveCaption leaves 14px below for a text caption —
+                  // baked package art (A-D) has no caption, so it gets the full height to grow into.
+                  const y = fitCenterH ? Math.max(2, Math.round((fitCenterH - h - (reserveCaption ? 14 : 0)) / 2)) : box.y
                   let fitted = { ...box, h, y, ix: 0, iy: 0, iw: box.w, ih: h }
                   // an image taller/wider than its section box shrinks to fit, aspect kept — it
                   // must NEVER spill past the box (the vanished-artwork bug)
@@ -304,7 +305,7 @@ const pasteHasImage = (e) => {
   return false
 }
 
-function EBlock({ k, html, style, noPaste, noImagePaste }) {
+function EBlock({ k, html, style, noPaste, noImagePaste, readOnly }) {
   const ref = useRef(null)
   const first = useRef(true)
   useEffect(() => {
@@ -316,10 +317,11 @@ function EBlock({ k, html, style, noPaste, noImagePaste }) {
   const onPaste = (e) => { if (noPaste || (noImagePaste && pasteHasImage(e))) e.preventDefault() }
   const onDrop = (e) => { if (noPaste || (noImagePaste && pasteHasImage(e))) e.preventDefault() }
   return (
-    <div ref={ref} data-key={k} contentEditable suppressContentEditableWarning
+    <div ref={ref} data-key={k} contentEditable={!readOnly} suppressContentEditableWarning
       onPaste={(noPaste || noImagePaste) ? onPaste : undefined}
       onDrop={(noPaste || noImagePaste) ? onDrop : undefined}
-      spellCheck lang="en-US" style={{ outline: 'none', ...style }} />
+      title={readOnly ? 'Follows the price on the Specifications step — not directly editable' : undefined}
+      spellCheck lang="en-US" style={{ outline: 'none', ...(readOnly ? { cursor: 'default' } : {}), ...style }} />
   )
 }
 
@@ -632,12 +634,28 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   // matching grey instead of clashing white. Persisted with the proposal state.
   const [artBg, setArtBg] = useState(savedState?.__artBg || '#ffffff')
   const [hideNotes, setHideNotes] = useState(!!savedState?.__hideNotes)   // #6 — Additional Notes removable
+  const [notesH, setNotesH] = useState(savedState?.__notesH || null)      // #9 — Additional Notes drag-resized height
+  const notesResizeRef = useRef(null)
+  useEffect(() => {
+    const el = notesResizeRef.current
+    if (!el) return
+    // native CSS `resize` gives the drag handle for free; we just need to persist what it lands on
+    const ro = new ResizeObserver(() => {
+      const h = Math.round(el.getBoundingClientRect().height)
+      setNotesH((prev) => (prev === h ? prev : h))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [hideNotes])
   // #11 — chosen package set. Precedence: what the rep saved (old keys mapped via PKG_ALIAS)
   // > the letter this sign type is assigned in the sheet (tpl.pkg) > A.
   const [pkgSet, setPkgSet] = useState(resolvePkgSet(savedState?.__pkgSet) || resolvePkgSet(tpl?.pkg) || 'A')
   const [pkgPicking, setPkgPicking] = useState(false)   // #8 — image dropdown open
   const packageItems = PACKAGE_SETS[pkgSet].items
-  const pkgW = pkgTileW(packageItems.length)
+  // A-D are ONE pre-composed image (labels baked in) — it should fill the whole PACKAGE INCLUDES
+  // box, not the small multi-icon tile width pkgTileW was sized for (that 150px cap left a single
+  // big image floating tiny in the box). pkgTileW stays available for a future multi-icon set.
+  const pkgW = packageItems.length === 1 ? 234 : pkgTileW(packageItems.length)
   // #7 — PROPOSAL ID / DATE / JOB align to the START of the header address ("101 E LUZERNE …"),
   // not to the right wall. The header block shrink-wraps, so its left edge IS that start; measure
   // it and pad the info-right cell to line up, left-aligned.
@@ -727,9 +745,16 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   const scaleRef = useRef(scale)
   scaleRef.current = scale
 
-  // click anywhere outside an adjustable image deselects it (hides the handles)
+  // click anywhere outside an adjustable image/swatch deselects it (hides the handles + colour
+  // popover). The same click also closes any open floating picker (side-view panel, package-set
+  // dropdown) — they used to close ONLY by pressing their own toggle button again, a dead end once
+  // that button scrolls out of view or the rep just clicks elsewhere expecting it to go away (#11).
   useEffect(() => {
-    const onDown = (e) => { if (!e.target.closest('[data-rk]')) setSelId(null) }
+    const onDown = (e) => {
+      if (!e.target.closest('[data-rk]')) setSelId(null)
+      if (!e.target.closest('[data-sv-picker]')) setPickingSV(false)
+      if (!e.target.closest('[data-pkg-picker]')) setPkgPicking(false)
+    }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
   }, [])
@@ -836,6 +861,11 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   const moneyMounted = useRef(false)
   useEffect(() => {
     if (!moneyMounted.current) { moneyMounted.current = true; return }
+    // unitPrice must follow the wizard price too (bug: only totalPrice was re-synced here, so
+    // changing the price on the specs step and coming back to preview left UNIT PRICE frozen at
+    // whatever it showed at mount — TOTAL PRICE then showed qty × the NEW price, and the two
+    // columns no longer multiplied out to the same number on screen).
+    setBlock('unitPrice', money(price))
     setBlock('totalPrice', money(price * qty))
     // totals reflect the WHOLE quote (Σ parts) on a multi-page quote, this proposal otherwise
     setBlock('subtotal', money(totalsAmount))
@@ -921,7 +951,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   }, [])
 
   // editable block — content written once at mount (see EBlock) so React can NEVER clobber edits
-  const E = (key, style, opts) => <EBlock key={key} k={key} html={initial[key]} style={style} noPaste={opts?.noPaste} noImagePaste={opts?.noImagePaste} />
+  const E = (key, style, opts) => <EBlock key={key} k={key} html={initial[key]} style={style} noPaste={opts?.noPaste} noImagePaste={opts?.noImagePaste} readOnly={opts?.readOnly} />
   // when the SPECIFICATIONS run long, drop ADDITIONAL NOTES so the proposal stays on one page (#17)
   const specLong = (initial.specBody || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().length > 520
 
@@ -936,7 +966,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   const dirtyRef = useRef(new Set(savedState?.__dirty || []))
 
   const captureState = () => {
-    const state = { __layout: layout, __swatches: swatches.filter((s) => s.color || s.name), __dirty: [...dirtyRef.current], __specTpl: tpl?.n || null, __artBg: artBg, __qty: qty, __items: items, __hideNotes: hideNotes, __pkgSet: pkgSet }
+    const state = { __layout: layout, __swatches: swatches.filter((s) => s.color || s.name), __dirty: [...dirtyRef.current], __specTpl: tpl?.n || null, __artBg: artBg, __qty: qty, __items: items, __hideNotes: hideNotes, __pkgSet: pkgSet, __notesH: notesH }
     pageRef.current?.querySelectorAll('[data-key]').forEach((el) => { state[el.dataset.key] = el.innerHTML })
     return state
   }
@@ -955,7 +985,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => { saveTimer.current = null; flushRef.current(); flash('Saved') }, 600)
   }
-  useEffect(() => { if (!mounted.current) { mounted.current = true; return } queueSave() }, [layout, swatches, artBg, hideNotes, pkgSet]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!mounted.current) { mounted.current = true; return } queueSave() }, [layout, swatches, artBg, hideNotes, pkgSet, notesH]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const el = pageRef.current; if (!el) return
     const h = (e) => {
@@ -1298,14 +1328,16 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             transformOrigin: 'top left', transform: `scale(${scale})`,
           }}
         >
-          {/* header */}
-          <div style={{ height: 110, position: 'relative', padding: '0 40px', display: 'flex', alignItems: 'center' }}>
+          {/* header — 110px used to leave a big gap before PROPOSAL (the contact block only runs
+              ~87px tall from its top:20 start); trimmed to fit it with a little breathing room,
+              closer to the reference template's tight header-to-heading spacing (#10). */}
+          <div style={{ height: 92, position: 'relative', padding: '0 40px', display: 'flex', alignItems: 'center' }}>
             <img src="/quote-logo.png" alt="Epic Craftings" crossOrigin="anonymous"
               style={{ height: 60, objectFit: 'contain', display: 'block' }} />
             {E('contact', { position: 'absolute', right: 40, top: 20, fontSize: 9, textAlign: 'right', lineHeight: 1.85 })}
           </div>
 
-          <div style={{ padding: '8px 40px 0' }}>
+          <div style={{ padding: '4px 40px 0' }}>
             <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1, color: '#1a2433' }}>PROPOSAL</div>
           </div>
 
@@ -1349,8 +1381,13 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             <EditCell value={qty}
               onCommit={(v) => { const n = parseInt(v, 10); setQty(Number.isFinite(n) && n > 0 ? n : 1) }}
               style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }} />
-            {E('unitPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' })}
-            {E('totalPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' })}
+            {/* Not hand-editable (#7/#9 money bug): these mirror the price set on the Specifications
+                step. A rep could previously type a different number straight into these cells, but
+                that edit never reached quote.price — the actual charge, dashboard total, and any
+                payment link created afterward all kept using the ORIGINAL wizard price. To change
+                the price, go back to "Edit specs". */}
+            {E('unitPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }, { readOnly: true })}
+            {E('totalPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }, { readOnly: true })}
             {/* extra line items (#4) — desc / qty / unit editable, total auto; × only on screen */}
             {items.map((it) => {
               const rowTotal = Math.max(0, Number(it.qty) || 0) * Math.max(0, Number(it.unit) || 0)
@@ -1386,7 +1423,12 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                     onMouseDown={(e) => { e.preventDefault(); setHideNotes(true) }}
                     style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, background: '#fff', border: '1.5px solid #e05661', borderRadius: '50%', color: '#e05661', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>×</span>
                 </div>
-                {E('notes', { fontSize: 10.5, padding: '8px 12px', minHeight: 40, outline: 'none' }, { noImagePaste: true })}
+                {/* drag the bottom-right corner to manage its height (#9) — native CSS resize, so
+                    no custom pointer-tracking needed; the height is persisted in __notesH. */}
+                <div ref={notesResizeRef} className="adj-ui-resize"
+                  style={{ resize: 'vertical', overflow: 'auto', minHeight: 40, maxHeight: 400, height: notesH ? `${notesH}px` : undefined }}>
+                  {E('notes', { fontSize: 10.5, padding: '8px 12px', outline: 'none' }, { noImagePaste: true })}
+                </div>
               </>}
             </div>
             <div>
@@ -1395,7 +1437,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                 {packageItems.map((p, i) => (
                   // Package tiles of the CHOSEN set (#11). Key includes the set so switching sets
                   // remounts with fresh default positions.
-                  <AdjImg key={`${pkgSet}-${p.label}`} {...adjProps(`pkg-${pkgSet}-${p.label}`, { x: pkgDefX(i, packageItems.length, pkgW), y: 6, w: pkgW, h: pkgW })} src={p.img} alt={p.label} lockAspect fitCenterH={116} bounds={{ w: 238, h: 114 }} />
+                  <AdjImg key={`${pkgSet}-${p.label}`} {...adjProps(`pkg-${pkgSet}-${p.label}`, { x: pkgDefX(i, packageItems.length, pkgW), y: 6, w: pkgW, h: pkgW })} src={p.img} alt={p.label} lockAspect fitCenterH={116} reserveCaption={!PACKAGE_SETS[pkgSet].baked} bounds={{ w: 238, h: 114 }} />
                 ))}
                 {/* captions from the set's item labels. `baked` sets (A–D) already carry their
                     labels inside the artwork, so drawing them again would double them up. */}
@@ -1445,14 +1487,15 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             <div data-price-block>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 800, marginBottom: 6 }}>
-                  <span>SUBTOTAL</span>{E('subtotal')}
+                  {/* not hand-editable — same money-correctness reasoning as UNIT/TOTAL PRICE above */}
+                  <span>SUBTOTAL</span>{E('subtotal', undefined, { readOnly: true })}
                 </div>
                 {totalsAmount > 500 && <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 6 }}>
-                    <span>50% DEPOSIT DUE NOW</span>{E('dep1')}
+                    <span>50% DEPOSIT DUE NOW</span>{E('dep1', undefined, { readOnly: true })}
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
-                    <span>50% DUE ON SHIPMENT</span>{E('dep2')}
+                    <span>50% DUE ON SHIPMENT</span>{E('dep2', undefined, { readOnly: true })}
                   </div>
                 </>}
               </div>
@@ -1475,10 +1518,27 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                 // uniform chips (#6): resizing ANY swatch applies the same w/h to ALL of them,
                 // so the colour row always reads as one consistent set while editing.
                 const sizeChanged = n.w !== sw.w || n.h !== sw.h
-                return arr.map((x) => {
-                  if (x.id === sw.id) return clampToArea(n)
-                  return sizeChanged ? clampToArea({ ...x, w: n.w, h: n.h }) : x
+                if (!sizeChanged) return arr.map((x) => (x.id === sw.id ? clampToArea(n) : x))
+                // Re-flow every row left→right at the new size (bug: the old code left every OTHER
+                // chip's x untouched after a uniform resize, so growing a chip grew it straight INTO
+                // its stale-positioned neighbour, and shrinking-then-growing back overlapped them —
+                // the chip's "old proportion" of the row was never recomputed).
+                const GAP = 8
+                const resized = arr.map((x) => (x.id === sw.id ? n : { ...x, w: n.w, h: n.h }))
+                const rows = []
+                ;[...resized].sort((a, b) => a.y - b.y).forEach((s) => {
+                  const row = rows[rows.length - 1]
+                  if (row && Math.abs(s.y - row[row.length - 1].y) <= 18) row.push(s)
+                  else rows.push([s])
                 })
+                const flowed = new Map()
+                rows.forEach((row) => {
+                  let cursorX = [...row].sort((a, b) => a.x - b.x)[0].x
+                  ;[...row].sort((a, b) => a.x - b.x).forEach((s) => {
+                    flowed.set(s.id, { ...s, x: Math.round(cursorX) }); cursorX += s.w + GAP
+                  })
+                })
+                return resized.map((x) => clampToArea(flowed.get(x.id)))
               })}
               onRemove={() => { setSwatches((arr) => arr.filter((x) => x.id !== sw.id)); setSelId(null) }}
               onDragEnd={() => { snapRow(sw.id); if (sw.id === 'face' || sw.id === 'rettrim') setSwatches((arr) => arr.map((x) => (x.id === sw.id ? { ...x, moved: true } : x))) }}
@@ -1625,7 +1685,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             <div>
               <div style={grpLabel}>Package set</div>
               {/* image dropdown (#8): the picker shows each set's actual item IMAGES, not text */}
-              <div style={{ position: 'relative' }}>
+              <div data-pkg-picker style={{ position: 'relative' }}>
                 <button type="button" className="ghost" style={{ width: '100%', display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}
                   title="Choose which set of included items shows under PACKAGE INCLUDES"
                   onClick={() => setPkgPicking((v) => !v)}>
@@ -1672,7 +1732,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
             {onSideViews && (
               <div ref={setGrp('sv')}>
                 <div style={grpLabel}>Side view</div>
-                <button type="button" className="ghost" style={{ width: '100%' }}
+                <button type="button" data-sv-picker className="ghost" style={{ width: '100%' }}
                   onClick={(e) => {
                     // the picker opens as a panel at the BUTTON'S RIGHT (#9), not below the page
                     const r = e.currentTarget.getBoundingClientRect()
@@ -1722,7 +1782,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
 
       {/* side-view picker — a floating panel at the RIGHT of the "+ Choose side views" button (#9) */}
       {onSideViews && mainView && pickingSV && (
-        <div style={{ position: 'fixed', left: svAnchor.left, top: svAnchor.top, width: 620, maxHeight: '72vh', overflowY: 'auto', zIndex: 150, background: 'var(--navy-700)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.45)' }}>
+        <div data-sv-picker style={{ position: 'fixed', left: svAnchor.left, top: svAnchor.top, width: 620, maxHeight: '72vh', overflowY: 'auto', zIndex: 150, background: 'var(--navy-700)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.45)' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
               <input
                 placeholder="Search side views… (e.g. raceway, monument)"

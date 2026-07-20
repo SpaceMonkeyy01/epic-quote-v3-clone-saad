@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 /* Reusable grid building blocks (Grid v1 — T1).
    useSortable: client-side sort state over any row array.
@@ -59,8 +59,16 @@ export function useColumns(storageKey, allCols) {
 
 export function ColumnPicker({ columns }) {
   const [open, setOpen] = useState(false)
+  const wrapRef = useRef(null)
+  // click anywhere outside closes the panel — it used to only close by pressing "☰ Filter" again
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => { if (!wrapRef.current?.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
   return (
-    <div style={{ position: 'relative' }}>
+    <div ref={wrapRef} style={{ position: 'relative' }}>
       <button className="ghost sm" onClick={() => setOpen(!open)} title="Choose which columns to show">☰ Filter</button>
       {open && (
         <div style={{ position: 'absolute', right: 0, top: '110%', zIndex: 50, background: 'var(--navy-700)', border: '1px solid var(--border)', borderRadius: 8, padding: 10, minWidth: 170, boxShadow: 'var(--shadow-lg)' }}>

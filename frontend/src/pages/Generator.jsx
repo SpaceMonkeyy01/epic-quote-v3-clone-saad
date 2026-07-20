@@ -1104,13 +1104,17 @@ export default function Generator() {
         {step === 'specs' && tpl && (() => {
           // dimensions are mandatory (#3): require H + W actually filled (read the raw fields so a
           // collapsed composed string can't sneak through). For 3D (mono) types that show a D box,
-          // depth is required too; standard 2D signs carry their depth in the Returns field.
+          // depth is required too; standard 2D signs carry their depth in the Returns field — which
+          // is ALSO mandatory whenever the type asks it (matters for signage: wrong/blank depth is
+          // a real fabrication error, not cosmetic).
+          const hasReturnsQ = tpl?.matrix || (tpl && tpl.ret !== null && tpl.ret !== undefined)
           const noDims = !String(answers.dim_l ?? '').trim() || !String(answers.dim_w ?? '').trim()
             || (tpl?.mono && !String(answers.dim_h ?? '').trim())
+            || (hasReturnsQ && !String(answers.returns ?? '').trim())
           const priceNum = Number(answers.price)
           const overMax = Number.isFinite(priceNum) && priceNum > MAX_PRICE
           const badPrice = String(answers.price ?? '').trim() === '' || !Number.isFinite(priceNum) || priceNum <= 0 || overMax
-          const hint = noDims ? 'Enter the dimensions to continue' : overMax ? `Maximum quote price is $${MAX_PRICE.toLocaleString()}` : badPrice ? 'Enter a real price (more than $0) to continue' : ''
+          const hint = noDims ? 'Enter the dimensions and depth to continue' : overMax ? `Maximum quote price is $${MAX_PRICE.toLocaleString()}` : badPrice ? 'Enter a real price (more than $0) to continue' : ''
           return (
             <div className="step">
               <h3>Specifications — {tpl.n}</h3>
@@ -1334,7 +1338,11 @@ export default function Generator() {
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <h3 style={{ margin: 0, marginRight: 6 }}>Proposal{parts.length > 1 ? ` — ${parts.length} signs` : ''}</h3>
               <button className="ghost sm" onClick={() => setExitAsk(true)}>← Back</button>
-              <button className="ghost sm" onClick={() => (flowIndex > 0 ? goto(flow[flowIndex - 1]) : null)} title="Go back to the wizard steps (specs, artwork) without leaving">✎ Edit specs</button>
+              {/* Only ONE "Edit specs" entry point (#12): the per-page button below, top-right of
+                  each proposal page — it knows exactly which sign it's editing (editPart(i)). This
+                  toolbar used to have a second one that stepped back a flow index without saying
+                  which part it affected — confusing on a multi-sign quote and pure duplication on a
+                  single-sign one. */}
               {/* ONE finish button: Done = save everything, mint the version (rev + image), leave */}
               <button className="sm" disabled={!!cpBusy || saving}
                 title="Save everything, record this version (rev with the rendered proposal image) and return"

@@ -199,8 +199,9 @@ export default function AddQuoteModal({ onClose }) {
             title="Every saved contact for this company — pick one to autofill"
           >
             <option value="" disabled>Saved contacts for this company ({exactHit.contacts.length}) — pick one…</option>
+            {/* one contact method per row — email is primary, phone only when there's no email */}
             {exactHit.contacts.map((c, i) => (
-              <option key={i} value={i}>{[c.client_name, c.contact, c.email].filter(Boolean).join(' · ') || '(blank)'}</option>
+              <option key={i} value={i}>{[c.client_name, c.email || c.contact].filter(Boolean).join(' · ') || '(blank)'}</option>
             ))}
           </select>
         )}
