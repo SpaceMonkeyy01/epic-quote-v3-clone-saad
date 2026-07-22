@@ -193,7 +193,11 @@ export default function AdjImg({ rk, def, lay, onLay, src, alt, lockAspect, cors
               }
             }, 0)
           }}
-          style={{ position: 'absolute', left: box.ix, top: box.iy, width: box.iw, height: box.ih, objectFit: 'contain', display: broken ? 'none' : 'block', pointerEvents: 'none' }} />
+          // maxWidth:'none' — Tailwind preflight sets img{max-width:100%}, which caps this img at
+          // the FRAME's width. Cropping l/r shrinks the frame → the cap rescales the whole bitmap
+          // instead of letting it overflow into the clip → "left/right bars resize instead of crop".
+          // Vertical was unaffected (no max-height in preflight), which is why t/b always worked.
+          style={{ position: 'absolute', left: box.ix, top: box.iy, width: box.iw, height: box.ih, maxWidth: 'none', objectFit: 'contain', display: broken ? 'none' : 'block', pointerEvents: 'none' }} />
       </div>
       {selected && (
         <>

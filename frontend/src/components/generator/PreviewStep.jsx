@@ -11,7 +11,7 @@ export default function PreviewStep({
   multiPreviewRef, grandTotal, tplForPart, client, quoteId,
   collectPartImages, linkTitle, captureAllPages, capturePagesExport,
   canCreatePaymentLinks, savePaymentLink, logo, paymentLink, quote,
-  savePart, pageRefs, proposalRef, mode, editPart, deletePage,
+  savePart, commitPartArtworkFile, pageRefs, proposalRef, mode, editPart, deletePage,
 }) {
   return (
     <div className="step">
@@ -92,6 +92,7 @@ export default function PreviewStep({
                 canCreatePaymentLinks={canCreatePaymentLinks}
                 onPaymentLinkCreated={(url) => savePaymentLink(url)}
                 artworkPath={p.artwork_path}
+                onArtworkFile={commitPartArtworkFile ? (f) => commitPartArtworkFile(i, f) : undefined}
                 logo={logo}
                 aiResult={p.ai}
                 paymentLink={paymentLink}

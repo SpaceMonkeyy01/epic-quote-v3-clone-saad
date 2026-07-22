@@ -42,6 +42,7 @@ export function detectSubjectBox(img) {
     if (n > 0) { br /= n; bg /= n; bb /= n }
     const THR = 42                                     // colour distance that counts as "subject"
     let minX = w, minY = h, maxX = -1, maxY = -1
+    const colCount = new Int32Array(w), rowCount = new Int32Array(h)
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const [r, g, b, a] = px(x, y)
@@ -49,12 +50,22 @@ export function detectSubjectBox(img) {
           ? a >= 16
           : a >= 16 && (Math.abs(r - br) + Math.abs(g - bg) + Math.abs(b - bb)) > THR
         if (isSubject) {
+          colCount[x]++; rowCount[y]++
           if (x < minX) minX = x; if (x > maxX) maxX = x
           if (y < minY) minY = y; if (y > maxY) maxY = y
         }
       }
     }
     if (maxX < 0) return null                          // nothing found
+    // A lone fringe pixel (JPEG ringing, PNG anti-aliasing) touching column 0/right edge or
+    // row 0/bottom edge pins that whole axis to "no margin" even though the real subject sits
+    // well inside — visually: crop works on one axis but the other looks totally uncropped.
+    // Require a real run (>1% of the OTHER dimension) before trusting an edge column/row.
+    const colNoise = Math.max(1, Math.round(h * 0.01)), rowNoise = Math.max(1, Math.round(w * 0.01))
+    while (maxX > minX && colCount[minX] <= colNoise) minX++
+    while (maxX > minX && colCount[maxX] <= colNoise) maxX--
+    while (maxY > minY && rowCount[minY] <= rowNoise) minY++
+    while (maxY > minY && rowCount[maxY] <= rowNoise) maxY--
     const bw = maxX - minX + 1, bh = maxY - minY + 1
     const cover = (bw * bh) / (w * h)
     if (cover > 0.985 || cover < 0.005) return null    // whole frame / speck → no useful box

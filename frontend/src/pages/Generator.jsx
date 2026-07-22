@@ -486,6 +486,20 @@ export default function Generator() {
     }
   }
   const onArtwork = (e) => commitArtworkFile(e.target.files[0])
+  // Per-part artwork upload used by PreviewStep's per-page ✂ Crop button. Uploads the cropped
+  // file, patches ONLY that part's artwork_path (multi-sign quotes have one artwork per page),
+  // and drops that part's saved artwork frame so the new image auto-fits fresh.
+  const commitPartArtworkFile = async (i, f) => {
+    if (!f) return
+    const path = await uploadArtwork(quoteId, f)
+    const cur = partsRef.current[i] || {}
+    const ps = cur.proposal_state
+    const cleanPs = ps?.__layout?.artwork
+      ? { ...ps, __layout: (() => { const l = { ...ps.__layout }; delete l.artwork; return l })() }
+      : ps
+    await savePart(i, { artwork_path: path, artwork_auto: false, proposal_state: cleanPs })
+    if (i === activePart) setArtworkPath(path)
+  }
   const onCustomerFile = async (e) => {
     const f = e.target.files[0]; if (!f) return
     const path = await uploadCustomerFile(quoteId, f)
@@ -796,7 +810,8 @@ export default function Generator() {
             collectPartImages={collectPartImages} linkTitle={linkTitle} captureAllPages={captureAllPages}
             capturePagesExport={capturePagesExport} canCreatePaymentLinks={canCreatePaymentLinks}
             savePaymentLink={savePaymentLink} logo={logo} paymentLink={paymentLink} quote={quote}
-            savePart={savePart} pageRefs={pageRefs} proposalRef={proposalRef} mode={mode}
+            savePart={savePart} commitPartArtworkFile={commitPartArtworkFile}
+            pageRefs={pageRefs} proposalRef={proposalRef} mode={mode}
             editPart={editPart} deletePage={deletePage} />
         )}
        </div>
@@ -820,6 +835,7 @@ export default function Generator() {
              customSpec={customSpec}
              info={{ company: client.company_name, client: client.client_name, contact: client.contact, email: client.email, address: client.address, job: client.job_name, quoteId }}
              artworkPath={artworkPath}
+             onArtworkFile={commitArtworkFile}
              logo={logo}
              aiResult={ai}
              paymentLink={paymentLink}

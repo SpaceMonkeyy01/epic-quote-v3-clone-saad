@@ -14,6 +14,7 @@ import EBlock from './proposal/EBlock'
 import EditCell from './proposal/EditCell'
 import { HEAD, LOUPE, SRC, detectSubjectBox } from './proposal/util'
 import SideViewPicker from './proposal/SideViewPicker'
+import ArtworkCropper from './ArtworkCropper'
 
 // A side-view entry is either a catalog key (renders from /side_views/) or an uploaded
 // file path / CDN URL (renders through fileUrl). Same list, both kinds.
@@ -63,7 +64,7 @@ const pkgDefX = (i, n, w) => Math.round(((240 - n * w) / (n + 1)) * (i + 1) + w 
 
 const HD_SCALE = 3   // html2canvas DPI factor for PNG/PDF downloads (~288dpi on a Letter page — crisp text)
 
-function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, savedState, onSave, aiResult, paymentLink, proposalNotes, sideViews = [], onSideViews, approval, quoteId, canCreatePaymentLinks, onPaymentLinkCreated, mainView, signBox,
+function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtworkFile, logo, savedState, onSave, aiResult, paymentLink, proposalNotes, sideViews = [], onSideViews, approval, quoteId, canCreatePaymentLinks, onPaymentLinkCreated, mainView, signBox,
   // --- multi-page (multi-sign) quote props ---
   // partLabel: 'A'/'B'/… shown after the PROPOSAL ID, or null for a single-sign quote.
   // multi: this quote has >1 part → per-part prices are hidden (Sami's rule: the customer only
@@ -110,6 +111,17 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
     Object.keys(L).forEach((k) => { if (k.startsWith('pkg-') || k.startsWith('sv2-')) delete L[k] })
     return L
   })
+  // The artwork's saved frame is only valid for the FILE it was fit to. When the rep replaces
+  // the artwork (re-upload), the old frame's aspect/crop window is meaningless for the new image
+  // and, worse, its presence as `lay` tells AdjImg "already auto-fit" — silently skipping the
+  // auto-crop-to-bounding-box pass a fresh upload is supposed to get. Drop it so the new image
+  // re-fits and re-crops from scratch (matches the AdjImg key={artworkPath} remount above).
+  const firstArtworkPath = useRef(artworkPath)
+  useEffect(() => {
+    if (artworkPath === firstArtworkPath.current) return
+    firstArtworkPath.current = artworkPath
+    setLayout((L) => { const n = { ...L }; delete n.artwork; return n })
+  }, [artworkPath])
   const SW_W = 96, SW_H = 20   // default swatch size (now horizontally resizable)
   const [swatches, setSwatches] = useState(() => {
     // saved sizes are honored as-is — chips are fully resizable now (#3)
@@ -206,6 +218,8 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
   // #7 — the ITEM DETAILS artwork area background, so a grey-background artwork can sit on a
   // matching grey instead of clashing white. Persisted with the proposal state.
   const [artBg, setArtBg] = useState(savedState?.__artBg || '#ffffff')
+  const [cropOpen, setCropOpen] = useState(false)   // proposal-side crop modal (react-easy-crop)
+  const [cropBusy, setCropBusy] = useState(false)
   const [hideNotes, setHideNotes] = useState(!!savedState?.__hideNotes)   // #6 — Additional Notes removable
   const [notesH, setNotesH] = useState(savedState?.__notesH || null)      // #9 — Additional Notes drag-resized height
   const notesResizeRef = useRef(null)
@@ -931,7 +945,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
           <div data-sec="items" style={{ margin: '10px 40px 0', ...headCell, borderTop: '1px solid #777' }}>ITEM DETAILS</div>
           <div style={{ margin: '0 40px', border: '1px solid #777', borderTop: 'none', height: 192, position: 'relative', background: artBg, overflow: 'hidden' }}>
             {artworkPath
-              ? <AdjImg {...adjProps('artwork', { x: 188, y: 24, w: 360, h: 144 })} src={fileUrl(artworkPath)} alt="artwork" lockAspect liveLay autoCrop bounds={{ w: 734, h: 192 }} cors={/res\.cloudinary\.com/i.test(fileUrl(artworkPath) || '')} />
+              ? <AdjImg key={artworkPath} {...adjProps('artwork', { x: 188, y: 24, w: 360, h: 144 })} src={fileUrl(artworkPath)} alt="artwork" lockAspect liveLay autoCrop bounds={{ w: 734, h: 192 }} cors={/res\.cloudinary\.com/i.test(fileUrl(artworkPath) || '')} />
               : <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 12, textTransform: 'none' }}>[ Customer artwork — add it in the Artwork step ]</span>}
             {pickFor && artworkPath && (() => { const a = layout.artwork || { x: 188, y: 24, w: 360, h: 144, rot: 0 }; return (
               <div onClick={sampleArtwork} onMouseMove={onPickMove} onMouseLeave={() => setLoupe(null)} title="Click to grab this color"
@@ -1182,6 +1196,13 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
                   <button key={c} type="button" onClick={() => setArtBg(c)} title={c}
                     style={{ width: 22, height: 22, padding: 0, borderRadius: 4, border: artBg === c ? '2px solid var(--gold)' : '1px solid var(--border)', background: c, cursor: 'pointer' }} />
                 ))}
+                {artworkPath && onArtworkFile && (
+                  <button type="button" onClick={() => setCropOpen(true)}
+                    title="Crop the artwork (pan + zoom + drag the box) — output replaces the current artwork"
+                    style={{ marginLeft: 6, padding: '2px 8px', fontSize: 12, borderRadius: 4, border: '1px solid var(--border)', background: '#fff', cursor: 'pointer', color: '#333' }}>
+                    ✂ Crop
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1378,6 +1399,32 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, logo, sav
       </div>
       )}
       </div>{/* /proposal-layout */}
+
+      {/* real crop modal (react-easy-crop) — physically outputs a cropped file that replaces
+          the artwork. The AdjImg edge bars only clip visually; this one actually cuts pixels. */}
+      {cropOpen && artworkPath && onArtworkFile && (
+        <div onClick={() => !cropBusy && setCropOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ background: 'var(--panel, #fff)', color: 'var(--text, #111)', padding: 20, borderRadius: 12, maxWidth: 780, width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <strong>Crop artwork</strong>
+              <button type="button" className="ghost" onClick={() => !cropBusy && setCropOpen(false)}>✕</button>
+            </div>
+            <ArtworkCropper
+              src={fileUrl(artworkPath)}
+              busy={cropBusy}
+              onCancel={() => setCropOpen(false)}
+              onApply={async (file) => {
+                setCropBusy(true)
+                try { await onArtworkFile(file); setCropOpen(false); flash('Artwork cropped') }
+                catch (err) { flash('Crop failed: ' + (err?.message || err)) }
+                finally { setCropBusy(false) }
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* side-view picker — a floating panel at the RIGHT of the "+ Choose side views" button (#9) */}
       {onSideViews && mainView && pickingSV && (
