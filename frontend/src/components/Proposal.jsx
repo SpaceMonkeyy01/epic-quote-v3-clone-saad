@@ -156,17 +156,39 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
     const y = Math.min(Math.max(a.y + 2, sw.y), Math.max(a.y + 2, a.y + a.h - sw.h - 2))
     return { ...sw, x: Math.round(x), y: Math.round(y) }
   }
+  // Visible TEXT glyph runs (spec lines, item description, notes) in unscaled page coords —
+  // chips must not cover them. Exact Range rects, zero padding: sitting flush against a line
+  // is fine, covering its letters is not. Measured on demand at drop/add time.
+  const textObstacles = () => {
+    const page = pageRef.current; if (!page) return []
+    const sc = scaleRef.current || 1
+    const pr = page.getBoundingClientRect()
+    const rects = []
+    page.querySelectorAll('[data-key="specBody"], [data-key="itemDesc"], [data-key="notes"]').forEach((el) => {
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+      let n
+      while ((n = walker.nextNode())) {
+        if (!n.textContent.trim()) continue
+        const rng = document.createRange(); rng.selectNodeContents(n)
+        for (const r of rng.getClientRects()) {
+          if (r.width < 4 || r.height < 4) continue
+          rects.push({ x: (r.left - pr.left) / sc, y: (r.top - pr.top) / sc, w: r.width / sc, h: r.height / sc })
+        }
+      }
+    })
+    return rects
+  }
   // Colour chips must NEVER overlap another chip OR proposal text, and must stay inside their area:
-  // nudge right past obstacles, then clamp back into the SPECIFICATIONS column.
+  // resolved by the smallest flush shift in any direction (see below).
   const resolveOverlap = (arr, id) => {
     const me = arr.find((s) => s.id === id); if (!me) return arr
-    // Chips collide ONLY with other VISIBLE chips, at their exact pixel rects — text lines are no
-    // longer obstacles and there is zero margin/tolerance. Ghost chips must not block: 'rettrim'
-    // stays in the array while render-hidden (combined "FACE & RETURN COLOR" line → hideRet), and
-    // an emptied hand-chip without keep can linger too — colliding with an invisible chip reads
-    // as "I can't place a swatch on this empty spot" (the deleted-swatch's-place bug).
+    // Obstacles = other VISIBLE chips + text glyph rects, all at exact pixels, zero margin.
+    // Ghost chips must not block: 'rettrim' stays in the array while render-hidden (combined
+    // "FACE & RETURN COLOR" line → hideRet), and an emptied hand-chip without keep can linger
+    // too — colliding with an invisible chip reads as "I can't place a swatch on this empty
+    // spot" (the deleted-swatch's-place bug).
     const visible = (s) => !(s.id === 'rettrim' && hideRet) && (s.id === 'face' || s.id === 'rettrim' || s.color || s.name || s.keep)
-    const obstacles = arr.filter((s) => s.id !== id && visible(s))
+    const obstacles = [...arr.filter((s) => s.id !== id && visible(s)), ...textObstacles()]
     // Push-right-only used to fail at the column's right edge: the nudge went right, then
     // clampToArea dragged the chip straight BACK onto its neighbour — visible chip-on-chip
     // overlap. Resolve with the SMALLEST shift in any direction instead (flush right, left,
