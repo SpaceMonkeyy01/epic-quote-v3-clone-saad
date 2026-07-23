@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 
 // Capturing each sign page's rendered Proposal — used for the combined payment link (clean
-// product images), the version-history checkpoint (one stitched image of the whole quote),
+// product images), the version-history checkpoint (one image PER page, browsed as a carousel),
 // and the multi-page PDF/PNG download. Every page's Proposal instance is kept in `pageRefs`,
 // keyed by its stable part id, so these can pull from EVERY sign in page order.
 export function usePageCapture(parts) {
@@ -19,29 +19,18 @@ export function usePageCapture(parts) {
     return images
   }
 
-  // The WHOLE quote as one image for the version history: each page's full snapshot (last page
-  // carries the total) stacked vertically with a grey gap between pages, so a multi-sign version
-  // reads as the complete document. A single-sign quote just returns its one page.
+  // EVERY sign page's full snapshot, in page order, for the version-history checkpoint image.
+  // Used to be stitched into one tall composite PNG (all pages stacked vertically) — unreadable
+  // at a glance for a multi-sign quote, and the whole point of a version snapshot is seeing it
+  // at first sight. Now returns the pages as a plain array; the History modal renders them as a
+  // carousel (one page at a time, ‹ › between pages) instead of a scroll-forever stack.
   const captureAllPages = async () => {
     const snapshots = []
     for (const part of parts) {
       const pageHandle = pageRefs.current[part.__pid]
-      if (pageHandle?.captureSnapshot) { try { snapshots.push(await pageHandle.captureSnapshot()) } catch { /* skip */ } }
+      if (pageHandle?.captureSnapshot) { try { snapshots.push(await pageHandle.captureSnapshot()) } catch { /* skip a bad page */ } }
     }
-    if (snapshots.length <= 1) return snapshots[0] || null
-    const images = (await Promise.all(snapshots.map((imageSrc) => new Promise((resolve) => {
-      const image = new Image(); image.onload = () => resolve(image); image.onerror = () => resolve(null); image.src = imageSrc
-    })))).filter(Boolean)
-    if (!images.length) return null
-    const GAP = 26
-    const width = Math.max(...images.map((image) => image.width))
-    const height = images.reduce((sum, image) => sum + image.height, 0) + GAP * (images.length - 1)
-    const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height
-    const context = canvas.getContext('2d')
-    context.fillStyle = '#e9edf3'; context.fillRect(0, 0, width, height)   // grey between pages = page separators
-    let yOffset = 0
-    for (const image of images) { context.drawImage(image, Math.round((width - image.width) / 2), yOffset); yOffset += image.height + GAP }
-    return canvas.toDataURL('image/png')
+    return snapshots
   }
 
   // Every sign page at HD ({url,w,h}) for the multi-page download (PDF = one page each; PNG stitched).

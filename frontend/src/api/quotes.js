@@ -49,13 +49,18 @@ export const getRevisions = (quoteId) =>
 export const saveRevisionImage = (quoteId, dataUrl) =>
   client.post(`/quotes/${quoteId}/revisions/snapshot-image`, { image: dataUrl }).then((r) => r.data)
 
+// image can be a single data URL (one-page quote) OR an array of them, one per sign page (multi-
+// sign quote) — the History modal then shows each page as its own carousel slide instead of one
+// stacked composite. Backend accepts either shape (QuoteController::storeSnapshotImages).
+const imagePayload = (image) => (Array.isArray(image) ? { images: image } : { image })
+
 // Mint a version checkpoint ({quote_id}-rev{n}) manually, optionally with a rendered proposal image.
 export const createCheckpoint = (quoteId, image = null) =>
-  client.post(`/quotes/${quoteId}/checkpoints`, { trigger: 'manual', image }).then((r) => r.data)
+  client.post(`/quotes/${quoteId}/checkpoints`, { trigger: 'manual', ...imagePayload(image) }).then((r) => r.data)
 
 // Attach a rendered proposal image to an existing checkpoint (used right after a payment mints one).
-export const attachCheckpointImage = (quoteId, checkpointId, dataUrl) =>
-  client.post(`/quotes/${quoteId}/checkpoints/${checkpointId}/image`, { image: dataUrl }).then((r) => r.data)
+export const attachCheckpointImage = (quoteId, checkpointId, image) =>
+  client.post(`/quotes/${quoteId}/checkpoints/${checkpointId}/image`, imagePayload(image)).then((r) => r.data)
 
 // Revert the quote to how it was at a checkpoint (the restore itself is versioned too).
 export const restoreCheckpoint = (quoteId, checkpointId) =>

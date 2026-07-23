@@ -14,6 +14,7 @@ export default function RevisionHistory({ quoteId, onClose }) {
   const [restoring, setRestoring] = useState(null)   // checkpoint id being restored
   const [cpPage, setCpPage] = useState(0)            // #13 — which version the wizard shows (0 = newest)
   const [showDiffs, setShowDiffs] = useState(false)  //      field diffs behind a toggle
+  const [pgPage, setPgPage] = useState(0)            // which SIGN PAGE within the version (carousel)
 
   // #8 — revert the quote to this version. Two-step (confirm) because it rewrites the live quote;
   // the restore itself is versioned server-side, so even a wrong restore can be undone the same way.
@@ -84,17 +85,38 @@ export default function RevisionHistory({ quoteId, onClose }) {
         {checkpoints.length > 0 && (() => {
           const i = Math.min(cpPage, checkpoints.length - 1)
           const cp = checkpoints[i]
+          // Multi-sign quotes carry ONE image PER PAGE now (snapshot_images), not a single
+          // composite with every page stacked vertically — that read as an unreadable wall of
+          // tiny proposals. `snapshot_image` (singular) still works for old/single-page versions.
+          const pages = cp.snapshot_images?.length ? cp.snapshot_images : (cp.snapshot_image ? [cp.snapshot_image] : [])
+          const p = Math.min(pgPage, Math.max(0, pages.length - 1))
+          const img = pages[p] || null
           return (
             <div style={{ overflowY: 'auto' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 8 }}>
-                <button className="ghost sm" disabled={i === 0} onClick={() => setCpPage(i - 1)}>‹ Newer</button>
+                <button className="ghost sm" disabled={i === 0} onClick={() => { setCpPage(i - 1); setPgPage(0) }}>‹ Newer</button>
                 <b style={{ fontSize: 14 }}>{cp.label}</b>
                 <span className="badge" style={{ fontSize: 10.5 }}>{cp.trigger === 'payment' ? 'payment' : 'manual'}</span>
                 <span className="muted" style={{ fontSize: 11.5 }} title={fullTime(cp.created_at)}>{timeAgo(cp.created_at)}</span>
-                <button className="ghost sm" disabled={i === checkpoints.length - 1} onClick={() => setCpPage(i + 1)}>Older ›</button>
+                <button className="ghost sm" disabled={i === checkpoints.length - 1} onClick={() => { setCpPage(i + 1); setPgPage(0) }}>Older ›</button>
               </div>
-              {cp.snapshot_image
-                ? <img src={cp.snapshot_image} alt={cp.label} onClick={() => setZoom(cp.snapshot_image)} title="Click to enlarge"
+              {/* per-page carousel — every sign is visible at a glance, one at a time, instead of
+                  scrolling a stack. Only shown when the version actually has more than one page. */}
+              {pages.length > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 8 }}>
+                  <button className="ghost sm" disabled={p === 0} onClick={() => setPgPage(p - 1)}>← Prev sign</button>
+                  <span style={{ display: 'flex', gap: 5 }}>
+                    {pages.map((_, k) => (
+                      <span key={k} onClick={() => setPgPage(k)} title={`Sign ${k + 1}`}
+                        style={{ width: 7, height: 7, borderRadius: '50%', cursor: 'pointer', background: k === p ? 'var(--gold, #f5a623)' : 'var(--border)' }} />
+                    ))}
+                  </span>
+                  <span className="muted" style={{ fontSize: 11.5 }}>Sign {p + 1} of {pages.length}</span>
+                  <button className="ghost sm" disabled={p === pages.length - 1} onClick={() => setPgPage(p + 1)}>Next sign →</button>
+                </div>
+              )}
+              {img
+                ? <img src={img} alt={`${cp.label} — sign ${p + 1}`} onClick={() => setZoom(img)} title="Click to enlarge"
                     style={{ width: '100%', maxHeight: 380, objectFit: 'contain', objectPosition: 'top', background: '#fff', borderRadius: 8, border: '1px solid var(--border)', cursor: 'zoom-in' }} />
                 : <div className="muted" style={{ padding: 24, textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 8 }}>No image was captured for this version.</div>}
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>

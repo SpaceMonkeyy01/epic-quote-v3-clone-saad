@@ -735,16 +735,13 @@ class QuoteController extends Controller
         $this->assertAccess($request, $quote);
         $cp = \App\Services\CheckpointService::mint($quote, $request->user(), 'manual');
 
-        $img = (string) $request->input('image', '');
-        if ($img !== '') {
-            $url = $this->storeDataUrlPermanently($img, 'revisions', "cp_{$quote->quote_id}_{$cp->id}.png");
-            if ($url) {
-                $cp->update(['snapshot_image' => $url]);
-            }
+        $url = $this->storeSnapshotImages($request, "cp_{$quote->quote_id}_{$cp->id}");
+        if ($url) {
+            $cp->update(['snapshot_image' => $url]);
         }
 
         return response()->json([
-            'id' => $cp->id, 'label' => $cp->label, 'seq' => $cp->seq, 'snapshot_image' => $cp->snapshot_image,
+            'id' => $cp->id, 'label' => $cp->label, 'seq' => $cp->seq, 'snapshot_image' => $cp->snapshotImages()[0] ?? null,
         ], 201);
     }
 
@@ -788,11 +785,10 @@ class QuoteController extends Controller
         if ($checkpoint->quote_id !== $quote->id) {
             abort(404);
         }
-        $dataUrl = (string) $request->input('image', '');
-        if (!preg_match('#^data:image/(png|jpe?g|webp);base64,#i', $dataUrl)) {
-            return response()->json(['error' => 'Expected a base64 image data URL.'], 422);
+        if (!$this->validImageDataUrls($request)) {
+            return response()->json(['error' => 'Expected a base64 image data URL (or an array of them).'], 422);
         }
-        $url = $this->storeDataUrlPermanently($dataUrl, 'revisions', "cp_{$quote->quote_id}_{$checkpoint->id}.png");
+        $url = $this->storeSnapshotImages($request, "cp_{$quote->quote_id}_{$checkpoint->id}");
         if (!$url) {
             return response()->json(['error' => 'Snapshot image could not be saved.'], 502);
         }
@@ -808,9 +804,8 @@ class QuoteController extends Controller
     public function snapshotImage(Request $request, Quote $quote): JsonResponse
     {
         $this->assertAccess($request, $quote);
-        $dataUrl = (string) $request->input('image', '');
-        if (!preg_match('#^data:image/(png|jpe?g|webp);base64,#i', $dataUrl)) {
-            return response()->json(['error' => 'Expected a base64 image data URL.'], 422);
+        if (!$this->validImageDataUrls($request)) {
+            return response()->json(['error' => 'Expected a base64 image data URL (or an array of them).'], 422);
         }
 
         $rev = \App\Models\QuoteRevision::where('quote_id', $quote->id)->latest('created_at')->first();
@@ -819,7 +814,7 @@ class QuoteController extends Controller
             return response()->json(['ok' => true, 'attached' => false]);
         }
 
-        $url = $this->storeDataUrlPermanently($dataUrl, 'revisions', "rev_{$quote->quote_id}_{$rev->id}.png");
+        $url = $this->storeSnapshotImages($request, "rev_{$quote->quote_id}_{$rev->id}");
         if (!$url) {
             return response()->json(['error' => 'Snapshot image could not be saved.'], 502);
         }
@@ -869,7 +864,10 @@ class QuoteController extends Controller
                 'changed_by'     => $rev?->user_name ?: null,
                 'changed_at'     => optional($rev?->created_at)->toIso8601String(),
                 'rev_label'      => $cp?->label,
-                'snapshot_image' => $cp?->snapshot_image ?? $rev?->snapshot_image,
+                // thumbnail only — always the FIRST page. $cp->snapshot_image is now potentially a
+                // newline-joined multi-page string (see storeSnapshotImages); a raw read here would
+                // hand a broken multi-URL blob straight to an <img src>.
+                'snapshot_image' => ($cp ? ($cp->snapshotImages()[0] ?? null) : null) ?? $rev?->snapshot_image,
             ];
         })->values()
           // newest change first; quotes never edited (no changed_at) sink to the bottom
@@ -921,6 +919,43 @@ class QuoteController extends Controller
 
         Storage::disk('public')->put("{$dir}/{$filename}", $bytes);
         return Storage::disk('public')->exists("{$dir}/{$filename}") ? "/storage/{$dir}/{$filename}" : null;
+    }
+
+    // Validates the same `images`/`image` shape storeSnapshotImages() consumes — every entry (or
+    // the single string) must actually be an image data URL, so a malformed/empty payload 422s
+    // up front instead of silently saving nothing.
+    private function validImageDataUrls(Request $request): bool
+    {
+        $re = '#^data:image/(png|jpe?g|webp);base64,#i';
+        $images = $request->input('images');
+        if (is_array($images)) {
+            $checked = array_filter($images, fn ($v) => is_string($v) && $v !== '');
+            return $checked !== [] && count($checked) === count(array_filter($checked, fn ($v) => preg_match($re, $v)));
+        }
+        return preg_match($re, (string) $request->input('image', '')) === 1;
+    }
+
+    // Store EACH page of a multi-sign quote's version snapshot as its own image (History modal
+    // renders these as a carousel, one page at a time) instead of one composite PNG stacking every
+    // page vertically (unreadable at a glance — the bug this replaces). URLs are newline-joined
+    // into the single snapshot_image TEXT column: no schema change beyond widening that column
+    // (varchar→text, see migration 2026_07_24_000000), and every existing single-URL row still
+    // reads back as a 1-element array below (toApi / RevisionHistory both split on "\n").
+    // Accepts either `images` (array of data URLs, preferred) or the legacy single `image` string.
+    private function storeSnapshotImages(Request $request, string $baseFilename): ?string
+    {
+        $images = $request->input('images');
+        if (!is_array($images) || $images === []) {
+            $single = (string) $request->input('image', '');
+            $images = $single !== '' ? [$single] : [];
+        }
+        $urls = [];
+        foreach (array_slice($images, 0, 20) as $i => $dataUrl) {   // hard cap: runaway capture can't flood storage
+            if (!is_string($dataUrl) || $dataUrl === '') continue;
+            $url = $this->storeDataUrlPermanently($dataUrl, 'revisions', "{$baseFilename}_p{$i}.png");
+            if ($url) $urls[] = $url;
+        }
+        return $urls === [] ? null : implode("\n", $urls);
     }
 
     /**
