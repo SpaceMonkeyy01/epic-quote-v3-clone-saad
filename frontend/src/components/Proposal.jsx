@@ -167,15 +167,37 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
     // as "I can't place a swatch on this empty spot" (the deleted-swatch's-place bug).
     const visible = (s) => !(s.id === 'rettrim' && hideRet) && (s.id === 'face' || s.id === 'rettrim' || s.color || s.name || s.keep)
     const obstacles = arr.filter((s) => s.id !== id && visible(s))
-    const hits = (x, o) => x < o.x + o.w && x + me.w > o.x && me.y < o.y + o.h && me.y + me.h > o.y
-    let x = me.x, guard = 0
-    while (guard++ < 120) {
-      const clash = obstacles.find((o) => hits(x, o))
-      if (!clash) break
-      x = Math.round(clash.x + clash.w)   // land flush against the chip it hit (0 gap)
+    // Push-right-only used to fail at the column's right edge: the nudge went right, then
+    // clampToArea dragged the chip straight BACK onto its neighbour — visible chip-on-chip
+    // overlap. Resolve with the SMALLEST shift in any direction instead (flush right, left,
+    // below or above the clashing chip), considering only in-bounds candidates, so the clamp
+    // can never undo the separation.
+    const area = specAreaRect()
+    const inArea = (p) => !area || (p.x >= area.x + 2 && p.y >= area.y + 2 && p.x + me.w <= area.x + area.w - 2 && p.y + me.h <= area.y + area.h - 2)
+    const collide = (p) => obstacles.find((o) => p.x < o.x + o.w && p.x + me.w > o.x && p.y < o.y + o.h && p.y + me.h > o.y)
+    // Clamp into the column BEFORE resolving. Clamping after was the overlap bug: a chip spawned
+    // past the right edge collides with nothing out there, the loop exits clean, and only THEN
+    // did the clamp drag it left — straight onto the chips it was never checked against.
+    const start = clampToArea({ ...me })
+    let pos = { x: start.x, y: start.y }, guard = 0
+    while (guard++ < 24) {
+      const c = collide(pos)
+      if (!c) break
+      const cands = [
+        { x: Math.round(c.x + c.w), y: pos.y },    // flush right of the clash (0 gap)
+        { x: Math.round(c.x - me.w), y: pos.y },   // flush left
+        { x: pos.x, y: Math.round(c.y + c.h) },    // flush below
+        { x: pos.x, y: Math.round(c.y - me.h) },   // flush above
+      ].filter(inArea)
+      const free = cands.filter((p) => !collide(p))
+      const pool = free.length ? free : cands
+      if (!pool.length) break                       // column completely packed — leave as dropped
+      const dist = (p) => Math.abs(p.x - me.x) + Math.abs(p.y - me.y)
+      pos = pool.sort((p, q) => dist(p) - dist(q))[0]
     }
-    const clamped = clampToArea({ ...me, x })
-    return (clamped.x === me.x && clamped.y === me.y) ? arr : arr.map((s) => (s.id === id ? clamped : s))
+    // pos is already in-bounds (start was clamped; candidates are inArea-filtered) — no re-clamp,
+    // it could only undo the separation again.
+    return (pos.x === me.x && pos.y === me.y) ? arr : arr.map((s) => (s.id === id ? { ...s, x: pos.x, y: pos.y } : s))
   }
 
   const addSwatch = () => {
