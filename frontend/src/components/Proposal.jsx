@@ -477,15 +477,18 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
     return () => { ro.disconnect(); clearInterval(t) }
   }, [])
 
-  // Fit the fixed 816×1056 page into the available column width AND the viewport height — the
-  // whole sheet is always fully on screen with no scrolling (one-sight rule). Full-res kept for
-  // PDF (the capture drops the display scale).
+  // Fit the fixed 816×1056 page into the available column width — and, for a SINGLE-page quote,
+  // also into the viewport height so the whole sheet is on screen with no scrolling (one-sight
+  // rule). Multi-page quotes are a vertical stack that scrolls by nature, and each page's fit
+  // must NOT depend on where that page currently sits: measuring the wrapper's live viewport top
+  // made page 2 (below the fold at mount) compute a tiny available height and render illegibly
+  // small. Height budget is therefore a stable viewport allowance, applied only when !multi.
   useEffect(() => {
     const fit = () => {
       if (!wrapRef.current || !pageRef.current) return
       const avail = wrapRef.current.clientWidth - 40 // wrapper padding
-      const availH = Math.max(320, window.innerHeight - wrapRef.current.getBoundingClientRect().top - 40)
-      const s = Math.min(1, avail / 816, availH / PAGE_H)
+      const availH = Math.max(320, window.innerHeight - 200)   // fixed chrome allowance, position-independent
+      const s = multi ? Math.min(1, avail / 816) : Math.min(1, avail / 816, availH / PAGE_H)
       setScale(s)
       setScaledH(PAGE_H * s)
     }
