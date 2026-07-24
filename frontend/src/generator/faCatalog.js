@@ -140,7 +140,10 @@ export function buildFaSpecLines(group, answers = {}) {
     if (ln.t === 'application') return ln.v.replace('[APPLICATION]', answers.application || '[APPLICATION]')
     if (ln.t === 'field') {
       const v = answers[fieldKey(ln.label)] || ''
-      return ln.v.replace('[ASK REP]', v || '[ASK REP]')
+      // Unanswered fields print an EMPTY value, never the [ASK REP] token — same rule as
+      // [DEPTH]: internal scaffolding must not appear on a customer document. The label stays
+      // ("• BACKER COLOR:") and the colour-chip pass anchors a colorless swatch beside it.
+      return ln.v.replace('[ASK REP]', v)
     }
     return ln.v
   })

@@ -44,6 +44,9 @@ const TERMS_HTML =
 // fixed line-heights are what make the sheet's rows land on predictable pixel boundaries —
 // the specs block's height budget and the page-fill maths both assume it.
 const cell = { fontSize: 11, lineHeight: '14px', border: '1px solid #777', padding: '6px 8px', outline: 'none' }
+// Numeric table cells (QTY / UNIT / TOTAL): vertically + horizontally centred whatever the row's
+// height — the row grows with a wrapping description, and top-padded numbers looked abandoned.
+const numCell = { ...cell, borderLeft: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }
 const headCell = { ...cell, background: HEAD, fontWeight: 700, borderTop: 'none' }
 // Section header bar inside the single-framed specs/package box — border only on the bottom; the outer
 // box + the left column's right edge supply the frame, so the divider stays one continuous line.
@@ -692,7 +695,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
   const dirtyRef = useRef(new Set(savedState?.__dirty || []))
 
   const captureState = () => {
-    const state = { __layout: layout, __swatches: swatches.filter((s) => s.color || s.name), __dirty: [...dirtyRef.current], __specTpl: tpl?.n || null, __artBg: artBg, __qty: qty, __items: items, __hideNotes: hideNotes, __pkgSet: pkgSet }
+    const state = { __layout: layout, __swatches: swatches.filter((s) => s.color || s.name || s.moved), __dirty: [...dirtyRef.current], __specTpl: tpl?.n || null, __artBg: artBg, __qty: qty, __items: items, __hideNotes: hideNotes, __pkgSet: pkgSet }
     pageRef.current?.querySelectorAll('[data-key]').forEach((el) => { state[el.dataset.key] = el.innerHTML })
     return state
   }
@@ -871,54 +874,107 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
   // Flush a pending save on unmount (e.g. "Save & Return" right after an edit) using the LATEST snapshot.
   useEffect(() => () => { if (saveTimer.current) { clearTimeout(saveTimer.current); flushRef.current() } }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---- Data-driven colour chips: scan the real FACE / RETURN / TRIM colour lines and glue one chip
-  // snug to the right of each, vertically centred. Handles every catalog wording, incl. a combined
-  // "FACE & RETURN COLOR" line (then just one chip — the second is hidden). Re-runs on spec/scale
-  // change so it never drifts; these chips are locked from dragging (extra chips stay free). ----
-  useEffect(() => {
+  // ---- Data-driven colour chips: scan EVERY "<LABEL> COLOR:" line in the live spec text and glue
+  // one chip snug to the right of each, vertically centred. FACE / RETURN & TRIM keep their two
+  // legacy chips; every OTHER colour line (BACKER COLOR, RACEWAY COLOR, …) gets an auto chip,
+  // colorless until the rep picks — the printed line itself no longer carries [ASK REP].
+  //
+  // ANCHORED MEANS ANCHORED. Chips are stored in page coordinates, so anything that moved the
+  // spec section — a new line item, a discount row, a typed spec line — used to leave every chip
+  // exactly where it was while its text moved out from under it. Two rules fix that for good:
+  //   1. un-moved chips are re-anchored to their own line's measured position, every time;
+  //   2. hand-moved chips are shifted by the spec box's movement delta, so they keep their
+  //      offset RELATIVE to the box instead of their absolute spot on the page.
+  // Both run from one syncChips(), driven by a MutationObserver on the sheet — any DOM change
+  // (React state or direct contentEditable typing) re-syncs on the next frame. ----
+  const chipTrackRef = useRef({ top: null })
+  const syncChips = () => {
     const page = pageRef.current; if (!page) return
     const spec = page.querySelector('[data-key="specBody"]'); if (!spec) return
     const sc = scaleRef.current || 1
     const pageRect = page.getBoundingClientRect()
+    // 1. how far did the spec box move since last sync? (unscaled page px)
+    const top = (spec.getBoundingClientRect().top - pageRect.top) / sc
+    const prevTop = chipTrackRef.current.top
+    chipTrackRef.current.top = top
+    const delta = prevTop == null ? 0 : Math.round(top - prevTop)
+    // 2. measure every colour line: a label ENDING in COLOR followed by ':' ("COLOR SPECS:" has
+    //    COLOR mid-label and is correctly skipped)
     const lines = []
     const walker = document.createTreeWalker(spec, NodeFilter.SHOW_TEXT)
     let n
     while ((n = walker.nextNode())) {
       const txt = n.textContent || ''
-      if (!/COLOR/i.test(txt)) continue
-      const hasFace = /FACE/i.test(txt), hasRet = /RETURN|TRIM/i.test(txt)
-      if (!hasFace && !hasRet) continue            // skip BACKER / RACEWAY / "COLOR SPECS"
-      const idx = txt.search(/COLOR/i)
+      const m = /^\s*•?\s*([A-Z0-9&/. -]*COLOR)\s*:/i.exec(txt)
+      if (!m) continue
+      const label = m[1].trim().toUpperCase()
+      const idx = txt.search(/COLOR\s*:/i)
       const range = document.createRange()
       range.setStart(n, 0); range.setEnd(n, Math.min(txt.length, idx + 5))   // measure up to "…COLOR"
       const r = range.getBoundingClientRect()
-      lines.push({ hasFace, hasRet, x: Math.round((r.right - pageRect.left) / sc + 8), y: Math.round((r.top - pageRect.top) / sc + (r.height / sc - SW_H) / 2) })
+      lines.push({
+        label,
+        hasFace: /FACE/.test(label), hasRet: /RETURN|TRIM/.test(label),
+        x: Math.round((r.right - pageRect.left) / sc + 8),
+        y: Math.round((r.top - pageRect.top) / sc + (r.height / sc - SW_H) / 2),
+      })
     }
     const faceLine = lines.find((l) => l.hasFace) || lines[0]
     const retLine = lines.find((l) => l !== faceLine && l.hasRet)
     setHideRet(!retLine)
-    if (!faceLine) return
-    // Align both chips to the SAME x (the rightmost/lower label) so they sit in a neat column.
-    const X = Math.max(faceLine.x, retLine ? retLine.x : 0)
-    const target = { face: { x: X, y: faceLine.y } }
-    if (retLine) target.rettrim = { x: X, y: retLine.y }
+    // 3. build the anchor map: face + rettrim + one auto chip per remaining colour line,
+    //    all sharing one x column (the widest label) so the chips read as a neat stack.
+    const target = {}
+    if (faceLine) {
+      const X = Math.max(...lines.map((l) => l.x))
+      target.face = { x: X, y: faceLine.y }
+      if (retLine) target.rettrim = { x: X, y: retLine.y }
+      for (const l of lines) {
+        if (l === faceLine || l === retLine) continue
+        target['auto-' + l.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')] = { x: X, y: l.y }
+      }
+    }
     setSwatches((arr) => {
       let changed = false
-      const next = arr.map((s) => {
-        if (s.moved) return s                    // rep dragged it by hand → stop re-anchoring (#1)
+      let next = arr
+      // hand-moved chips ride the box's movement (rule 2)
+      if (delta && next.some((s) => s.moved)) { next = next.map((s) => (s.moved ? { ...s, y: s.y + delta } : s)); changed = true }
+      // un-moved chips snap to their line (rule 1) — through the same clamp as every other move
+      next = next.map((s) => {
+        if (s.moved) return s
         const t = target[s.id]
         if (!t) return s
-        // Anchoring parks the chip just right of its "…COLOR" label. On a long label (e.g.
-        // "• FACE & RETURN COLOR:") that x plus the chip's width runs past the SPECIFICATIONS
-        // column's right edge, and this pass wrote it straight to state without the clamp every
-        // other chip movement goes through — so the chip hung outside the box it belongs to.
         const c = clampToArea({ ...s, x: t.x, y: t.y })
         if (s.x !== c.x || s.y !== c.y) { changed = true; return c }
         return s
       })
+      // create missing auto chips (colorless — keep:true renders them so the rep can fill them)
+      const have = new Set(next.map((s) => s.id))
+      const size = next[0] ? { w: next[0].w, h: next[0].h } : { w: SW_W, h: SW_H }
+      for (const id of Object.keys(target)) {
+        if (id.startsWith('auto-') && !have.has(id)) {
+          next = [...next, { id, name: '', color: '', keep: true, ...target[id], ...size }]
+          changed = true
+        }
+      }
+      // drop auto chips whose line is gone — only pristine ones (no colour picked, never moved):
+      // anything the rep touched is theirs to delete, not ours
+      const stale = (s) => s.id.startsWith('auto-') && !target[s.id] && !s.moved && !s.color && !s.name
+      if (next.some(stale)) { next = next.filter((s) => !stale(s)); changed = true }
       return changed ? next : arr
     })
-  }, [specHTML, scale]) // eslint-disable-line react-hooks/exhaustive-deps
+  }
+  const syncChipsRef = useRef(syncChips); syncChipsRef.current = syncChips
+  useEffect(() => {
+    const page = pageRef.current; if (!page) return
+    let raf = 0
+    const kick = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => syncChipsRef.current()) }
+    const mo = new MutationObserver(kick)
+    mo.observe(page, { subtree: true, childList: true, characterData: true })
+    kick()
+    return () => { mo.disconnect(); cancelAnimationFrame(raf) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { syncChipsRef.current() }, [specHTML, scale]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // One-time load sanitize: chips SAVED while older overlap rules were live (or none at all)
   // render at their stored spots forever — resolveOverlap only ever ran on drag/add, so a quote
@@ -1264,17 +1320,20 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
             <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>UNIT PRICE</div>
             <div style={{ ...headCell, borderTop: '1px solid #777', borderLeft: 'none', textAlign: 'center' }}>TOTAL PRICE</div>
             {E('itemDesc', { ...cell, borderTop: 'none' })}
-            {/* QTY is editable (#2): TOTAL = qty × unit price, live */}
+            {/* QTY is editable (#2): TOTAL = qty × unit price, live.
+                Number cells are VERTICALLY CENTRED (numCell): a description that wraps to two
+                lines makes the whole grid row taller, and top-padded numbers were left hanging
+                at the top of their taller cells. Flex-centring tracks any row height. */}
             <EditCell value={qty}
               onCommit={(v) => { const n = parseInt(v, 10); setQty(Number.isFinite(n) && n > 0 ? n : 1) }}
-              style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }} />
+              style={{ ...numCell, borderTop: 'none' }} />
             {/* Not hand-editable (#7/#9 money bug): these mirror the price set on the Specifications
                 step. A rep could previously type a different number straight into these cells, but
                 that edit never reached quote.price — the actual charge, dashboard total, and any
                 payment link created afterward all kept using the ORIGINAL wizard price. To change
                 the price, go back to "Edit specs". */}
-            {E('unitPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }, { readOnly: true })}
-            {E('totalPrice', { ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center' }, { readOnly: true })}
+            {E('unitPrice', { ...numCell, borderTop: 'none' }, { readOnly: true })}
+            {E('totalPrice', { ...numCell, borderTop: 'none' }, { readOnly: true })}
             {/* extra line items + discounts (#4/#6) — Description + Amount only now; the QTY/UNIT
                 PRICE columns are the PRIMARY row's alone, so these two cells stay blank for every
                 extra row (keeps the table's column lines continuous). A discount's amount is
@@ -1292,7 +1351,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
                 <div key={it.id + 'u'} style={{ ...cell, borderTop: 'none', borderLeft: 'none' }} />,
                 <EditCell key={it.id + 't'} value={isDiscount ? `− ${money(amt)}` : money(amt)}
                   onCommit={(v) => { const n = parseFloat(String(v).replace(/[^0-9.]/g, '')); patchItem(it.id, { amount: Number.isFinite(n) && n >= 0 ? n : 0 }) }}
-                  style={{ ...cell, borderTop: 'none', borderLeft: 'none', textAlign: 'center', color: isDiscount ? '#111111' : undefined }} />,
+                  style={{ ...numCell, borderTop: 'none', color: isDiscount ? '#111111' : undefined }} />,
               ]
             })}
           </div>
@@ -1485,7 +1544,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
                 return resized.map((x) => clampToArea(flowed.get(x.id)))
               })}
               onRemove={() => { setSwatches((arr) => arr.filter((x) => x.id !== sw.id)); setSelId(null) }}
-              onDragEnd={() => { snapRow(sw.id); if (sw.id === 'face' || sw.id === 'rettrim') setSwatches((arr) => arr.map((x) => (x.id === sw.id ? { ...x, moved: true } : x))) }}
+              onDragEnd={() => { snapRow(sw.id); if (sw.id === 'face' || sw.id === 'rettrim' || sw.id.startsWith('auto-')) setSwatches((arr) => arr.map((x) => (x.id === sw.id ? { ...x, moved: true } : x))) }}
               onPick={() => { artCanvasRef.current = null; setPickFor(sw.id) }} canPick={!!artworkPath} />
           ) : null))}
         </div>
