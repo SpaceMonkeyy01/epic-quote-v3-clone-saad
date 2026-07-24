@@ -804,15 +804,27 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
       im.style.height = h + 'px'
       im.style.objectFit = 'fill'
     })
+    // html2canvas resolves every node against the DOCUMENT origin, but rasterises text using the
+    // CURRENT scroll offset — so a page captured while the window was scrolled came out with its
+    // text nudged down relative to the boxes/rules around it. Pin the scroll to 0 for the capture
+    // (and tell html2canvas so explicitly), then restore exactly where the rep was.
+    const sx0 = window.scrollX, sy0 = window.scrollY
+    window.scrollTo(0, 0)
     try {
       // Capture DPI. On-screen/Shopify use 2×; PDF/PNG downloads use a higher factor so the
       // rasterised text stays crisp when zoomed (2× ≈ 150dpi looked pixelated — #PDF/PNG).
-      return await html2canvas(el, { scale: opts.scale || 2, backgroundColor: '#ffffff', useCORS: true, logging: false })
+      return await html2canvas(el, {
+        scale: opts.scale || 2, backgroundColor: '#ffffff', useCORS: true, logging: false,
+        scrollX: 0, scrollY: 0,
+        windowWidth: document.documentElement.clientWidth,
+        windowHeight: document.documentElement.clientHeight,
+      })
     } finally {
       el.style.transform = prev
       handles.forEach((h) => { h.style.visibility = '' })
       savedCss.forEach(({ im, css }) => { im.style.cssText = css })
       priceBlocks.forEach((b) => { b.style.visibility = b.dataset._vis || ''; delete b.dataset._vis })
+      window.scrollTo(sx0, sy0)
     }
   }
 
@@ -1000,19 +1012,19 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
           <div style={{ height: 70, position: 'relative', padding: '0 40px', display: 'flex', alignItems: 'center' }}>
             <img src="/quote-logo.png" alt="Epic Craftings" crossOrigin="anonymous"
               style={{ height: 52, objectFit: 'contain', display: 'block' }} />
-            {E('contact', { position: 'absolute', right: 40, top: 12, fontSize: 9, textAlign: 'right', lineHeight: 1.7 })}
+            {E('contact', { position: 'absolute', right: 40, top: 12, fontSize: 9, textAlign: 'right', lineHeight: '15px' })}
           </div>
 
           <div style={{ padding: '2px 40px 0' }}>
-            <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: 1, color: '#1a2433', lineHeight: 1.2 }}>PROPOSAL</div>
+            <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: 1, color: '#1a2433', lineHeight: '24px' }}>PROPOSAL</div>
           </div>
 
           {/* info grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '4px 40px 0', gap: 4 }}>
-            {E('infoLeft', { fontSize: 11, lineHeight: 1.6 })}
+            {E('infoLeft', { fontSize: 11, lineHeight: '18px' })}
             {E('infoRight', infoRightPad != null
-              ? { fontSize: 11, lineHeight: 1.6, textAlign: 'left', paddingLeft: infoRightPad }
-              : { fontSize: 11, lineHeight: 1.6, textAlign: 'right' })}
+              ? { fontSize: 11, lineHeight: '18px', textAlign: 'left', paddingLeft: infoRightPad }
+              : { fontSize: 11, lineHeight: '18px', textAlign: 'right' })}
           </div>
 
           {/* item details */}
@@ -1101,7 +1113,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
                   existed to keep the PAGE length consistent when the right column emptied — dead
                   logic now that the sheet is a hard 1056px: the page can't shrink, so the big
                   floor only stole the very room the rep needs for Additional Notes lines. */}
-              {E('specBody', { fontSize: 10.5, lineHeight: 1.6, padding: '8px 12px', flex: '1 1 auto', minHeight: specLong ? 185 : 150, whiteSpace: 'pre-wrap', outline: 'none', borderBottom: (!specLong && !hideNotes) ? '1px solid #777' : 'none' }, { noPaste: true })}
+              {E('specBody', { fontSize: 10.5, lineHeight: '17px', padding: '8px 12px', flex: '1 1 auto', minHeight: specLong ? 185 : 150, whiteSpace: 'pre-wrap', outline: 'none', borderBottom: (!specLong && !hideNotes) ? '1px solid #777' : 'none' }, { noPaste: true })}
               {!specLong && !hideNotes && <>
                 <div style={{ ...secHead, position: 'relative' }}>ADDITIONAL NOTES
                   {/* screen-only remover (#6) — restore via "+ Notes" in the right column */}
@@ -1112,7 +1124,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
                 {/* No fixed height / scrollbar here: the export renders exactly what's on screen,
                     so notes must always be fully visible — the box grows with the text. */}
                 <div style={{ minHeight: 40 }}>
-                  {E('notes', { fontSize: 10.5, lineHeight: 1.6, padding: '6px 12px', outline: 'none' }, { noImagePaste: true })}
+                  {E('notes', { fontSize: 10.5, lineHeight: '17px', padding: '6px 12px', outline: 'none' }, { noImagePaste: true })}
                 </div>
               </>}
             </div>
@@ -1143,7 +1155,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
                       left: t ? t.x : pkgDefX(i, packageItems.length, pkgW),
                       top: t ? t.y + t.h + 4 : 66,
                       width: t ? t.w : pkgW,
-                      textAlign: 'center', fontSize: 7.5, letterSpacing: 1, color: '#555', fontWeight: 600, lineHeight: 1.15,
+                      textAlign: 'center', fontSize: 7.5, letterSpacing: 1, color: '#555', fontWeight: 600, lineHeight: '9px',
                     }}>{p.label}</div>
                   )
                 })}
@@ -1169,12 +1181,10 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
                             <AdjImg key={k} {...adjProps(`sv2-${k}`, one
                               ? { x: 10, y: 6, w: 218, h: 148 }
                               : { x: 6 + (i % 2) * 116, y: 5 + Math.floor(i / 2) * 78, w: 112, h: 72 })}
-                              // NO bounds: side-view tiles are free to be dragged anywhere on the
-                              // page (e.g. into the empty spec area beside them) — the old clamp
-                              // confined their motion to the 238px SIDE VIEW box and the rep
-                              // couldn't use the open space next to it. The page's own overflow
-                              // (hidden at the sheet edge) is the only limit.
-                              src={svSrc(k)} alt={String(k)} lockAspect autoCrop fitCenterH={tileH} reserveCaption={false} />
+                              // Tiles stay INSIDE the SIDE VIEW box — they must never wander into
+                              // SPECIFICATIONS. (bounds = the box's own inner size.)
+                              src={svSrc(k)} alt={String(k)} lockAspect autoCrop fitCenterH={tileH} reserveCaption={false}
+                              bounds={{ w: 238, h: 158 }} />
                           ))
                         })()}
                   </div>
@@ -1187,7 +1197,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
           {/* totals + terms. Terms & Conditions print on EVERY page (#4); the price block (subtotal /
               deposit / pay) prints only on the LAST page — it carries the combined quote total. */}
           <div style={{ margin: '12px 40px 0', display: 'grid', gridTemplateColumns: isLast ? '1fr 1fr' : '1fr', gap: '0 20px' }}>
-            {E('terms', { fontSize: 8, lineHeight: 1.3, textTransform: 'none' })}
+            {E('terms', { fontSize: 8, lineHeight: '10px', textTransform: 'none' })}
             {/* price block — hidden when capturing the "clean" image for a Shopify product,
                 since the payment options live on the Shopify page, not baked into the picture */}
             {isLast && (
@@ -1262,12 +1272,12 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
           their proposal sections is gone — those margins were the wasted space.) */}
       {(() => {
         return (
-          // The stack spans the FULL height of the proposal sheet beside it (minHeight = the
-          // sheet's scaled height): space-between stretches the gaps dynamically so the buttons
-          // distribute over the whole page edge instead of bunching at the top with a void below.
-          // On short windows (content taller than the sheet) minHeight is a no-op and the stack
-          // just flows — gap: 8 stays as the floor so buttons never touch.
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 8, marginTop: 14, minHeight: Math.max(0, scaledH - 14) }}>
+          // The stack is EXACTLY the sheet's height — never taller. minHeight alone let the
+          // buttons overflow far below the page whenever their natural height exceeded the
+          // sheet; a fixed height + space-between spreads them over the page edge when they
+          // fit, and scrolls within the page's own height when they don't. Either way nothing
+          // ever renders past the bottom of the proposal.
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 8, marginTop: 14, height: Math.max(0, scaledH - 14), overflowY: 'auto' }}>
             {/* per-page actions (Edit specs / Delete / Move ↑↓) live at the TOP of this page's own
                 column — as a flow row above the sheet they pushed the whole page down (dead band),
                 and here they can never act on the wrong page: the parent binds them per render. */}

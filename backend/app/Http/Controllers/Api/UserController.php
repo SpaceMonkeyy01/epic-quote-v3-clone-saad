@@ -44,7 +44,10 @@ class UserController extends Controller
             'full_name' => $data['full_name'] ?: $username,
             'email'     => trim($data['email'] ?? ''),
             'role'      => $data['role'],
-            'password'  => Hash::make($data['password'] ?? 'changeme123'),
+            // NO Hash::make here: User casts password to 'hashed', which hashes on assignment.
+            // Wrapping it again double-hashed every password — Hash::check could never match, so
+            // every user created through this endpoint was permanently locked out.
+            'password'  => $data['password'] ?? 'changeme123',
         ]);
 
         ActivityLog::record($request->user()->id, 'user_created', "{$username} ({$user->role})");
@@ -135,7 +138,9 @@ class UserController extends Controller
             return response()->json(['error' => 'Password must be at least 4 characters'], 400);
         }
 
-        $user->update(['password' => Hash::make($password)]);
+        // Plain assignment — the model's 'hashed' cast hashes it. Hash::make on top of the cast
+        // double-hashed the value ("changed a user's creds and now can't even log in").
+        $user->update(['password' => $password]);
         // Revoke tokens so the user must re-authenticate
         $user->tokens()->delete();
         ActivityLog::record($request->user()->id, 'user_password_changed', $user->username);

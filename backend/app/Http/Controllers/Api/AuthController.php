@@ -20,9 +20,14 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        // V1 parity: username stored lowercase + trimmed
+        // V1 parity: username stored lowercase + trimmed. The login form has always SAID
+        // "Email or username", but only the username column was ever matched — anyone typing
+        // their email got "Login failed" no matter how correct the password was ("changed a
+        // user's creds and now can't even log in": the reset was fine, the email lookup didn't
+        // exist). Username wins on a collision; email is the fallback, case-insensitive.
         $username = strtolower(trim($request->username));
-        $user = User::where('username', $username)->first();
+        $user = User::where('username', $username)->first()
+            ?? User::whereRaw('LOWER(email) = ?', [$username])->orderBy('id')->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
