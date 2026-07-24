@@ -463,6 +463,21 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
   }
   // The PAGE is full when one more line of THIS block would push the lowest content past 1056.
   const pageIsFull = (el) => (contentBottom() + lineOf(el) > PAGE_H) || blockIsFull(el)
+
+  // Measured height of the SIDE VIEW box — it stretches to the bottom of the specs row, so its
+  // real height depends on how tall the left column is. The diagram's move/resize clamp uses
+  // this instead of a hard-coded constant. offsetHeight is layout px: immune to the page scale.
+  const svBoxRef = useRef(null)
+  const [svBoxH, setSvBoxH] = useState(230)
+  useEffect(() => {
+    const el = svBoxRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const measure = () => setSvBoxH(el.offsetHeight || 230)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [sideViews.length]) // eslint-disable-line react-hooks/exhaustive-deps
   // Buttons that ADD an element call this first; returns true when the caller must not proceed.
   // A new table row is taller than a line of text, so it needs its own headroom to be honest:
   // reporting "there is room" and then clipping the row is the same bug in another costume.
@@ -1323,7 +1338,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
               </>}
             </div>
             {!isMonoType && (
-            <div>
+            // flex column so the SIDE VIEW box below can stretch to the bottom of the row —
+            // the grid row's height is set by the (usually taller) SPECIFICATIONS column.
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
               <div style={secHead}>PACKAGE INCLUDES</div>
               <div style={{ position: 'relative', height: 100, borderBottom: '1px solid #777' }}>
                 {packageItems.map((p, i) => (
@@ -1363,7 +1380,12 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
                       simply not legible. The resize clamp (`bounds` below) matches the box, which
                       is also what let the diagram be ENLARGED no further than 158px no matter how
                       much empty page sat underneath — the clamp, not the page, was the ceiling. */}
-                  <div style={{ position: 'relative', height: sideViews.filter((k) => k !== '__none__').length === 1 ? 230 : 160 }}>
+                  {/* flex:1 — the box's REAL bottom is the bottom of the row (level with the notes
+                      block in the left column), not a fixed height. The move/resize clamp reads
+                      this box's measured height, so the diagram can use the whole visible area:
+                      "clips at the additional notes area's height" was the fixed 230px box ending
+                      mid-column while its stretched border made the space below look usable. */}
+                  <div ref={svBoxRef} style={{ position: 'relative', flex: '1 1 auto', minHeight: sideViews.filter((k) => k !== '__none__').length === 1 ? 230 : 160 }}>
                     {sideViews.length === 0
                       ? <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 10, textTransform: 'none' }}>[ No side view selected ]</span>
                       : (() => {
@@ -1389,7 +1411,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
                               // with the leftover space pooled on the right. Same fix the package tiles
                               // already carry; the side views were simply never given the centre line.
                               slotCenterX={one ? 119 : 6 + (i % 2) * 116 + 56}
-                              bounds={one ? { w: 238, h: 228 } : { w: 238, h: 158 }} />
+                              bounds={{ w: 238, h: Math.max(one ? 228 : 158, svBoxH - 2) }} />
                           ))
                         })()}
                   </div>
