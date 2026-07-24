@@ -3,7 +3,7 @@
 // spec-sync helpers (setCustomDim / setCustomApplication / syncSpecFromFields) are passed
 // in verbatim — this component owns no state.
 import { T, SIGN_GROUP_ORDER, signGroupOf } from '../../generator/catalog'
-import { FA_FAMILY_ORDER, FA_SIGN_GROUPS, faMountingOptions, faThicknessOptions } from '../../generator/faCatalog'
+import { FA_FAMILY_ORDER, FA_SIGN_GROUPS, faMountingOptions, faThicknessOptions, faTrimCapOptions, faLeafExtras } from '../../generator/faCatalog'
 import { buildSpecLines } from '../../generator/proposal'
 import { parseDims } from '../../generator/questions'
 import { pickSideView } from '../../generator/sideviews'
@@ -26,8 +26,9 @@ export default function CustomSpecsStep({
   // supersede (kept only so an old saved quote still resolves) — the picker only ever offers
   // the CURRENT one, so a name match must resolve to that, not the hidden legacy entry.
   const cat = FA_SIGN_GROUPS.find((g) => g.n === customTypeSel) || T.find((t) => t.n === customTypeSel)
-  const mountOpts = cat?.fa ? faMountingOptions(cat, customSpec?.fa_thickness) : []
+  const trimOpts = cat?.fa && cat.hasTrimCap ? faTrimCapOptions(cat) : []
   const thickOpts = cat?.fa && cat.hasThickness ? faThicknessOptions(cat) : []
+  const mountOpts = cat?.fa ? faMountingOptions(cat, customSpec?.fa_thickness, customSpec?.fa_trimcap) : []
 
   // Item Description format: "{Sign Type} WITH {Mounting} FOR {Company}" — the mounting is part
   // of what the customer is buying, so it belongs in the line-item text. Types without a
@@ -37,8 +38,15 @@ export default function CustomSpecsStep({
 
   // Rebuild the spec text for the CURRENT type + the given mounting/thickness (auto-picks the
   // first option of each when not yet chosen — #7 "thickness/mounting not being asked/picked").
-  const applyFaConfig = (mounting, thickness) => {
-    const specText = syncSpecFromFields(buildSpecLines(cat, { fa_mounting: mounting, fa_thickness: thickness }, null).join('\n'), customSpec)
+  const applyFaConfig = (mounting, thickness, trimcap) => {
+    const answers = { fa_mounting: mounting, fa_thickness: thickness, fa_trimcap: trimcap }
+    const specText = syncSpecFromFields(buildSpecLines(cat, answers, null).join('\n'), customSpec)
+    // The construction diagram is a property of the exact leaf, not of the sign type: trim cap
+    // and mounting each change what the side view must show. Follow the leaf unless the rep
+    // has hand-picked something else (then their choice stands).
+    const prevKey = faLeafExtras(cat, { fa_mounting: customSpec?.fa_mounting, fa_thickness: customSpec?.fa_thickness, fa_trimcap: customSpec?.fa_trimcap }).sideview
+    const nextKey = faLeafExtras(cat, answers).sideview
+    if (nextKey && (sideViews.length === 0 || (sideViews.length === 1 && sideViews[0] === prevKey))) setSideViews([nextKey])
     // Keep the Item Description's mounting in step with the dropdown — but NEVER overwrite a
     // description the rep hand-edited: only regenerate when the current text still exactly
     // matches what the auto-format produced for the previous mounting.
@@ -46,7 +54,7 @@ export default function CustomSpecsStep({
     const itemDesc = (!customSpec?.itemDesc || customSpec.itemDesc === autoBefore)
       ? itemDescFor(cat?.desc || customTypeSel, mounting)
       : customSpec.itemDesc
-    setCustomSpec({ ...customSpec, fa_mounting: mounting, fa_thickness: thickness, specText, itemDesc })
+    setCustomSpec({ ...customSpec, fa_mounting: mounting, fa_thickness: thickness, fa_trimcap: trimcap, specText, itemDesc })
   }
 
   return (
@@ -70,18 +78,22 @@ export default function CustomSpecsStep({
             const stored = signLib.find((s) => s.name === v)
             // FA types: auto-pick the first thickness/mounting so the spec is never left with
             // unfilled placeholders the rep never got asked to choose.
+            const trimcap = nextCat?.hasTrimCap ? faTrimCapOptions(nextCat)[0] : undefined
             const thickness = nextCat?.hasThickness ? faThicknessOptions(nextCat)[0] : undefined
-            const mounting = nextCat?.fa ? faMountingOptions(nextCat, thickness)[0] : undefined
+            const mounting = nextCat?.fa ? faMountingOptions(nextCat, thickness, trimcap)[0] : undefined
             // the template inherits whatever dims/depth/application are already typed —
             // the boxes are the source of truth (fixes RETURNS not matching the D box)
             const specText = syncSpecFromFields(
-              nextCat ? buildSpecLines(nextCat, { fa_mounting: mounting, fa_thickness: thickness }, null).join('\n') : (stored?.data?.spec || `SIGN TYPE: ${v}`),
+              nextCat ? buildSpecLines(nextCat, { fa_mounting: mounting, fa_thickness: thickness, fa_trimcap: trimcap }, null).join('\n') : (stored?.data?.spec || `SIGN TYPE: ${v}`),
               customSpec
             )
-            // the sign type implies its construction side view — pick it automatically
+            // the sign type implies its construction side view — pick it automatically. An FA
+            // type resolves to its exact leaf's diagram; anything else falls back to the
+            // name-based prior (all a free-typed/legacy type can offer).
             if (nextCat && sideViews.length === 0) {
-              const sv = pickSideView(nextCat.n)
-              if (sv?.selected) setSideViews([sv.selected])
+              const leafKey = nextCat.fa ? faLeafExtras(nextCat, { fa_mounting: mounting, fa_thickness: thickness, fa_trimcap: trimcap }).sideview : ''
+              const sv = leafKey || pickSideView(nextCat.n)?.selected
+              if (sv) setSideViews([sv])
             }
             setCustomSpec({
               ...customSpec,
@@ -89,7 +101,7 @@ export default function CustomSpecsStep({
               specText,
               application: customSpec?.application || 'EXTERIOR',
               price: customSpec?.price || '',
-              fa_mounting: mounting, fa_thickness: thickness,
+              fa_mounting: mounting, fa_thickness: thickness, fa_trimcap: trimcap,
               // Template B (monument/pylon) carries neither a package nor a side view — custom
               // mode never sets tpl_name/tpl (see Proposal.jsx isMonoType), so this flag is the
               // only way that fact survives the pick to render time.
@@ -158,14 +170,28 @@ export default function CustomSpecsStep({
           )
         })()}
       </div>
-      {cat?.fa && (thickOpts.length > 0 || mountOpts.length > 1) && (
+      {/* Trim cap → thickness → mounting: each narrows the next, so changing an outer one
+          re-picks the first still-valid inner option rather than leaving a combination the
+          sheet doesn't define. */}
+      {cat?.fa && (trimOpts.length > 0 || thickOpts.length > 0 || mountOpts.length > 1) && (
         <div className="grid2">
+          {trimOpts.length > 0 && (
+            <div className="field">
+              <label>Trim cap</label>
+              <select value={customSpec?.fa_trimcap || trimOpts[0]} onChange={(e) => {
+                const nextMount = faMountingOptions(cat, customSpec?.fa_thickness, e.target.value)[0]
+                applyFaConfig(nextMount, customSpec?.fa_thickness, e.target.value)
+              }}>
+                {trimOpts.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          )}
           {thickOpts.length > 0 && (
             <div className="field">
               <label>Thickness</label>
               <select value={customSpec?.fa_thickness || thickOpts[0]} onChange={(e) => {
-                const nextMount = faMountingOptions(cat, e.target.value)[0]
-                applyFaConfig(nextMount, e.target.value)
+                const nextMount = faMountingOptions(cat, e.target.value, customSpec?.fa_trimcap)[0]
+                applyFaConfig(nextMount, e.target.value, customSpec?.fa_trimcap)
               }}>
                 {thickOpts.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -174,7 +200,7 @@ export default function CustomSpecsStep({
           {mountOpts.length > 1 && (
             <div className="field">
               <label>Mounting</label>
-              <select value={customSpec?.fa_mounting || mountOpts[0]} onChange={(e) => applyFaConfig(e.target.value, customSpec?.fa_thickness)}>
+              <select value={customSpec?.fa_mounting || mountOpts[0]} onChange={(e) => applyFaConfig(e.target.value, customSpec?.fa_thickness, customSpec?.fa_trimcap)}>
                 {mountOpts.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>

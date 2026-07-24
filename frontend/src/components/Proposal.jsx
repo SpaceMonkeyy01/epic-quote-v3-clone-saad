@@ -610,6 +610,10 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
   // artwork background, the package set, a removed Notes section, or the text blocks. A snapshot
   // is now the FULL editable state of the page: every piece of React state plus the innerHTML of
   // every contenteditable block (they're uncontrolled, so their text lives in the DOM). ----
+  // Declared here, ABOVE the history block, because the history dependency array reads it during
+  // render — leaving it further down (next to the colour-chip effect that sets it) is a temporal
+  // dead zone that throws and blanks the whole component.
+  const [hideRet, setHideRet] = useState(false)
   const histRef = useRef({ stack: [], idx: -1, silent: false })
   const selRef = useRef(null); selRef.current = selId
   const swRef = useRef(swatches); swRef.current = swatches
@@ -627,13 +631,25 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
   const writeBlocks = (blocks) => {
     const page = pageRef.current
     if (!page || !blocks) return
+    const focused = document.activeElement
     page.querySelectorAll('[data-key]').forEach((el) => {
       const v = blocks[el.dataset.key]
-      // never fight the caret: skip the block being typed in
-      if (v != null && el.innerHTML !== v && document.activeElement !== el) el.innerHTML = v
+      if (v == null || el.innerHTML === v) return
+      el.innerHTML = v
+      // Restore the block the rep is typing in TOO. Skipping it (to avoid fighting the caret)
+      // meant Ctrl+Z did nothing at all for the block you were actually editing — deleting the
+      // Additional Notes text and immediately undoing left it deleted. writeBlocks is only ever
+      // called from an explicit undo/redo, so overwriting is exactly what was asked for; park
+      // the caret at the end of the restored text instead of dropping focus.
+      if (el === focused) {
+        const r = document.createRange()
+        r.selectNodeContents(el); r.collapse(false)
+        const sel = window.getSelection()
+        sel.removeAllRanges(); sel.addRange(r)
+      }
     })
   }
-  const snapshot = () => ({ layout, swatches, items, qty, artBg, pkgSet, hideNotes, blocks: readBlocks() })
+  const snapshot = () => ({ layout, swatches, items, qty, artBg, pkgSet, hideNotes, hideRet, sideViews, blocks: readBlocks() })
   // Push a history entry for the OBJECT state. Text edits are pushed separately (below) because
   // they don't flow through React state — they mutate the DOM directly.
   useEffect(() => {
@@ -643,7 +659,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
     h.stack.push(snapshot())
     if (h.stack.length > 120) h.stack.shift()
     h.idx = h.stack.length - 1
-  }, [layout, swatches, items, qty, artBg, pkgSet, hideNotes]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [layout, swatches, items, qty, artBg, pkgSet, hideNotes, hideRet, sideViews]) // eslint-disable-line react-hooks/exhaustive-deps
   // Text blocks: commit ONE history entry per editing burst (debounced), so Ctrl+Z steps through
   // edits instead of individual keystrokes, and typing never floods the stack.
   const textTimer = useRef(null)
@@ -676,6 +692,10 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
     setArtBg(s.artBg)
     setPkgSet(s.pkgSet)
     setHideNotes(s.hideNotes)
+    setHideRet(s.hideRet)
+    // side views live in the parent (they're saved on the PART, not the proposal) — push the
+    // restored set back up so removing/adding a side-view tile undoes like everything else
+    if (onSideViews && JSON.stringify(s.sideViews) !== JSON.stringify(sideViewsRef.current)) onSideViews(s.sideViews)
     writeBlocks(s.blocks)
     queueSave()
     flash(dir < 0 ? 'Undo' : 'Redo')
@@ -748,7 +768,6 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
   // snug to the right of each, vertically centred. Handles every catalog wording, incl. a combined
   // "FACE & RETURN COLOR" line (then just one chip — the second is hidden). Re-runs on spec/scale
   // change so it never drifts; these chips are locked from dragging (extra chips stay free). ----
-  const [hideRet, setHideRet] = useState(false)
   useEffect(() => {
     const page = pageRef.current; if (!page) return
     const spec = page.querySelector('[data-key="specBody"]'); if (!spec) return

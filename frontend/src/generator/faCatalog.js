@@ -18,33 +18,51 @@ export { FA_FAMILY_ORDER } from './faCatalogData'
 // tpl.fa=1 so buildQuestions/buildSpecLines route here). Wrapped once at import time so
 // every consumer sees the same stable object per sign type (referential equality matters
 // for QA.jsx's `useMemo(() => buildQuestions(tpl, ai), [tpl, ai])`).
-export const FA_SIGN_GROUPS = RAW_GROUPS.map((g) => ({ ...g, fa: 1, n: g.signtype, desc: g.signtype }))
+// `pkg` = the PACKAGE INCLUDES letter the sheet assigns this sign type, which Proposal.jsx
+// reads to preselect the package set. Only set when the whole sign type agrees; the two neon
+// types differ by mounting (Flush=C, Ceiling Hung=D), and for those the live answer decides
+// via faLeafExtras rather than a wrong sign-type-wide default.
+const uniformPkg = (g) => {
+  const set = [...new Set(g.leaves.map((l) => l.package).filter(Boolean))]
+  return set.length === 1 ? set[0] : ''
+}
+export const FA_SIGN_GROUPS = RAW_GROUPS.map((g) => ({ ...g, fa: 1, n: g.signtype, desc: g.signtype, pkg: uniformPkg(g) }))
 export const faGroupByName = (name) => FA_SIGN_GROUPS.find((g) => g.n === name)
 
-// A group's own thickness/mounting OPTIONS, in sheet order (first-seen order in the CSV).
+// A group's own trim-cap/thickness/mounting OPTIONS, in sheet order (first-seen in the CSV).
+// Each level narrows the next: trim cap picks a half of FACE LIT's leaves, and only that
+// half's mountings are offered. (Today every trim-cap branch offers the same six mountings,
+// but the sheet is free to diverge and the wizard must follow it, not a hardcoded list.)
+export function faTrimCapOptions(group) {
+  const seen = []
+  group.leaves.forEach((l) => { if (l.trimcap && !seen.includes(l.trimcap)) seen.push(l.trimcap) })
+  return seen
+}
 export function faThicknessOptions(group) {
   const seen = []
   group.leaves.forEach((l) => { if (l.thickness && !seen.includes(l.thickness)) seen.push(l.thickness) })
   return seen
 }
-export function faMountingOptions(group, thickness) {
+export function faMountingOptions(group, thickness, trimcap) {
   const seen = []
   group.leaves.forEach((l) => {
     if (group.hasThickness && l.thickness !== thickness) return
+    if (group.hasTrimCap && trimcap && l.trimcap !== trimcap) return
     if (l.mounting && !seen.includes(l.mounting)) seen.push(l.mounting)
   })
   return seen
 }
 
-// Resolve the exact leaf for the rep's current thickness/mounting answers. Falls back to the
-// group's first leaf so the spec is never blank before the rep has chosen anything.
+// Resolve the exact leaf for the rep's current trim-cap/thickness/mounting answers. Each
+// filter is applied only if it leaves something behind, and the group's first leaf is the
+// final fallback — so the spec is never blank, no matter which questions are unanswered.
 export function resolveFaLeaf(group, answers = {}) {
   if (!group || !group.leaves?.length) return null
-  const thickness = answers.fa_thickness || ''
-  const mounting = answers.fa_mounting || ''
-  const byThickness = group.hasThickness ? group.leaves.filter((l) => l.thickness === thickness) : group.leaves
-  const pool = byThickness.length ? byThickness : group.leaves
-  return pool.find((l) => l.mounting === mounting) || pool[0]
+  const narrow = (pool, pred) => { const next = pool.filter(pred); return next.length ? next : pool }
+  let pool = group.leaves
+  if (group.hasTrimCap) pool = narrow(pool, (l) => l.trimcap === (answers.fa_trimcap || ''))
+  if (group.hasThickness) pool = narrow(pool, (l) => l.thickness === (answers.fa_thickness || ''))
+  return pool.find((l) => l.mounting === (answers.fa_mounting || '')) || pool[0]
 }
 
 // Every distinct "LABEL: [ASK REP]" field across ALL of a group's leaves, in first-seen
@@ -67,11 +85,19 @@ export function buildFaQuestions(group, ai = {}) {
   ai = ai || {}
   const qs = []
   qs.push({ key: 'dimensions', type: 'dims', q: 'Overall dimensions (H × W)', parts: 2, def: ai.dimensions || null, aiSet: !!ai.dimensions })
+  if (group.hasTrimCap) {
+    const opts = faTrimCapOptions(group)
+    qs.push({ key: 'fa_trimcap', q: 'Trim cap?', type: 'chips', options: opts, def: opts[0] })
+  }
   if (group.hasThickness) {
     const opts = faThicknessOptions(group)
     qs.push({ key: 'fa_thickness', q: 'Thickness?', type: 'chips', options: opts, def: opts[0] })
   }
-  const mountOpts = faMountingOptions(group, group.hasThickness ? (ai.fa_thickness || faThicknessOptions(group)[0]) : undefined)
+  const mountOpts = faMountingOptions(
+    group,
+    group.hasThickness ? (ai.fa_thickness || faThicknessOptions(group)[0]) : undefined,
+    group.hasTrimCap ? (ai.fa_trimcap || faTrimCapOptions(group)[0]) : undefined,
+  )
   if (mountOpts.length > 1) {
     qs.push({ key: 'fa_mounting', q: 'Mounting?', type: 'chips', options: mountOpts, def: mountOpts[0] })
   }
