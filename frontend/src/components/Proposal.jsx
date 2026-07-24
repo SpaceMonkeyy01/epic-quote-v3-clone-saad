@@ -401,12 +401,11 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
   // page edge AND this watcher raises the red banner telling the rep to trim.
   const PAGE_H = 1056
   const [overBy, setOverBy] = useState(0)   // px of content clipped past the page bottom (0 = fits)
-  const pageWantsRef = useRef(0)            // raw scrollHeight — headroom BEFORE the limit is crossed
   useEffect(() => {
     const el = pageRef.current
     if (!el) return
     // scrollHeight = what the content WANTS; offsetHeight is pinned at PAGE_H by the clamp
-    const check = () => { pageWantsRef.current = el.scrollHeight; setOverBy(Math.max(0, el.scrollHeight - PAGE_H - 2)) }
+    const check = () => setOverBy(Math.max(0, el.scrollHeight - PAGE_H - 2))
     check()
     const ro = new ResizeObserver(check)
     ro.observe(el)
@@ -435,17 +434,36 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
   }
   // A block is "full" when one more line would not fit INSIDE its own fixed-height box.
   const blockIsFull = (el) => !!el && el.scrollHeight + lineOf(el) > el.clientHeight + 1
-  // Measured LIVE at the moment of the keystroke — the watcher above only samples every 800ms,
-  // and a guard reading a stale height would let a burst of typing through before catching up.
-  const pageWants = () => (pageRef.current ? pageRef.current.scrollHeight : pageWantsRef.current)
-  // The PAGE is full when one more line of THIS block would push the sheet past 1056.
-  const pageIsFull = (el) => (pageWants() + lineOf(el) > PAGE_H) || blockIsFull(el)
+  // scrollHeight CANNOT measure headroom on this sheet. The page div is height-pinned with
+  // overflow:hidden, so its scrollHeight saturates at PAGE_H — it never reads LESS than 1056
+  // however empty the page is. `scrollHeight + line > 1056` was therefore always true, and the
+  // guard refused typing on a half-empty page ("room full" under blank space). Headroom must be
+  // measured from where the CONTENT actually ends: the bottom of the lowest in-flow section,
+  // in unscaled page coordinates. Absolutely-positioned overlays (swatches, artwork, arrows)
+  // are skipped — they live inside fixed boxes and cannot push the page taller.
+  const contentBottom = () => {
+    const page = pageRef.current
+    if (!page) return 0
+    const sc = scaleRef.current || 1
+    const pr = page.getBoundingClientRect()
+    let bottom = 0
+    for (const child of page.children) {
+      const cs = getComputedStyle(child)
+      if (cs.position === 'absolute' || cs.position === 'fixed') continue
+      const r = child.getBoundingClientRect()
+      if (r.height === 0) continue
+      bottom = Math.max(bottom, (r.bottom - pr.top) / sc)
+    }
+    return bottom
+  }
+  // The PAGE is full when one more line of THIS block would push the lowest content past 1056.
+  const pageIsFull = (el) => (contentBottom() + lineOf(el) > PAGE_H) || blockIsFull(el)
   // Buttons that ADD an element call this first; returns true when the caller must not proceed.
   // A new table row is taller than a line of text, so it needs its own headroom to be honest:
   // reporting "there is room" and then clipping the row is the same bug in another costume.
   const ROW_H = 26
   const refuseIfFull = (what) => {
-    if (pageWants() + ROW_H <= PAGE_H) return false
+    if (contentBottom() + ROW_H <= PAGE_H) return false
     flash(`Page is full — ${what} would fall off the sheet. Remove or shorten something first.`)
     return true
   }
