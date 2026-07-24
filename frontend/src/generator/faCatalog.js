@@ -152,3 +152,14 @@ export function faLeafExtras(group, answers = {}) {
   const leaf = resolveFaLeaf(group, answers)
   return { package: leaf?.package || '', sideview: leaf?.sideview || '' }
 }
+
+// Every construction diagram the CURRENT catalog can auto-pick (101 leaf-exact keys).
+// A quote saved before the recalibration carries one of the 27 SUPERSEDED keys, which was an
+// automatic pick at the time, not a decision anyone made — so it is safe to re-derive. A key
+// that is not in here and not a catalog-shaped key at all (an https:/ /storage upload) IS a
+// deliberate choice and must never be replaced.
+export const FA_SIDEVIEW_KEYS = new Set(
+  FA_SIGN_GROUPS.flatMap((g) => (g.leaves || []).map((l) => l.sideview)).filter(Boolean)
+)
+export const isSupersededSideView = (k) =>
+  typeof k === 'string' && k !== '' && !/^(https?:|\/storage)/i.test(k) && !FA_SIDEVIEW_KEYS.has(k)

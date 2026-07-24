@@ -3,7 +3,7 @@
 // spec-sync helpers (setCustomDim / setCustomApplication / syncSpecFromFields) are passed
 // in verbatim — this component owns no state.
 import { T, SIGN_GROUP_ORDER, signGroupOf } from '../../generator/catalog'
-import { FA_FAMILY_ORDER, FA_SIGN_GROUPS, faMountingOptions, faThicknessOptions, faTrimCapOptions, faLeafExtras } from '../../generator/faCatalog'
+import { FA_FAMILY_ORDER, FA_SIGN_GROUPS, faMountingOptions, faThicknessOptions, faTrimCapOptions, faLeafExtras, isSupersededSideView } from '../../generator/faCatalog'
 import { buildSpecLines } from '../../generator/proposal'
 import { parseDims } from '../../generator/questions'
 import { pickSideView } from '../../generator/sideviews'
@@ -54,7 +54,14 @@ export default function CustomSpecsStep({
     // has hand-picked something else (then their choice stands).
     const prevKey = faLeafExtras(cat, { fa_mounting: customSpec?.fa_mounting, fa_thickness: customSpec?.fa_thickness, fa_trimcap: customSpec?.fa_trimcap }).sideview
     const nextKey = faLeafExtras(cat, answers).sideview
-    if (nextKey && (sideViews.length === 0 || (sideViews.length === 1 && sideViews[0] === prevKey))) setSideViews([nextKey])
+    // A SUPERSEDED key counts as "not hand-picked". Quotes made before the catalog was
+    // recalibrated carry one of the 27 old keys, which the app chose for them at the time from
+    // the sign-type NAME alone — nobody decided it, so keeping it only means the rep goes on
+    // seeing the old drawing for a leaf that now has its own. Genuine choices (an uploaded
+    // /storage image, or any key still in the catalog) are left exactly as they are.
+    const only = sideViews.length === 1 ? sideViews[0] : null
+    const replaceable = sideViews.length === 0 || only === prevKey || isSupersededSideView(only)
+    if (nextKey && replaceable) setSideViews([nextKey])
     // Keep the Item Description's mounting in step with the dropdown — but NEVER overwrite a
     // description the rep hand-edited: only regenerate when the current text still exactly
     // matches what the auto-format produced for the previous mounting.
