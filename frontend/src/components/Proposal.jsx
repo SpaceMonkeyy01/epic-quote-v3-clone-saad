@@ -477,18 +477,14 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
     return () => { ro.disconnect(); clearInterval(t) }
   }, [])
 
-  // Fit the fixed 816×1056 page into the available column width — and, for a SINGLE-page quote,
-  // also into the viewport height so the whole sheet is on screen with no scrolling (one-sight
-  // rule). Multi-page quotes are a vertical stack that scrolls by nature, and each page's fit
-  // must NOT depend on where that page currently sits: measuring the wrapper's live viewport top
-  // made page 2 (below the fold at mount) compute a tiny available height and render illegibly
-  // small. Height budget is therefore a stable viewport allowance, applied only when !multi.
+  // Fit the fixed 816×1056 page to the FULL available column width — always as big as the
+  // column allows. The old viewport-height cap ("whole sheet on screen, no scrolling") shrank
+  // the page to an illegible thumbnail on shorter windows; legibility beats no-scroll, so the
+  // cap is gone and the sheet simply scrolls when taller than the window.
   useEffect(() => {
     const fit = () => {
       if (!wrapRef.current || !pageRef.current) return
-      const avail = wrapRef.current.clientWidth - 40 // wrapper padding
-      const availH = Math.max(320, window.innerHeight - 200)   // fixed chrome allowance, position-independent
-      const s = multi ? Math.min(1, avail / 816) : Math.min(1, avail / 816, availH / PAGE_H)
+      const s = Math.min(1, wrapRef.current.clientWidth / 816)
       setScale(s)
       setScaledH(PAGE_H * s)
     }
@@ -973,7 +969,9 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
       )}
 
       <div className="proposal-layout" style={{ display: 'flex', gap: 16, alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'wrap' }}>
-      <div ref={wrapRef} className="proposal-wrap" style={{ overflow: 'hidden', background: '#5a6270', padding: 20, borderRadius: 10, flex: '1 1 520px', minWidth: 0 }}>
+      {/* No grey mat, no padding: the sheet's own drop shadow separates it from the app
+          background, and every reclaimed pixel goes to the page itself. */}
+      <div ref={wrapRef} className="proposal-wrap" style={{ overflow: 'hidden', flex: '1 1 520px', minWidth: 0 }}>
         {/* screen-only print-overflow warning — lives OUTSIDE the page div, so no export/PDF
             capture ever includes it. Shows for every page of a multi-sign quote independently. */}
         {overBy > 0 && (
@@ -992,6 +990,7 @@ function Proposal({ mode, tpl, answers, customSpec, info, artworkPath, onArtwork
             width: 816, height: PAGE_H, overflow: 'hidden', background: '#fff', color: '#111',
             fontFamily: "'Roboto', Arial, sans-serif", fontSize: 12, textTransform: 'uppercase',
             boxSizing: 'border-box', paddingBottom: 14, position: 'relative',
+            border: '1px solid var(--border, #d8dee8)',   // sheet edge — replaces the grey mat
             transformOrigin: 'top left', transform: `scale(${scale})`,
           }}
         >
